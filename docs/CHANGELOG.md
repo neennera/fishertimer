@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `2-update-architecture`: Automatic architecture document synchronization guidelines.
   - `3-way-of-work`: Testing practices, bug tracking, and agent self-improvement guide.
 - Shared governance documents: `ARCHITECTURE.md`, `WAY_OF_WORK.md`, and `LESSONS_LEARNED.md`.
+- **[database]**: Added `docker-compose.yml` defining local PostgreSQL 16 (`5432`) and MongoDB 7.0 (`27017`) instances.
+- **[database]**: Added sample schema DDLs and validators under `database/schemas/`:
+  - PostgreSQL Table 1: `auth.users` & `account.profiles`
+  - PostgreSQL Table 2: `session.study_sessions` & `session_participants`
+  - MongoDB Collection 1: `fish_rewards` with JSON Schema validator and indexes
+- **[database]**: Added mock seed data in `database/seeds/` and automatic Docker container initialization in `database/init/`.
+- **[skill-set]**: Added Skill 4 (`4-database-and-repository`) and Skill 5 (`5-migration-and-seeding`).
+- **[package.json]**: Added database lifecycle scripts: `db:up`, `db:down`, `db:logs`, `db:reset`.
 
 ---
 

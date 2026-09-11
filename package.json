@@ -7,7 +7,11 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "check-types": "turbo check-types",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f",
+    "db:reset": "docker compose down -v && docker compose up -d"
   },
   "devDependencies": {
     "prettier": "3.9.6",
