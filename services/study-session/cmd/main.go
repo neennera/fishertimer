@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,47 +9,52 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/neennera/fishertimer/services/study-session/config"
+	"github.com/neennera/fishertimer/services/study-session/internal/adapter/handler"
+	"github.com/neennera/fishertimer/services/study-session/internal/adapter/repository"
+	"github.com/neennera/fishertimer/services/study-session/internal/usecase"
 )
 
-type HealthResponse struct {
-	Service   string `json:"service"`
-	Status    string `json:"status"`
-	Port      int    `json:"port"`
-	Timestamp string `json:"timestamp"`
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	resp := HealthResponse{
-		Service:   "study-session",
-		Status:    "healthy",
-		Port:      8083,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	}
-	json.NewEncoder(w).Encode(resp)
-}
-
 func main() {
-	port := 8083
+	cfg := config.Load()
+
+	// 1. Instantiate Driven Adapter (Repository)
+	repo := repository.NewInMemory()
+
+	// 2. Inject into Application Usecase
+	uc := usecase.New(repo)
+
+	// 3. Inject into Driving Adapter (HTTP Handler)
+	h := handler.New(uc)
+
+	// 4. Setup Router & Server
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", healthHandler)
+	h.RegisterRoutes(mux)
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      mux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
 	go func() {
-		log.Printf("study-session service listening on port %d", port)
+		log.Printf("study-session service listening on port %d [%s]", cfg.Port, cfg.Env)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			log.Fatalf("listen error: %s\n", err)
 		}
 	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down study-session service...")
+
+	log.Printf("Shutting down study-session service...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("forced shutdown: %s\n", err)
+	}
+	log.Printf("study-session exited cleanly")
 }
