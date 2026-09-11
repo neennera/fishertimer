@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js & Turborepo
+.next/
+out/
+.turbo/
+
+# Go binaries
+bin/
+*.exe
+*.test
+
+# Environment & IDE
+.env*
+!.env.example
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

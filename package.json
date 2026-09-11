@@ -1,0 +1,22 @@
+{
+  "name": "fishertimer",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "check-types": "turbo check-types",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "^2.10.12",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "description": "Fisher Timer - Community Study Timer & Gamified Focus Monorepo"
+}

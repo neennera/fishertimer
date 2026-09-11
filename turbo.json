@@ -1,0 +1,57 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalPassThroughEnv": [
+    "LocalAppData",
+    "LOCALAPPDATA",
+    "GOPATH",
+    "GOROOT",
+    "GOCACHE",
+    "PATH",
+    "USERPROFILE",
+    "SystemRoot",
+    "HOME"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "bin/**"
+      ]
+    },
+    "lint": {
+      "dependsOn": [
+        "^lint"
+      ]
+    },
+    "check-types": {
+      "dependsOn": [
+        "^check-types"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$"
+      ]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

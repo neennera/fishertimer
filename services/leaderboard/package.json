@@ -1,0 +1,13 @@
+{
+  "name": "@fishertimer/leaderboard-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-optimized rankings filtered by timeframe",
+  "scripts": {
+    "dev": "go run cmd/main.go",
+    "build": "go build -o bin/server cmd/main.go",
+    "test": "go test ./...",
+    "lint": "go vet ./...",
+    "clean": "go clean"
+  }
+}

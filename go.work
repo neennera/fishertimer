@@ -1,0 +1,11 @@
+go 1.22
+
+use (
+	./services/auth
+	./services/account
+	./services/study-session
+	./services/study-timer
+	./services/reward
+	./services/leaderboard
+	./services/admin
+)
