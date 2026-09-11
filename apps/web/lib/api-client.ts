@@ -1,22 +1,24 @@
 // Generic typed API client for Fisher Timer microservices
+// Routes requests through Next.js API Gateway rewrites (next.config.js) to eliminate CORS
 
-const SERVICE_PORTS = {
-  auth: 8081,
-  account: 8082,
-  studySession: 8083,
-  studyTimer: 8084,
-  reward: 8085,
-  leaderboard: 8086,
-  admin: 8087,
-} as const;
+export type ServiceName =
+  | 'auth'
+  | 'account'
+  | 'session'
+  | 'timer'
+  | 'reward'
+  | 'leaderboard'
+  | 'admin';
 
-export async function fetchFromService<T>(
-  service: keyof typeof SERVICE_PORTS,
+export async function apiFetch<T>(
+  service: ServiceName,
   endpoint: string,
   init?: RequestInit
 ): Promise<T> {
-  const port = SERVICE_PORTS[service];
-  const url = `http://localhost:${port}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  // Route through Next.js reverse proxy gateway (avoids CORS issues on the client)
+  const url = `/api/${service}/${cleanEndpoint}`;
+
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -26,7 +28,8 @@ export async function fetchFromService<T>(
   });
 
   if (!res.ok) {
-    throw new Error(`Service ${service} responded with ${res.status}: ${res.statusText}`);
+    const errorBody = await res.text().catch(() => '');
+    throw new Error(`API error [${service}] ${res.status} ${res.statusText}: ${errorBody}`);
   }
 
   return res.json() as Promise<T>;

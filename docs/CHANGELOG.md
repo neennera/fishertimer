@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[database]**: Added mock seed data in `database/seeds/` and automatic Docker container initialization in `database/init/`.
 - **[skill-set]**: Added Skill 4 (`4-database-and-repository`) and Skill 5 (`5-migration-and-seeding`).
 - **[package.json]**: Added database lifecycle scripts: `db:up`, `db:down`, `db:logs`, `db:reset`.
+- **[docs]**: Created root `README.md` with system architecture diagrams, team roster, quickstart steps, and document index.
+- **[config]**: Created root `.env.example` defining central environment variables, database strings, and OAuth/JWT secrets.
+- **[web]**: Configured Next.js API Gateway reverse proxy rewrites in `apps/web/next.config.js` to proxy `/api/*` to backend microservices, eliminating CORS.
+- **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
 
 ---
 
