@@ -7,6 +7,7 @@ import (
 
 type Usecase interface {
 	GrantReward(ctx context.Context, userID, species, rarity string) (*domain.FishReward, error)
+	AwardReward(ctx context.Context, userID, reason string) (*domain.FishReward, error)
 	GetUserInventory(ctx context.Context, userID string) ([]domain.FishReward, error)
 }
 
@@ -20,6 +21,16 @@ func New(repo domain.Repository) Usecase {
 
 func (s *service) GrantReward(ctx context.Context, userID, species, rarity string) (*domain.FishReward, error) {
 	r := &domain.FishReward{ID: "fish_test", UserID: userID, Species: species, Rarity: rarity}
+	return r, s.repo.Award(ctx, r)
+}
+
+func (s *service) AwardReward(ctx context.Context, userID, reason string) (*domain.FishReward, error) {
+	r := &domain.FishReward{
+		ID:      "fish_reward_" + userID,
+		UserID:  userID,
+		Species: "Golden Carp",
+		Rarity:  "RARE",
+	}
 	return r, s.repo.Award(ctx, r)
 }
 

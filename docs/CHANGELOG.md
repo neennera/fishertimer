@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **[architecture]**: Restructured system architecture according to phase 1 design diagram:
+  - Saved and embedded architecture diagram in `docs/phase1/diagram.png` and `docs/phase1/microservice.md`.
+  - Separated Client and Admin websites in `apps/web`:
+    - Client portal at `/` (Student Portal) communicating via the dedicated Client API Gateway.
+    - Admin portal at `/admin` (Admin Moderation Portal) communicating directly with `services/admin` (Port 8087).
+    - Created dedicated typed clients: `apps/web/lib/client-api.ts` and `apps/web/lib/admin-api.ts`.
+  - Implemented Client API Gateway in `services/api-gateway` (Port 8080) in Go Clean Architecture, routing `/api/auth/*`, `/api/timer/*`, `/api/leaderboard/*`, `/api/session/*`, and `/api/reward/*` with CORS support.
+  - Added inter-service collaboration: Study Session Service triggers `Reward Service AwardReward()` upon `EndSession`.
+  - Restructured data persistence to Database-per-Service architecture:
+    - Added `database/` directories with service-level configurations in each microservice.
+    - Updated `docker-compose.yml` to provision isolated databases per service (`auth-db`, `account-db`, `session-db`, `timer-db`, `admin-db`, `reward-db`, `leaderboard-db`).
+    - Updated service configuration loaders and `.env.example`/`.env` with service-specific database variables.
 - Standard Hexagonal / Clean Architecture templates across all 7 Go microservices (`auth`, `account`, `study-session`, `study-timer`, `reward`, `leaderboard`, `admin`).
 - Feature-driven modular architecture template for Next.js web application (`apps/web`).
 - AI Agent Skill Suite in `docs/skill-set/`:

@@ -10,12 +10,13 @@ Fisher Timer utilizes an event-aware microservices architecture on the backend c
 
 ```mermaid
 graph TD
-    subgraph Client Layer
-        Web["Web Client (Next.js 16 / React 19)<br/>Port: 3000"]
+    subgraph Frontend Layer
+        ClientWeb["Frontend Website (Client page)<br/>apps/web (Port 3000)"]
+        AdminWeb["Frontend Website (Admin page)<br/>apps/web/admin (Port 3000)"]
     end
 
-    subgraph API Gateway / Router Layer
-        Gateway["API Gateway / Reverse Proxy"]
+    subgraph API Gateway Layer
+        Gateway["API Gateway (Go Clean Architecture)<br/>services/api-gateway (Port 8080)"]
     end
 
     subgraph Backend Microservices [Go 1.22+ Clean Architecture]
@@ -28,35 +29,42 @@ graph TD
         Admin["Admin Moderation Service<br/>Port: 8087"]
     end
 
-    subgraph Persistence Layer
-        SupaDB[("Supabase / PostgreSQL<br/>(Relational, Auth, Real-time)")]
-        MongoDB[("MongoDB<br/>(Flexible Gamification & Logs)")]
+    subgraph Persistence Layer [Database Per Service]
+        AuthDB[("Auth DB")]
+        AccountDB[("Account DB")]
+        SessionDB[("Study Session DB")]
+        TimerDB[("Study Timer DB")]
+        RewardDB[("Reward DB")]
+        LeaderboardDB[("Leaderboard DB")]
+        AdminDB[("Admin DB")]
     end
 
-    Web --> Gateway
-    Gateway --> Auth
-    Gateway --> Account
-    Gateway --> Session
-    Gateway --> Timer
-    Gateway --> Reward
-    Gateway --> Leaderboard
-    Gateway --> Admin
+    %% Client routing via API Gateway
+    ClientWeb -->|REST API| Gateway
+    Gateway -->|REST API| Auth
+    Gateway -->|REST API| Timer
+    Gateway -->|REST API| Leaderboard
+    Gateway -->|REST API| Session
+    Gateway -->|REST API| Reward
+
+    %% Admin routing direct to Admin Service
+    AdminWeb -->|REST API| Admin
 
     %% Inter-service collaborations
-    Session -.->|Verify Ban| Admin
+    Admin -.->|Kick Participant / Leave| Session
+    Admin -.->|Update Ban Status| Account
     Account -.->|Fetch Stats| Timer
     Account -.->|Fetch Items| Reward
-    Admin -.->|Kick Participant| Session
-    Admin -.->|Set Ban Flag| Account
+    Session -.->|AwardReward() on EndSession| Reward
 
-    %% Data access
-    Auth --> SupaDB
-    Account --> SupaDB
-    Session --> SupaDB
-    Timer --> SupaDB
-    Reward --> MongoDB
-    Leaderboard --> MongoDB
-    Admin --> SupaDB
+    %% Service Database connections
+    Auth --> AuthDB
+    Account --> AccountDB
+    Session --> SessionDB
+    Timer --> TimerDB
+    Reward --> RewardDB
+    Leaderboard --> LeaderboardDB
+    Admin --> AdminDB
 ```
 
 ---
@@ -67,14 +75,16 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 
 | Service Name | Port | Directory | Protocol | Primary Store | Responsibilities |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Web** | 3000 | `apps/web` | HTTP / WS | - | Responsive student & admin UI, live timer render. |
-| **Auth** | 8081 | `services/auth` | HTTP / REST | Supabase | Google OAuth, JWT issuance & verification. |
-| **Account** | 8082 | `services/account` | HTTP / REST | Supabase | Profiles, personal stats aggregation, ban records. |
-| **Study Session** | 8083 | `services/study-session` | HTTP / REST / WS | Supabase | Room lifecycles, roster limits, real-time presence. |
-| **Study Timer** | 8084 | `services/study-timer` | HTTP / REST | Supabase | Isolated user focus timers, work/break cycles. |
-| **Reward** | 8085 | `services/reward` | HTTP / REST | MongoDB | Gamified fish drops, inventory, milestone tracker. |
-| **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | MongoDB | Fast read-cached rankings by period (weekly/all-time). |
-| **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Supabase | Real-time session monitoring, reports, user bans. |
+| **Web Client** | 3000 | `apps/web` | HTTP / WS | - | Responsive student UI, live timer render. |
+| **Admin Web** | 3000 | `apps/web/admin` | HTTP / WS | - | Admin moderation portal, direct connection to Admin Service. |
+| **API Gateway** | 8080 | `services/api-gateway` | HTTP / REST | - | Client reverse proxy routing to Auth, Timer, Leaderboard, Session, Reward. |
+| **Auth** | 8081 | `services/auth` | HTTP / REST | Auth DB | Google OAuth, JWT issuance & verification. |
+| **Account** | 8082 | `services/account` | HTTP / REST | Account DB | Profiles, personal stats aggregation, ban records. |
+| **Study Session** | 8083 | `services/study-session` | HTTP / REST / WS | Session DB | Room lifecycles, roster limits, real-time presence. |
+| **Study Timer** | 8084 | `services/study-timer` | HTTP / REST | Timer DB | Isolated user focus timers, work/break cycles. |
+| **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB | Gamified fish drops, inventory, milestone tracker. |
+| **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Leaderboard DB | Fast read-cached rankings by period (weekly/all-time). |
+| **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB | Real-time session monitoring, reports, user bans. |
 
 ---
 
@@ -89,6 +99,7 @@ As defined in `docs/phase1/microservice.md`:
 | Account       | StudyTimer.Statistics()| Aggregate total focus time on dashboard  |
 | Account       | Reward.ViewRewards()   | Render earned fish collection on profile |
 | Study Session | Admin.VerifyBanStatus()| Block banned users from creating/joining |
+| Study Session | Reward.AwardReward()   | Grant reward to user upon EndSession     |
 | Admin         | StudySession.Leave()   | Kick banned or reported users from rooms |
 | Admin         | Account.UpdateBanStatus| Write ban flag to user account record    |
 +---------------+------------------------+------------------------------------------+

@@ -12,27 +12,18 @@ Guide AI agents in implementing, extending, and testing repository patterns with
 
 ## 1. Where Are Schemas Located?
 
-All database schema definitions and validators are organized under [`database/schemas/`](../../../database/schemas/):
+In our **Database-per-Service** architecture, each microservice owns its database configuration, migrations, and schemas inside its own directory:
 
 ```
-database/
-├── schemas/
-│   ├── postgres/                         # PostgreSQL (Supabase) relational DDLs
-│   │   ├── 001_create_users_table.sql    # [Sample Table 1]: auth.users & account.profiles
-│   │   └── 002_create_study_sessions_table.sql # [Sample Table 2]: session.study_sessions & participants
-│   └── mongodb/                          # MongoDB document schema validators & index definitions
-│       └── 001_create_fish_rewards_collection.js # [Sample Collection 1]: fish_rewards
-├── seeds/                                # Seed files for development datasets
-│   ├── postgres_seed.sql
-│   └── mongo_seed.js
-└── init/                                 # Entrypoint scripts automatically mounted by Docker
-    ├── 01-init-postgres.sql
-    └── 02-init-mongo.js
+services/<service-name>/database/
+├── README.md                             # Service database documentation & port info
+├── schemas/                              # Service-specific DDL / schema definitions (to be defined)
+└── migrations/                           # Service-specific schema migration scripts
 ```
 
 ### Schema Convention:
-- **Relational Tables:** Placed in `database/schemas/postgres/<number>_<name>.sql`. Every table is assigned to a service-owned PostgreSQL schema (`auth`, `account`, `session`, `timer`, `admin`).
-- **Document Collections:** Placed in `database/schemas/mongodb/<number>_<name>.js` with BSON `$jsonSchema` validators and index configurations.
+- **Relational Databases (PostgreSQL):** Each service (`auth`, `account`, `study-session`, `study-timer`, `admin`) manages its own isolated database instance and schema.
+- **Document Databases (MongoDB):** Each service (`reward`, `leaderboard`) manages its own isolated document database and collections.
 
 ---
 

@@ -33,54 +33,38 @@ pnpm db:reset
 ## 2. Automated Initialization Lifecycle (`docker-compose.yml`)
 
 When you run `pnpm db:up` for the first time:
-1. **PostgreSQL** mounts [`database/init/01-init-postgres.sql`](../../../database/init/01-init-postgres.sql) to `/docker-entrypoint-initdb.d/`:
-   - Creates schemas: `auth`, `account`, `session`, `timer`, `admin`.
-   - Executes DDL creating tables (`auth.users`, `account.profiles`, `session.study_sessions`, etc.).
-   - Inserts seed data (`usr_01`, `sess_01`, etc.).
-2. **MongoDB** mounts [`database/init/02-init-mongo.js`](../../../database/init/02-init-mongo.js) to `/docker-entrypoint-initdb.d/`:
-   - Creates the `fishertimer` database.
-   - Enforces JSON Schema validator for `fish_rewards`.
-   - Creates performance indexes.
-   - Inserts mock fish rewards.
+1. **Isolated PostgreSQL Databases**:
+   - `auth-db` (Port `5431`, DB `auth_db`)
+   - `account-db` (Port `5432`, DB `account_db`)
+   - `session-db` (Port `5433`, DB `session_db`)
+   - `timer-db` (Port `5434`, DB `timer_db`)
+   - `admin-db` (Port `5435`, DB `admin_db`)
+2. **Isolated MongoDB Databases**:
+   - `reward-db` (Port `27017`, DB `reward_db`)
+   - `leaderboard-db` (Port `27018`, DB `leaderboard_db`)
 
 ---
 
-## 3. How to Add a New PostgreSQL Migration
+## 3. Adding Migrations and Schemas
 
-When adding or altering tables:
-1. Create a sequentially numbered file in `database/schemas/postgres/`:
-   ```bash
-   database/schemas/postgres/003_create_timer_sessions_table.sql
-   ```
-2. Write idempotent SQL DDL (use `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, etc.).
-3. If this change affects active containers, append the SQL statement to [`database/init/01-init-postgres.sql`](../../../database/init/01-init-postgres.sql).
-4. Run `pnpm db:reset` locally to verify the new migration applies cleanly.
-5. Update [`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md) and [`docs/CHANGELOG.md`](../../CHANGELOG.md).
+Because each service manages its own database:
+1. Place service-specific DDL scripts and migrations inside `services/<service-name>/database/`.
+2. Follow idempotent SQL conventions (e.g., `CREATE TABLE IF NOT EXISTS`).
+3. Update [`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md) and [`docs/CHANGELOG.md`](../../CHANGELOG.md).
 
 ---
 
-## 4. How to Add a New MongoDB Migration / Validator
-
-MongoDB is schemaless, but we enforce document consistency using schema validators:
-1. Create a script in `database/schemas/mongodb/`:
-   ```bash
-   database/schemas/mongodb/002_create_leaderboard_snapshots_collection.js
-   ```
-2. Define the validator using `db.createCollection("<name>", { validator: { ... } })` and create relevant compound indexes.
-3. Append the initialization logic to [`database/init/02-init-mongo.js`](../../../database/init/02-init-mongo.js).
-4. Run `pnpm db:reset` to verify.
-
----
-
-## 5. Connecting Directly via CLI / GUI
+## 4. Connecting Directly via CLI / GUI
 
 - **PostgreSQL CLI (`psql`):**
   ```bash
-  docker exec -it fishertimer-postgres psql -U postgres -d fishertimer
+  docker exec -it fishertimer-auth-db psql -U postgres -d auth_db
+  docker exec -it fishertimer-session-db psql -U postgres -d session_db
   ```
 - **MongoDB CLI (`mongosh`):**
   ```bash
-  docker exec -it fishertimer-mongodb mongosh -u mongoadmin -p mongopassword --authenticationDatabase admin
+  docker exec -it fishertimer-reward-db mongosh -u mongoadmin -p mongopassword --authenticationDatabase admin
+  docker exec -it fishertimer-leaderboard-db mongosh -u mongoadmin -p mongopassword --authenticationDatabase admin
   ```
 - **GUI Clients (DBeaver, TablePlus, Compass):**
   - Postgres: `localhost:5432`, user: `postgres`, password: `postgrespassword`, db: `fishertimer`

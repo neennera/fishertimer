@@ -18,6 +18,37 @@ func New(uc usecase.Usecase) *HTTPHandler {
 func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", h.Health)
 	mux.HandleFunc("/api/v1/study-session/status", h.Status)
+	mux.HandleFunc("/api/v1/study-session/end", h.EndSession)
+}
+
+type endSessionRequest struct {
+	SessionID string `json:"session_id"`
+	UserID    string `json:"user_id"`
+}
+
+func (h *HTTPHandler) EndSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req endSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	sess, err := h.uc.EndSession(r.Context(), req.SessionID, req.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"session": sess,
+		"message": "Session ended and AwardReward triggered",
+	})
 }
 
 func (h *HTTPHandler) Health(w http.ResponseWriter, r *http.Request) {

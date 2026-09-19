@@ -24,5 +24,12 @@ func TestUsecase_Success(t *testing.T) {
 		t.Fatal("expected usecase service to be initialized")
 	}
 	ctx := context.Background()
-	_ = ctx
+
+	reward, err := svc.AwardReward(ctx, "usr_123", "session_ended")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reward.UserID != "usr_123" {
+		t.Fatalf("expected user_id usr_123, got %s", reward.UserID)
+	}
 }

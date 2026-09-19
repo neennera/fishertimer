@@ -2,7 +2,7 @@
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Auth          | AuthenticateUser()<br>SignUp()<br>SignOut()                                                                                                                                   | -                                                                        |
 | Account       | ViewProfile()<br>UpdateProfile()<br>ChangePassword()<br>ViewStatistics()<br>UpdateBanStatus()                                                                                 | StudyTimer Service TimerStatistics()<br>Reward Service ViewRewards()     |
-| Study Session | CreateSession()<br>JoinSession()<br>LeaveSession()<br>EndSession()<br>SetParticipantLimit()                                                                                   | Admin Service VerifyBanStatus()                                          |
+| Study Session | CreateSession()<br>JoinSession()<br>LeaveSession()<br>EndSession()<br>SetParticipantLimit()                                                                                   | Admin Service VerifyBanStatus()<br>Reward Service AwardReward()          |
 | Study Timer   | StartTimer()<br>PauseTimer()<br>ResumeTimer()<br>StopTimer()<br>StartRest()<br>SkipRest()<br>CompleteCycle()<br>UpdateTimerSetting()<br>ResetTimer()<br>TimerStatistics()     | -                                                                        |
 | Reward        | AwardReward()<br>ClaimReward()<br>ViewRewards()<br>TrackProgression()                                                                                                         | -                                                                        |
 | Leaderboard   | ViewLeaderboard()<br>GetRanking()<br>FilterByPeriod()                                                                                                                         | -                                                                        |
@@ -39,6 +39,7 @@ EndSession : Closes a room when the last participant leaves.
 SetParticipantLimit : Sets the maximum number of users allowed in a session.
 Collaboration :
 Admin Service VerifyBanStatus() : Checks the user's ban state before allowing room creation or joins.
+Reward Service AwardReward() : Triggered upon EndSession to grant a reward to the user.
 
 Study Timer
 Detail : Runs independent user timers within a session and handles work and rest cycles.
@@ -92,3 +93,5 @@ StudySession Service LeaveSession() : Sends a command to kick users from active 
 Account Service UpdateBanStatus() : Sends a command to set or remove the ban flag on the user account.
 
 Diagram
+
+![System Architecture Diagram](diagram.png)
