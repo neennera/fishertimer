@@ -8,14 +8,16 @@ import (
 type Usecase interface {
 	CreateRoom(ctx context.Context, name, creatorID string, limit int) (*domain.StudySession, error)
 	GetRoom(ctx context.Context, id string) (*domain.StudySession, error)
+	EndSession(ctx context.Context, sessionID, userID string) (*domain.StudySession, error)
 }
 
 type service struct {
-	repo domain.Repository
+	repo         domain.Repository
+	rewardClient domain.RewardClient
 }
 
-func New(repo domain.Repository) Usecase {
-	return &service{repo: repo}
+func New(repo domain.Repository, rewardClient domain.RewardClient) Usecase {
+	return &service{repo: repo, rewardClient: rewardClient}
 }
 
 func (s *service) CreateRoom(ctx context.Context, name, creatorID string, limit int) (*domain.StudySession, error) {
@@ -25,4 +27,20 @@ func (s *service) CreateRoom(ctx context.Context, name, creatorID string, limit 
 
 func (s *service) GetRoom(ctx context.Context, id string) (*domain.StudySession, error) {
 	return s.repo.GetSession(ctx, id)
+}
+
+func (s *service) EndSession(ctx context.Context, sessionID, userID string) (*domain.StudySession, error) {
+	sess, err := s.repo.GetSession(ctx, sessionID)
+	if err != nil {
+		sess = &domain.StudySession{ID: sessionID, Name: "Ended Room", CreatorID: userID, Status: "ENDED"}
+	} else {
+		sess.Status = "ENDED"
+	}
+
+	// Trigger collaboration to Reward Service: AwardReward()
+	if s.rewardClient != nil {
+		_ = s.rewardClient.AwardReward(ctx, userID, "EndSession")
+	}
+
+	return sess, nil
 }

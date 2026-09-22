@@ -18,12 +18,17 @@
 
 ## 🏗️ System Architecture Overview
 
-Fisher Timer is architected as a **polyglot microservices monorepo** managed by **Turborepo** and **pnpm workspaces**, featuring a **Next.js 16** frontend client acting as an API Gateway reverse proxy and **7 Go microservices** built with **Clean / Hexagonal Architecture**.
+Fisher Timer is architected as a **polyglot microservices monorepo** managed by **Turborepo** and **pnpm workspaces**, featuring a **Next.js 16** frontend with separated Client and Admin portals, a dedicated Go **API Gateway**, and **7 Go microservices** built with **Clean / Hexagonal Architecture** with isolated per-service databases.
 
 ```mermaid
 graph TD
-    subgraph Client & Gateway ["Frontend Layer (Port 3000)"]
-        Web["Next.js 16 Client & API Gateway<br/><code>apps/web</code>"]
+    subgraph Frontend Layer ["Frontend Layer (Port 3000)"]
+        ClientWeb["Frontend Website (Client page)<br/><code>apps/web</code>"]
+        AdminWeb["Frontend Website (Admin page)<br/><code>apps/web/admin</code>"]
+    end
+
+    subgraph Gateway Layer ["API Gateway (Port 8080)"]
+        Gateway["Go API Gateway<br/><code>services/api-gateway</code>"]
     end
 
     subgraph Backend Microservices ["Go 1.22+ Clean Architecture (services/*)"]
@@ -36,29 +41,42 @@ graph TD
         Admin["Admin Moderation Service<br/>Port: 8087"]
     end
 
-    subgraph Persistence Layer ["Polyglot Storage (docker-compose.yml / Cloud)"]
-        Postgres[("Supabase / PostgreSQL 16<br/>(auth, account, session, timer, admin)")]
-        Mongo[("MongoDB 7.0<br/>(fish_rewards, leaderboards)")]
+    subgraph Persistence Layer ["Database Per Service"]
+        AuthDB[("Auth DB")]
+        AccountDB[("Account DB")]
+        SessionDB[("Session DB")]
+        TimerDB[("Timer DB")]
+        RewardDB[("Reward DB")]
+        LeaderboardDB[("Leaderboard DB")]
+        AdminDB[("Admin DB")]
     end
 
-    %% Routing
-    Web -->|/api/auth/*| Auth
-    Web -->|/api/account/*| Account
-    Web -->|/api/session/*| Session
-    Web -->|/api/timer/*| Timer
-    Web -->|/api/reward/*| Reward
-    Web -->|/api/leaderboard/*| Leaderboard
-    Web -->|/api/admin/*| Admin
+    %% Client Routing
+    ClientWeb -->|REST API| Gateway
+    Gateway -->|/api/auth/*| Auth
+    Gateway -->|/api/timer/*| Timer
+    Gateway -->|/api/leaderboard/*| Leaderboard
+    Gateway -->|/api/session/*| Session
+    Gateway -->|/api/reward/*| Reward
 
-    %% Storage connections
-    Auth --> Postgres
-    Account --> Postgres
-    Session --> Postgres
-    Timer --> Postgres
-    Admin --> Postgres
+    %% Admin Routing
+    AdminWeb -->|Direct REST API| Admin
 
-    Reward --> Mongo
-    Leaderboard --> Mongo
+    %% Inter-service calls
+    Admin -.-> Session
+    Admin -.-> Account
+    Account -.-> Timer
+    Account -.-> Reward
+    Session -.->|AwardReward() on EndSession| Reward
+
+    %% Databases
+    Auth --> AuthDB
+    Account --> AccountDB
+    Session --> SessionDB
+    Timer --> TimerDB
+    Reward --> RewardDB
+    Leaderboard --> LeaderboardDB
+    Admin --> AdminDB
 ```
 
 ---
@@ -113,18 +131,20 @@ Visit **`http://localhost:3000`** in your browser.
 
 ## 🔌 Microservice Port & API Routing Registry
 
-All backend services are proxied through Next.js reverse proxy rewrites, completely eliminating CORS issues on the client:
+Client requests route through the Go API Gateway (8080), while Admin requests communicate directly with the Admin Service (8087):
 
 | Service | Internal Port | Gateway Route | Target Directory | Storage Engine |
 | :--- | :---: | :--- | :--- | :--- |
 | **Web Client** | `3000` | `/` | `apps/web` | - |
-| **Auth** | `8081` | `/api/auth/*` | `services/auth` | PostgreSQL (`auth.users`) |
-| **Account** | `8082` | `/api/account/*` | `services/account` | PostgreSQL (`account.profiles`) |
-| **Study Session** | `8083` | `/api/session/*` | `services/study-session` | PostgreSQL (`session.study_sessions`) |
-| **Study Timer** | `8084` | `/api/timer/*` | `services/study-timer` | PostgreSQL (`timer.timer_states`) |
-| **Reward** | `8085` | `/api/reward/*` | `services/reward` | MongoDB (`fish_rewards`) |
-| **Leaderboard** | `8086` | `/api/leaderboard/*` | `services/leaderboard` | MongoDB (`rank_snapshots`) |
-| **Admin** | `8087` | `/api/admin/*` | `services/admin` | PostgreSQL (`admin.reports`) |
+| **Admin Web** | `3000` | `/admin` | `apps/web/admin` | - |
+| **API Gateway** | `8080` | `/api/*` | `services/api-gateway` | - |
+| **Auth** | `8081` | `/api/auth/*` | `services/auth` | Auth DB |
+| **Account** | `8082` | - (Internal/Admin) | `services/account` | Account DB |
+| **Study Session** | `8083` | `/api/session/*` | `services/study-session` | Session DB |
+| **Study Timer** | `8084` | `/api/timer/*` | `services/study-timer` | Timer DB |
+| **Reward** | `8085` | `/api/reward/*` | `services/reward` | Reward DB |
+| **Leaderboard** | `8086` | `/api/leaderboard/*` | `services/leaderboard` | Leaderboard DB |
+| **Admin** | `8087` | Direct (`/api/v1/admin/*`) | `services/admin` | Admin DB |
 
 ---
 

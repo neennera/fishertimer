@@ -8,4 +8,5 @@ use (
 	./services/reward
 	./services/leaderboard
 	./services/admin
+	./services/api-gateway
 )
