@@ -82,3 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-module Go workspace `go.work` linking all 7 Go services.
 - Reproducible scaffolding script in `scripts/setup-turborepo.mjs`.
 - Phase 1 documentation in `docs/phase1/turborepo.md`, `microservice.md`, and `project-desc.md`.
+
+## [0.2.0] - 2026-09-22
+
+### Added
+- **[web]**: Added a mock-backed auth data layer for UC-06 (Sign In & Sign Up):
+  - `lib/auth.ts`: `signInWithGoogle()`, `handleAuthCallback()`, `completeFirstTimeSetup()` and `getSession()`, routed through `lib/client-api.ts`'s `clientApiFetch()`. Toggled by `NEXT_PUBLIC_USE_MOCKS` (see `.env.example`) — no component may import `fetch` or `lib/mocks/` directly.
+  - `lib/mocks/auth.mock.ts`: canned responses covering the 7 sign-in / first-time-setup wireframe states (default, consent denied, code exchange failed, account creation failed, and the three first-time setup states).
+  - `lib/validate-display-name.ts`: the display name rule (trim, 1–30 chars), pulled out of `app/styleguide/page.tsx` so both the styleguide demo and `completeFirstTimeSetup()` share one source of truth.

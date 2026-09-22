@@ -8,6 +8,7 @@ import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelInput } from "../../components/ui/PixelInput";
 import { PixelPanel } from "../../components/ui/PixelPanel";
 import { StatTile } from "../../components/ui/StatTile";
+import { validateDisplayName } from "../../lib/validate-display-name";
 
 const ASSIGNED = [
   ["ink", "Text"],
@@ -182,13 +183,7 @@ export default function StyleguidePage() {
   const hex = useTokenHex(theme);
   const [name, setName] = useState("Chayut A.");
 
-  const trimmed = name.trim();
-  const nameError =
-    trimmed.length === 0
-      ? "Name can't be empty."
-      : trimmed.length > 100
-        ? "Name can't be longer than 100 characters."
-        : undefined;
+  const nameError = validateDisplayName(name);
 
   return (
     <>
@@ -270,7 +265,7 @@ export default function StyleguidePage() {
                 onChange={(e) => setName(e.target.value)}
                 error={nameError}
                 hint="Shown in study rooms."
-                maxLength={120}
+                maxLength={40}
               />
             </Demo>
 
