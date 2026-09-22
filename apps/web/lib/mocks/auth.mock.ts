@@ -37,14 +37,15 @@ export const MOCK_SESSION: Session = {
   isFirstLogin: false,
 };
 
-// Returned when the callback matches an existing account with no display
-// name yet — 02a/02b/02c all start from this session, differing only in
-// what the user has typed into the setup form.
+// Returned when the callback creates a new account — per UC-06 S-1, the
+// display name comes from the Google profile at creation time (editable,
+// not blank). 02a/02b/02c (the /welcome states) all start from this
+// session, differing only in what the user does to that prefilled name.
 export const MOCK_FIRST_TIME_SESSION: Session = {
   user: {
     id: 'mock-user-new',
     email: 'new-angler@example.com',
-    displayName: '',
+    displayName: 'Chayut A.',
     role: 'CUSTOMER',
   },
   isFirstLogin: true,

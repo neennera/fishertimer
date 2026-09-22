@@ -22,6 +22,29 @@
       inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.14);
   }
 
+  /* --- Panel entrance ------------------------------------------------------
+     A brief rise-and-fade on mount. The auth flow's background and header
+     persist across navigation (a shared layout — see app/(auth)/layout.tsx)
+     so the panel is the only thing that swaps between /signin and /welcome;
+     without this it would be a jump cut. Opt-in per page, per
+     DESIGN_SYSTEM.md's Motion section — nothing else here animates on its
+     own. `both` holds the from-state before the animation starts and the
+     to-state after, so there's no flash of the unanimated panel. */
+  .pixel-panel--enter {
+    animation: pixel-panel-enter 0.35s ease-out both;
+  }
+
+  @keyframes pixel-panel-enter {
+    from {
+      opacity: 0;
+      transform: translateY(calc(var(--px) * 4)) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   /* --- Button: a chunky key sitting in its own socket ---------------------
      ::after draws the thickness, ::before draws the cap one pixel above it.
      Pressing drops the cap and the thickness vanishes, so the key ends flush.
