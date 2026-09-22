@@ -7,8 +7,21 @@ import { PixelBadge } from "../../components/ui/PixelBadge";
 import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelInput } from "../../components/ui/PixelInput";
 import { PixelPanel } from "../../components/ui/PixelPanel";
+import { ParallaxScene } from "../../components/ui/ParallaxScene";
 import { StatTile } from "../../components/ui/StatTile";
 import { validateDisplayName } from "../../lib/validate-display-name";
+
+const LAKE_LAYERS = [
+  { src: "/sprites/scene/parallax-lake/sky.png", speed: 0.05 },
+  { src: "/sprites/scene/parallax-lake/clouds.png", speed: 0.1 },
+  { src: "/sprites/scene/parallax-lake/mountains.png", speed: 0.2 },
+  { src: "/sprites/scene/parallax-lake/forest-far.png", speed: 0.35 },
+  { src: "/sprites/scene/parallax-lake/forest-mid.png", speed: 0.5 },
+  { src: "/sprites/scene/parallax-lake/forest-near.png", speed: 0.7 },
+  { src: "/sprites/scene/parallax-lake/valley-fill.png", speed: 0.85 },
+  { src: "/sprites/scene/parallax-lake/foreground.png", speed: 1 },
+  { src: "/sprites/scene/parallax-lake/water.png", speed: 1.2 },
+];
 
 const ASSIGNED = [
   ["ink", "Text"],
@@ -290,6 +303,14 @@ export default function StyleguidePage() {
               </div>
             </Demo>
           </div>
+        </Section>
+
+        <Section title="Scene">
+          <ParallaxScene layers={LAKE_LAYERS} className="h-56" />
+          <p className="mt-3 text-xs text-muted">
+            Nine tiling layers, one keyframe. Speed is set per layer via
+            <code>animation-duration</code>; farther layers move slower.
+          </p>
         </Section>
 
         <Section title="Grid">

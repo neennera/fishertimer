@@ -227,6 +227,45 @@
     height: auto;
   }
 
+  /* --- Parallax scene ------------------------------------------------------
+     A stack of tiling sprite layers (public/sprites/scene/). Each layer's box
+     is double the container width, with its tile scaled to exactly half of
+     that (= one container width). Sliding it by -50% is therefore always
+     exactly one tile, however wide the container ends up being, so the seam
+     never shows without hardcoding a tile size here. Speed differences come
+     from each layer's own animation-duration, set inline by ParallaxScene —
+     there is only one keyframe. */
+  .pixel-parallax {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+  }
+
+  .pixel-parallax__layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 200%;
+    background-repeat: repeat-x;
+    background-position: left bottom;
+    background-size: 50% auto;
+    image-rendering: pixelated;
+    animation-name: pixel-parallax-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes pixel-parallax-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
   /* --- Header -------------------------------------------------------------
      Fixed height. It must not change between pages, whether or not an avatar
      is present, so the height is set here and never derived from content. */
