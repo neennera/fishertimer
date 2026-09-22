@@ -26,6 +26,15 @@
         "!.next/cache/**",
         "dist/**",
         "bin/**"
+      ],
+      "env": [
+        "AUTH_SERVICE_URL",
+        "ACCOUNT_SERVICE_URL",
+        "SESSION_SERVICE_URL",
+        "TIMER_SERVICE_URL",
+        "REWARD_SERVICE_URL",
+        "LEADERBOARD_SERVICE_URL",
+        "ADMIN_SERVICE_URL"
       ]
     },
     "lint": {
