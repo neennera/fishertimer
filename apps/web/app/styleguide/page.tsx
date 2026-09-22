@@ -9,19 +9,8 @@ import { PixelInput } from "../../components/ui/PixelInput";
 import { PixelPanel } from "../../components/ui/PixelPanel";
 import { ParallaxScene } from "../../components/ui/ParallaxScene";
 import { StatTile } from "../../components/ui/StatTile";
+import { SIGNIN_SCENE_LAYERS } from "../../lib/scenes/signin-scene";
 import { validateDisplayName } from "../../lib/validate-display-name";
-
-const LAKE_LAYERS = [
-  { src: "/sprites/scene/parallax-lake/sky.png", speed: 0.05 },
-  { src: "/sprites/scene/parallax-lake/clouds.png", speed: 0.1 },
-  { src: "/sprites/scene/parallax-lake/mountains.png", speed: 0.2 },
-  { src: "/sprites/scene/parallax-lake/forest-far.png", speed: 0.35 },
-  { src: "/sprites/scene/parallax-lake/forest-mid.png", speed: 0.5 },
-  { src: "/sprites/scene/parallax-lake/forest-near.png", speed: 0.7 },
-  { src: "/sprites/scene/parallax-lake/valley-fill.png", speed: 0.85 },
-  { src: "/sprites/scene/parallax-lake/foreground.png", speed: 1 },
-  { src: "/sprites/scene/parallax-lake/water.png", speed: 1.2 },
-];
 
 const ASSIGNED = [
   ["ink", "Text"],
@@ -306,10 +295,19 @@ export default function StyleguidePage() {
         </Section>
 
         <Section title="Scene">
-          <ParallaxScene layers={LAKE_LAYERS} className="h-56" />
+          {/* ParallaxScene is fixed to the viewport by its own CSS (it's a
+              page background, e.g. /signin). contain: layout makes this box
+              its containing block instead, purely to preview it boxed here —
+              /signin doesn't need this wrapper. */}
+          <div className="relative h-56 overflow-hidden" style={{ contain: "layout" }}>
+            <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
+          </div>
           <p className="mt-3 text-xs text-muted">
-            Nine tiling layers, one keyframe. Speed is set per layer via
-            <code>animation-duration</code>; farther layers move slower.
+            Two layer kinds: the sky and clouds are{" "}
+            <code>background-size: cover</code> (smooth gradient art, no
+            pixel grid to misalign); the mountains, forest and water tile at
+            whole multiples of <code>--px</code>. The cover sky fills
+            whatever space opens above the tiled band on a tall viewport.
           </p>
         </Section>
 

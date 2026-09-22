@@ -228,29 +228,87 @@
   }
 
   /* --- Parallax scene ------------------------------------------------------
-     A stack of tiling sprite layers (public/sprites/scene/). Each layer's box
-     is double the container width, with its tile scaled to exactly half of
-     that (= one container width). Sliding it by -50% is therefore always
-     exactly one tile, however wide the container ends up being, so the seam
-     never shows without hardcoding a tile size here. Speed differences come
-     from each layer's own animation-duration, set inline by ParallaxScene —
-     there is only one keyframe. */
+     A stack of full-bleed background layers, fixed to the viewport rather
+     than sized to its container — a container sized to its content doesn't
+     reach the top of a taller window, which is what left a gap above the
+     sky in an earlier version of this. z-index: -1 with no other positioned
+     ancestor in the page paints it behind the root stacking context's
+     normal-flow content (Header, panel, page body) automatically — see how
+     stacking order works for negative-z-index descendants.
+
+     Two layer variants, because one CSS technique can't serve both art
+     styles without either stretching or gapping:
+
+     --cover is for smooth painterly/gradient art (public/sprites/scene/
+     skies/) with no pixel grid to misalign, so background-size: cover —
+     which always preserves aspect ratio and only ever crops the overflow,
+     never distorts it — is the correct, ordinary tool: it fully covers any
+     viewport shape (wide, narrow, short, tall) by definition, boundless.
+
+     --tile is for pixel-art sprites (public/sprites/scene/parallax-lake/):
+     scaling those by any fraction (a percentage, or cover/contain) blurs
+     their pixel grid, which reads as "stretched", so background-size is the
+     sprite's native size times --px instead — the same calc(var(--px) * n)
+     idiom as every other sprite scale in this file. That only ever covers a
+     bounded band anchored to the bottom, not the whole viewport; a --cover
+     sky layer behind it naturally fills whatever space opens up above that
+     band on a tall viewport, so the two compose without a gap. The
+     background-position-x scroll shifts by exactly one tile's width (a real
+     length, since the tile size is fixed) with background-repeat: repeat-x
+     — seamless at any width, no double-width element or transform trick.
+
+     Both variants share background-position: bottom, so a --tile band and
+     any --cover layers behind it crop/anchor consistently with each other.
+     --color-sky-fill (the container's own background) is the last-resort
+     fallback below all of it.
+
+     A --cover layer can optionally --drift: since cover already fixes the
+     image's scale, animating background-position-x as a percentage only
+     pans within the art — it never resizes it, so it's safe in a way a
+     percentage-driven size never was for --tile. sky_clouds.png's left and
+     right edges don't line up (it isn't a seamless tile), so this eases
+     back and forth (animation-direction: alternate) instead of looping in
+     one direction, which would jump-cut at the seam. */
   .pixel-parallax {
-    position: relative;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: -1;
     overflow: hidden;
-    width: 100%;
-    height: 100%;
+    background-color: var(--color-sky-fill);
   }
 
   .pixel-parallax__layer {
     position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 200%;
+    inset: 0;
+    background-position: bottom;
+  }
+
+  .pixel-parallax__layer--cover {
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .pixel-parallax__layer--drift {
+    animation-name: pixel-parallax-drift;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+
+  @keyframes pixel-parallax-drift {
+    from {
+      background-position-x: 40%;
+    }
+    to {
+      background-position-x: 60%;
+    }
+  }
+
+  .pixel-parallax__layer--tile {
     background-repeat: repeat-x;
-    background-position: left bottom;
-    background-size: 50% auto;
+    background-size: calc(var(--scene-tile-w) * var(--px)) calc(var(--scene-tile-h) * var(--px));
     image-rendering: pixelated;
     animation-name: pixel-parallax-scroll;
     animation-timing-function: linear;
@@ -259,10 +317,10 @@
 
   @keyframes pixel-parallax-scroll {
     from {
-      transform: translateX(0);
+      background-position-x: 0;
     }
     to {
-      transform: translateX(-50%);
+      background-position-x: calc(var(--scene-tile-w) * var(--px) * -1);
     }
   }
 

@@ -28,6 +28,10 @@
   --color-lake-dp: #2e6e85; /* deep water, focus outline */
   --color-sky: #f3c9a0; /* warm dusk sky, room wall */
   --color-rust: #b4472f; /* errors, ban badge */
+  --color-sky-fill: #9fc9f1; /* sampled from Sky_sky.png's last opaque pixel
+    before it fades to transparent — extends the gradient where the art's own
+    alpha runs out. Not --color-sky above: that's the warm dusk tone used
+    elsewhere in the UI. */
 
   /* --- Page chrome: the only theme-aware tokens --------------------------- */
   --color-bg: #f6f0e6;
@@ -56,6 +60,15 @@
      look subtly broken.
      ====================================================================== */
   --px: 3px;
+
+  /* Native size, in source pixels, of the tiling scene sprites in
+     public/sprites/scene/parallax-lake/ (384x216). Unitless so pixel.css can
+     multiply by --px, the same calc(var(--px) * n) idiom every other sprite
+     scale uses — the tiled scene layers' zoom is tied to the same global
+     grid as the rest of the UI. Only "tile"-fit ParallaxScene layers use
+     this; "cover"-fit layers (smooth painterly art, e.g. the sky) don't. */
+  --scene-tile-w: 384;
+  --scene-tile-h: 216;
 
   /* A one-pixel bevel: a single art pixel clipped off each corner.
      The same shape at every size, so there is no multi-step staircase that

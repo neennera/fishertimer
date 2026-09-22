@@ -3,6 +3,7 @@
 // call these functions and never touch fetch or lib/mocks/auth.mock.ts
 // directly. Toggled by NEXT_PUBLIC_USE_MOCKS (see .env.example).
 
+import { AUTH_CALLBACK_ERROR_MESSAGES, type AuthCallbackErrorCode } from './auth-error-messages';
 import { clientApiFetch } from './client-api';
 import {
   MOCK_AUTH_CALLBACK_ERRORS,
@@ -13,6 +14,9 @@ import {
   type MockAuthScenario,
 } from './mocks/auth.mock';
 import { validateDisplayName } from './validate-display-name';
+
+export type { AuthCallbackErrorCode };
+export { AUTH_CALLBACK_ERROR_MESSAGES };
 
 const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 
@@ -32,11 +36,6 @@ export interface Session {
   user: SessionUser;
   isFirstLogin: boolean;
 }
-
-export type AuthCallbackErrorCode =
-  | 'consent_denied'
-  | 'code_exchange_failed'
-  | 'account_creation_failed';
 
 export type AuthCallbackResult =
   | { ok: true; session: Session }
@@ -78,7 +77,10 @@ export async function handleAuthCallback(
       return {
         ok: false,
         error: 'code_exchange_failed',
-        message: err instanceof Error ? err.message : "Couldn't complete sign-in. Try again.",
+        message:
+          err instanceof Error
+            ? err.message
+            : AUTH_CALLBACK_ERROR_MESSAGES.code_exchange_failed,
       };
     }
   }

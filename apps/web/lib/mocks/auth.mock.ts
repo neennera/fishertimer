@@ -8,7 +8,8 @@
 //   02b First-Time Setup (Error: Name Empty)
 //   02c First-Time Setup (Error: Name Too Long)
 
-import type { AuthCallbackErrorCode, Session } from '../auth';
+import { AUTH_CALLBACK_ERROR_MESSAGES, type AuthCallbackErrorCode } from '../auth-error-messages';
+import type { Session } from '../auth';
 import { validateDisplayName } from '../validate-display-name';
 
 // Query param read by handleAuthCallback() in mock mode to force a given
@@ -61,15 +62,15 @@ export const MOCK_AUTH_CALLBACK_ERRORS: Record<
 > = {
   'signin-consent-denied': {
     code: 'consent_denied',
-    message: 'Sign-in was cancelled.',
+    message: AUTH_CALLBACK_ERROR_MESSAGES.consent_denied,
   },
   'signin-code-exchange-failed': {
     code: 'code_exchange_failed',
-    message: "Couldn't complete sign-in. Try again.",
+    message: AUTH_CALLBACK_ERROR_MESSAGES.code_exchange_failed,
   },
   'signin-account-creation-failed': {
     code: 'account_creation_failed',
-    message: "Couldn't create your account. Try again.",
+    message: AUTH_CALLBACK_ERROR_MESSAGES.account_creation_failed,
   },
 };
 
