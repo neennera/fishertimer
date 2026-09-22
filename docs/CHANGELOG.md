@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **[web]**: Added TailwindCSS v4 and a pixel-art design system, fulfilling ADR-002:
+  - `app/tokens.css`: the single source of truth — 14 colours, the `--px` art-pixel unit, the `--pixclip` one-pixel bevel, and four type roles. No other file may contain a raw hex or px value.
+  - `app/pixel.css`: surface primitives (`.pixel-panel`, `.pixel-btn`, `.pixel-input`, `.pixel-alert`, `.pixel-badge`, `.pixel-tile`), all geometry derived from `--px`.
+  - `app/fonts.ts`: Jersey 15, Jersey 25, Silkscreen and Nunito via `next/font/google`.
+- **[web]**: Added `components/ui/` primitives (`PixelButton`, `PixelPanel`, `PixelInput`, `PixelAlert`, `PixelBadge`, `StatTile`) and a shared `Header`.
+- **[web]**: Added `/styleguide` route rendering every component and state from the real components — the verification surface for the design system.
+- **[web]**: Added `apps/web/DESIGN_SYSTEM.md` — reference for the token rules, the `--px` art-pixel grid, the colour and type tokens, and the `pixel.css` class list.
 - Standard Hexagonal / Clean Architecture templates across all 7 Go microservices (`auth`, `account`, `study-session`, `study-timer`, `reward`, `leaderboard`, `admin`).
 - Feature-driven modular architecture template for Next.js web application (`apps/web`).
 - AI Agent Skill Suite in `docs/skill-set/`:
@@ -34,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
 
 ---
+
+### Changed
+- **[web]**: Replaced the Turborepo starter `layout.tsx`, `page.tsx` and `globals.css`; the app is no longer titled "Create Next App".
 
 ## [0.1.0] - 2026-09-11
 
