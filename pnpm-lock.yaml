@@ -143,6 +143,8 @@ importers:
 
   services/admin: {}
 
+  services/api-gateway: {}
+
   services/auth: {}
 
   services/leaderboard: {}
