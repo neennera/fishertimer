@@ -22,26 +22,128 @@
       inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.14);
   }
 
-  /* --- Panel entrance ------------------------------------------------------
-     A brief rise-and-fade on mount. The auth flow's background and header
-     persist across navigation (a shared layout — see app/(auth)/layout.tsx)
-     so the panel is the only thing that swaps between /signin and /welcome;
-     without this it would be a jump cut. Opt-in per page, per
-     DESIGN_SYSTEM.md's Motion section — nothing else here animates on its
-     own. `both` holds the from-state before the animation starts and the
-     to-state after, so there's no flash of the unanimated panel. */
-  .pixel-panel--enter {
-    animation: pixel-panel-enter 0.35s ease-out both;
+  /* --- Skeleton loading ------------------------------------------------------
+     Placeholder for content still waiting on data (/welcome's session
+     fields). Pulses opacity; respects prefers-reduced-motion via the global
+     override. --input reuses .pixel-input's own padding/border, plus a
+     hand-tuned 52px (not calc(var(--px) * n) — 52 isn't a clean multiple)
+     to match a real <input>'s intrinsic sizing. --text sits inside the same
+     <p> as the real line so that line's own box reserves the height. */
+  .pixel-skeleton {
+    background: var(--color-cream-2);
+    clip-path: var(--pixclip);
+    animation: pixel-skeleton-pulse 1.2s ease-in-out infinite;
   }
 
-  @keyframes pixel-panel-enter {
+  .pixel-input.pixel-skeleton {
+    background: var(--color-cream-2);
+    height: 52px;
+  }
+
+  .pixel-skeleton--text {
+    display: inline-block;
+    width: 70%;
+    height: 1em;
+  }
+
+  @keyframes pixel-skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* --- Hanging sign --------------------------------------------------------
+     Signpost + signboard + bird above the panel on every auth screen
+     (SceneShell). Sized by calc(<native pixels> * var(--px)), same idiom as
+     every other sprite here. Alignment (centered post, right-aligned bird)
+     is Tailwind on the JSX side, not here.
+
+     The post is plain/non-positioned so PixelPanel (position: relative)
+     paints over it — its negative margin-bottom overlap reads as planted
+     behind the panel. The board needs `position: relative` to paint over
+     the post the same way, where the post's negative margin-top tucks
+     under it. The bird needs `position: relative; z-index: 1` since it's
+     meant to paint in front of the panel, not behind it.
+
+     No mount-in animation on the sign or panel — /welcome's panel waits on
+     an async session load while the sign (in the persistent
+     app/(auth)/layout.tsx) doesn't, so any entrance timing raced. The panel
+     renders immediately instead, with a skeleton (above) for what's
+     loading. */
+  .pixel-sign__board {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(90 * var(--px));
+    height: calc(30 * var(--px));
+    padding-inline: calc(var(--px) * 3);
+    background-image: url(/sprites/ui/signboard.png);
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+    /* Bottom, not top: that edge touches the post, so it must stay put
+       through the sway. */
+    transform-origin: bottom center;
+    animation: pixel-sign-sway 5s ease-in-out infinite;
+  }
+
+  .pixel-sign__board-text {
+    font-family: var(--font-display);
+    font-size: calc(var(--px) * 16);
+    line-height: 1.1;
+    color: var(--color-cream);
+    text-align: center;
+  }
+
+  @keyframes pixel-sign-sway {
+    0%,
+    100% {
+      transform: rotate(-3deg);
+    }
+    50% {
+      transform: rotate(3deg);
+    }
+  }
+
+  .pixel-sign__post {
+    position: relative;
+    z-index: -1;
+    width: calc(18 * var(--px));
+    height: calc(26 * var(--px));
+    margin-top: calc(var(--px) * -1);
+    margin-bottom: calc(var(--px) * -24);
+    background-image: url(/sprites/ui/signpost.png);
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+  }
+
+  /* One 16x16 frame of the 3-frame, 48x16 sheet. steps(3) divides the loop
+     into three equal holds and jumps — a slow idle shift between frames,
+     not a continuous flap. */
+  .pixel-sign-bird {
+    position: relative;
+    z-index: 1;
+    width: calc(16 * var(--px));
+    height: calc(16 * var(--px));
+    margin-bottom: calc(var(--px) * -3);
+    background-image: url(/sprites/items/sign-bird.png);
+    background-repeat: no-repeat;
+    background-size: calc(48 * var(--px)) calc(16 * var(--px));
+    image-rendering: pixelated;
+    animation: pixel-sign-bird-idle 3.5s steps(3) infinite;
+  }
+
+  @keyframes pixel-sign-bird-idle {
     from {
-      opacity: 0;
-      transform: translateY(calc(var(--px) * 4)) scale(0.98);
+      background-position-x: 0;
     }
     to {
-      opacity: 1;
-      transform: none;
+      background-position-x: calc(-48 * var(--px));
     }
   }
 
@@ -170,7 +272,7 @@
     border-radius: 0;
     clip-path: var(--pixclip);
     padding: calc(var(--px) * 4) calc(var(--px) * 5);
-    box-shadow: inset 0 0 0 var(--px) #e0ceac;
+    box-shadow: inset 0 0 0 var(--px) var(--color-cream-2);
   }
   .pixel-input:focus {
     outline: none;

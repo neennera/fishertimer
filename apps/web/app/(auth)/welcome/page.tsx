@@ -9,8 +9,6 @@ import { PixelPanel } from "../../../components/ui/PixelPanel";
 import { completeFirstTimeSetup, getSession, handleAuthCallback, type Session } from "../../../lib/auth";
 import { validateDisplayName } from "../../../lib/validate-display-name";
 
-// No app logo yet, same as /signin — plain text title until the sign art
-// exists (DESIGN_SYSTEM.md, "Replacing CSS surfaces with images").
 function WelcomeForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -87,34 +85,45 @@ function WelcomeForm() {
     }
   }
 
-  if (!session) {
-    return null;
-  }
-
+  // Panel renders immediately; only the session-dependent fields (name,
+  // email) show a skeleton while they load.
   return (
-    <PixelPanel className="pixel-panel--enter w-full max-w-sm text-center">
+    <PixelPanel className="w-full max-w-sm text-center">
       <h1 className="font-display text-3xl leading-none">Welcome to Fisher Timer</h1>
       <p className="mt-3 text-sm text-bark">
         Let&rsquo;s set up your profile before you start
       </p>
 
-      <form className="mt-6 text-left" onSubmit={handleSubmit}>
-        <PixelInput
-          label="Display name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          aria-invalid={displayedError ? "true" : undefined}
-          maxLength={100}
-        />
+      <form className="mt-6 text-left" onSubmit={handleSubmit} aria-busy={!session}>
+        {session ? (
+          <PixelInput
+            label="Display name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            aria-invalid={displayedError ? "true" : undefined}
+            maxLength={100}
+          />
+        ) : (
+          <div>
+            <span className="pixel-label">Display name</span>
+            <div className="pixel-input pixel-skeleton" aria-hidden="true" />
+          </div>
+        )}
 
         {displayedError && <PixelAlert className="mt-4">{displayedError}</PixelAlert>}
         {submitError && <PixelAlert className="mt-4">{submitError}</PixelAlert>}
 
-        <p className="mt-4 text-sm text-bark">
-          Signed in as {session.user.email} (from Google, not editable)
-        </p>
+        {session ? (
+          <p className="mt-4 text-sm text-bark">
+            Signed in as {session.user.email}
+          </p>
+        ) : (
+          <p className="mt-4 text-sm text-bark" aria-hidden="true">
+            <span className="pixel-skeleton pixel-skeleton--text" />
+          </p>
+        )}
 
-        <PixelButton block type="submit" className="mt-6" disabled={submitting}>
+        <PixelButton block type="submit" className="mt-6" disabled={submitting || !session}>
           {submitting ? "Saving…" : "Continue"}
         </PixelButton>
       </form>

@@ -7,9 +7,6 @@ import { PixelPanel } from "../../../components/ui/PixelPanel";
 import { handleAuthCallback, signInWithGoogle } from "../../../lib/auth";
 import { SignInError } from "./SignInError";
 
-// No app logo yet — signpost.png / signboard.png aren't drawn. When they
-// land, swap the panel header in pixel.css only (DESIGN_SYSTEM.md,
-// "Replacing CSS surfaces with images"); nothing here should need to change.
 function SignInPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,7 +37,7 @@ function SignInPanel() {
   }
 
   return (
-    <PixelPanel className="pixel-panel--enter w-full max-w-sm text-center">
+    <PixelPanel className="w-full max-w-sm text-center">
       <h1 className="font-display text-3xl leading-none">Fisher Timer</h1>
       <p className="mt-3 text-sm text-bark">
         Sign in to start your focus session
