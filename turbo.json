@@ -2,9 +2,10 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "globalEnv": [
+    "PORT",
+    "API_GATEWAY_PORT",
     "API_GATEWAY_URL",
     "ADMIN_SERVICE_URL",
-    "AUTH_SERVICE_URL",
     "ACCOUNT_SERVICE_URL",
     "SESSION_SERVICE_URL",
     "TIMER_SERVICE_URL",

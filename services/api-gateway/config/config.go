@@ -1,22 +1,61 @@
 package config
 
 import (
+	"bufio"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
 	Port                  int
 	Env                   string
-	AuthServiceURL        string
+	AccountServiceURL     string
 	TimerServiceURL       string
 	LeaderboardServiceURL string
 	SessionServiceURL     string
 	RewardServiceURL      string
 }
 
+func loadEnv() {
+	dir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	for i := 0; i < 4; i++ {
+		envPath := filepath.Join(dir, ".env")
+		if file, err := os.Open(envPath); err == nil {
+			defer file.Close()
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					k := strings.TrimSpace(parts[0])
+					v := strings.Trim(strings.TrimSpace(parts[1]), "\"'")
+					if os.Getenv(k) == "" {
+						os.Setenv(k, v)
+					}
+				}
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+}
+
 func Load() *Config {
-	port := 8080
+	loadEnv()
+
+	port := 8000
 	if p := os.Getenv("PORT"); p != "" {
 		if val, err := strconv.Atoi(p); err == nil {
 			port = val
@@ -32,9 +71,9 @@ func Load() *Config {
 		env = "development"
 	}
 
-	authURL := os.Getenv("AUTH_SERVICE_URL")
-	if authURL == "" {
-		authURL = "http://localhost:8081"
+	accountURL := os.Getenv("ACCOUNT_SERVICE_URL")
+	if accountURL == "" {
+		accountURL = "http://localhost:8082"
 	}
 
 	timerURL := os.Getenv("TIMER_SERVICE_URL")
@@ -60,7 +99,7 @@ func Load() *Config {
 	return &Config{
 		Port:                  port,
 		Env:                   env,
-		AuthServiceURL:        authURL,
+		AccountServiceURL:     accountURL,
 		TimerServiceURL:       timerURL,
 		LeaderboardServiceURL: leaderboardURL,
 		SessionServiceURL:     sessionURL,

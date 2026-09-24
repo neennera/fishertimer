@@ -4,10 +4,11 @@
 Client API Gateway reverse proxy for Fisher Timer microservices. Dispatches requests from the Client frontend website to downstream microservices with CORS support.
 
 ## Port
-Default port: `8080`
+Default port: `8000` (configurable via `API_GATEWAY_PORT` in `.env`)
 
 ## Routing
-- `/api/auth/*` -> Auth Service (`8081`)
+- `/api/account/*` -> Account Service (`8082`)
+- `/api/auth/*` -> Account Service (`8082`)
 - `/api/timer/*` -> Study Timer Service (`8084`)
 - `/api/leaderboard/*` -> Leaderboard Service (`8086`)
 - `/api/session/*` -> Study Session Service (`8083`)

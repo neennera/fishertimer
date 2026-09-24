@@ -5,6 +5,7 @@ import (
 )
 
 type Repository interface {
-	CreateReport(ctx context.Context, r *ModerationReport) error
-	ListPending(ctx context.Context) ([]ModerationReport, error)
+	ListActiveSessions(ctx context.Context) ([]SessionOverview, error)
+	ListParticipants(ctx context.Context, sessionID string) ([]SessionParticipantOverview, error)
+	GetSessionDetails(ctx context.Context, sessionID string) (*SessionOverview, error)
 }

@@ -6,9 +6,10 @@ import (
 )
 
 type Config struct {
-	Port        int
-	Env         string
-	DatabaseURL string
+	Port             int
+	Env              string
+	DatabaseURL      string
+	RewardServiceURL string
 }
 
 func Load() *Config {
@@ -35,9 +36,15 @@ func Load() *Config {
 		dbURL = "postgres://postgres:postgrespassword@localhost:5434/timer_db?sslmode=disable"
 	}
 
+	rewardURL := os.Getenv("REWARD_SERVICE_URL")
+	if rewardURL == "" {
+		rewardURL = "http://localhost:8085"
+	}
+
 	return &Config{
-		Port:        port,
-		Env:         env,
-		DatabaseURL: dbURL,
+		Port:             port,
+		Env:              env,
+		DatabaseURL:      dbURL,
+		RewardServiceURL: rewardURL,
 	}
 }

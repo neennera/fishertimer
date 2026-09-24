@@ -17,12 +17,42 @@ func (repo *mockRepository) UpsertScore(ctx context.Context, entry *domain.RankE
 	return nil
 }
 
+type mockRewardClient struct {
+	called bool
+	userID string
+}
+
+func (m *mockRewardClient) ViewRewards(ctx context.Context, userID string) ([]domain.FishReward, error) {
+	m.called = true
+	m.userID = userID
+	return []domain.FishReward{{ID: "fish_1", UserID: userID, Species: "Golden Trout", Rarity: "LEGENDARY"}}, nil
+}
+
 func TestUsecase_Success(t *testing.T) {
 	repo := &mockRepository{}
-	svc := usecase.New(repo)
+	rewardClient := &mockRewardClient{}
+	svc := usecase.New(repo, rewardClient)
 	if svc == nil {
 		t.Fatal("expected usecase service to be initialized")
 	}
 	ctx := context.Background()
-	_ = ctx
+
+	ranks, err := svc.GetTopUsers(ctx, "weekly")
+	if err != nil {
+		t.Fatalf("unexpected error getting rankings: %v", err)
+	}
+	if len(ranks) != 1 {
+		t.Fatalf("expected 1 rank entry, got %d", len(ranks))
+	}
+
+	rewards, err := svc.FetchUserRewards(ctx, "u1")
+	if err != nil {
+		t.Fatalf("unexpected error fetching rewards: %v", err)
+	}
+	if !rewardClient.called {
+		t.Fatal("expected rewardClient.ViewRewards to be called")
+	}
+	if len(rewards) != 1 || rewards[0].Species != "Golden Trout" {
+		t.Fatalf("expected 1 Golden Trout reward, got %v", rewards)
+	}
 }

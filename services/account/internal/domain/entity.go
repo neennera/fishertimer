@@ -10,10 +10,23 @@ var (
 	ErrInvalid  = errors.New("account: invalid input")
 )
 
+type UserAccount struct {
+	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Profile struct {
 	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
 	DisplayName string    `json:"display_name"`
-	IsBanned    bool      `json:"is_banned"`
-	TotalFocus  int       `json:"total_focus_minutes"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type UserStatistics struct {
+	UserID        string `json:"user_id"`
+	TotalSessions int    `json:"total_sessions"`
+	TotalFocusMin int    `json:"total_focus_minutes"`
+	RewardsEarned int    `json:"rewards_earned"`
 }

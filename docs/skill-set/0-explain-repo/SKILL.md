@@ -26,8 +26,8 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 | **Monorepo** | Turborepo + pnpm | High concurrency build cache, polyglot task orchestration. |
 | **Frontend** | Next.js 16 (React 19) + TailwindCSS | Fast SSR/SEO, component modularity (ADR-001, ADR-002). |
 | **Backend** | Go (Golang) 1.22+ | Extreme concurrency, low memory footprint, Clean Architecture (ADR-003). |
-| **Database** | Supabase (PostgreSQL) + MongoDB | Polyglot persistence: Relational/WebSockets in Supabase, flexible JSON in MongoDB (ADR-004). |
-| **Auth** | Google OAuth + JWT | Low friction, frictionless student sign-on (ADR-005). |
+| **Database** | PostgreSQL (Supabase) + MongoDB + Redis | Polyglot persistence: Relational in PostgreSQL, JSON items in MongoDB, high-speed rankings in Redis (ADR-004). |
+| **Auth** | Google OAuth + JWT (in Account Service) | Low friction, frictionless student sign-on (ADR-005). |
 | **Deployment**| Render (Dockerized) | Microservice deployment with low DevOps overhead (ADR-006). |
 
 ---
@@ -35,13 +35,12 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 ## 3. Directory Layout & Mental Map
 
 - **`apps/web`**: The user-facing web application. Feature-sliced structure (`features/timer`, `features/session`, etc.).
-- **`services/*`**: 7 independent Go microservices:
-  - `auth` (8081): Google OAuth & JWT tokens.
-  - `account` (8082): User profile & statistics.
-  - `study-session` (8083): Rooms & capacity limits.
-  - `study-timer` (8084): Work/break interval execution.
+- **`services/*`**: 6 independent Go microservices:
+  - `account` (8082): Google OAuth authentication, user profiles & statistics.
+  - `study-session` (8083): Rooms & capacity limits (gRPC/HTTP).
+  - `study-timer` (8084): Work/break interval execution, reward triggering (gRPC/HTTP).
   - `reward` (8085): Fish drops & rarity progression.
-  - `leaderboard` (8086): Read-optimized rankings.
+  - `leaderboard` (8086): Read-optimized rankings cached in Redis.
   - `admin` (8087): Moderation & live room inspection.
 - **`packages/*`**: Shared libraries:
   - `shared-types`: Common TypeScript interfaces and models.
