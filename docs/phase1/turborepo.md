@@ -157,8 +157,8 @@ Executes Next.js static and server compilation alongside Go binary builds in par
 To run or build an individual service using Turborepo filters:
 
 ```bash
-# Run only the Auth service in dev mode
-pnpm turbo dev --filter=@fishertimer/auth-service
+# Run only the Account service in dev mode
+pnpm turbo dev --filter=@fishertimer/account-service
 
 # Run only the Web frontend
 pnpm turbo dev --filter=web

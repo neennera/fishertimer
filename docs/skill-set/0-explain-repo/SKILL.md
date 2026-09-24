@@ -26,8 +26,8 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 | **Monorepo** | Turborepo + pnpm | High concurrency build cache, polyglot task orchestration. |
 | **Frontend** | Next.js 16 (React 19) + TailwindCSS | Fast SSR/SEO, component modularity (ADR-001, ADR-002). |
 | **Backend** | Go (Golang) 1.22+ | Extreme concurrency, low memory footprint, Clean Architecture (ADR-003). |
-| **Database** | Supabase (PostgreSQL) + MongoDB | Polyglot persistence: Relational/WebSockets in Supabase, flexible JSON in MongoDB (ADR-004). |
-| **Auth** | Google OAuth + JWT | Low friction, frictionless student sign-on (ADR-005). |
+| **Database** | PostgreSQL (Supabase) + MongoDB + Redis | Polyglot persistence: Relational in PostgreSQL, JSON items in MongoDB, high-speed rankings in Redis (ADR-004). |
+| **Auth** | Google OAuth + JWT (in Account Service) | Low friction, frictionless student sign-on (ADR-005). |
 | **Deployment**| Render (Dockerized) | Microservice deployment with low DevOps overhead (ADR-006). |
 
 ---

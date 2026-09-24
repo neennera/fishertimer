@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Added
+- **[database]**: Implemented 3NF database schemas across all microservices and authored full DBML documentation:
+  - Added authoritative DBML specification in `docs/database/schema.dbml` and architecture guide in `docs/database/README.md`.
+  - Created DDL migration scripts:
+    - Account: `services/account/database/schemas/001_create_users_table.sql` (`users`).
+    - Study Session: `services/study-session/database/schemas/001_create_study_sessions_tables.sql` (`study_sessions`, `session_participants`).
+    - Study Timer: `services/study-timer/database/schemas/001_create_timer_tables.sql` (`timer_settings`, `timer_sessions`, `timer_cycles`).
+    - Reward: `services/reward/database/schemas/001_create_reward_collections.js` (`reward_items`, `user_rewards`).
+    - Admin Moderation: `services/admin/database/schemas/001_create_admin_logs_table.sql` (`admin_logs`).
+  - Updated `docker-compose.yml` to remove `auth-db` and `leaderboard-db`, provision `redis:7-alpine`, and auto-mount DDL scripts.
+  - Aligned `@fishertimer/shared-types` domain TypeScript models to reflect 3NF schemas.
 - **[proto]**: Added gRPC protobuf service definitions for Study Session (`proto/studysession/v1/session.proto`) and Study Timer (`proto/studytimer/v1/timer.proto`).
 - **[services]**: Updated Clean Architecture code skeletons across microservices to match updated operations and boundaries:
   - `account`: Added `SignIn`, `SignUp`, `SignOut`, `ViewProfile`, `UpdateProfile`, and `ViewStatistics` skeletons.

@@ -106,8 +106,7 @@ fs.writeFileSync(path.join(rootDir, 'turbo.json'), JSON.stringify(turboConfig, n
 
 // 5. Define services from docs/phase1/microservice.md
 const services = [
-  { name: 'auth', port: 8081, desc: 'Google OAuth authentication and user identity management' },
-  { name: 'account', port: 8082, desc: 'User profile management, user statistics, and ban states' },
+  { name: 'account', port: 8082, desc: 'Google OAuth authentication, user profile management, and statistics dashboard' },
   { name: 'study-session', port: 8083, desc: 'Study session room lifecycle, participant rosters, and room capacity' },
   { name: 'study-timer', port: 8084, desc: 'Independent user timer execution, focus cycles, and rest intervals' },
   { name: 'reward', port: 8085, desc: 'Gamification reward drop calculation and inventory progression' },
@@ -243,7 +242,6 @@ Default port: \`${svc.port}\`
 const goWorkContent = `go 1.22
 
 use (
-	./services/auth
 	./services/account
 	./services/study-session
 	./services/study-timer

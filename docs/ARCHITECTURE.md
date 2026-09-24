@@ -137,4 +137,22 @@ Dependencies point **inwards**. The `domain` layer has zero dependencies on fram
 
 Domain data structures shared across services and the web client are maintained in:
 - `packages/shared-types/src/index.ts` (TypeScript interfaces for Frontend & API consumers)
-- Standard Protobuf/JSON schema definitions for Go inter-service contracts.
+- Standard Protobuf definitions for Go inter-service contracts:
+  - `proto/studysession/v1/session.proto` (Study Session gRPC contracts)
+  - `proto/studytimer/v1/timer.proto` (Study Timer gRPC contracts)
+
+---
+
+## 6. Database Architecture & 3NF Schemas
+
+Detailed database schemas, 3NF relations, and DBML definitions are maintained in:
+- [`docs/database/schema.dbml`](database/schema.dbml): Authoritative DBML specification.
+- [`docs/database/README.md`](database/README.md): Detailed database documentation, port allocations, and service schema references.
+- Schema DDL files:
+  - Account (`account_db`): `services/account/database/schemas/001_create_users_table.sql`
+  - Study Session (`session_db`): `services/study-session/database/schemas/001_create_study_sessions_tables.sql`
+  - Study Timer (`timer_db`): `services/study-timer/database/schemas/001_create_timer_tables.sql`
+  - Reward (`reward_db`): `services/reward/database/schemas/001_create_reward_collections.js`
+  - Admin Moderation (`admin_db`): `services/admin/database/schemas/001_create_admin_logs_table.sql`
+  - Leaderboard: In-memory Redis cache (`redis://localhost:6379`)
+
