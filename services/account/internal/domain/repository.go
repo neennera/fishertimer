@@ -5,6 +5,8 @@ import (
 )
 
 type Repository interface {
+	CreateUser(ctx context.Context, u *UserAccount) error
+	GetUserByEmail(ctx context.Context, email string) (*UserAccount, error)
 	GetProfile(ctx context.Context, userID string) (*Profile, error)
-	UpdateBanStatus(ctx context.Context, userID string, banned bool) error
+	UpdateProfile(ctx context.Context, p *Profile) error
 }

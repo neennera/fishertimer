@@ -8,7 +8,7 @@ import (
 type Config struct {
 	Port                  int
 	Env                   string
-	AuthServiceURL        string
+	AccountServiceURL     string
 	TimerServiceURL       string
 	LeaderboardServiceURL string
 	SessionServiceURL     string
@@ -32,9 +32,9 @@ func Load() *Config {
 		env = "development"
 	}
 
-	authURL := os.Getenv("AUTH_SERVICE_URL")
-	if authURL == "" {
-		authURL = "http://localhost:8081"
+	accountURL := os.Getenv("ACCOUNT_SERVICE_URL")
+	if accountURL == "" {
+		accountURL = "http://localhost:8082"
 	}
 
 	timerURL := os.Getenv("TIMER_SERVICE_URL")
@@ -60,7 +60,7 @@ func Load() *Config {
 	return &Config{
 		Port:                  port,
 		Env:                   env,
-		AuthServiceURL:        authURL,
+		AccountServiceURL:     accountURL,
 		TimerServiceURL:       timerURL,
 		LeaderboardServiceURL: leaderboardURL,
 		SessionServiceURL:     sessionURL,

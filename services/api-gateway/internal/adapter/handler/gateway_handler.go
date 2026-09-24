@@ -12,18 +12,18 @@ import (
 )
 
 type GatewayHandler struct {
-	cfg            *config.Config
-	authProxy      *httputil.ReverseProxy
-	timerProxy     *httputil.ReverseProxy
-	boardProxy     *httputil.ReverseProxy
-	sessionProxy   *httputil.ReverseProxy
-	rewardProxy    *httputil.ReverseProxy
+	cfg          *config.Config
+	accountProxy *httputil.ReverseProxy
+	timerProxy   *httputil.ReverseProxy
+	boardProxy   *httputil.ReverseProxy
+	sessionProxy *httputil.ReverseProxy
+	rewardProxy  *httputil.ReverseProxy
 }
 
 func New(cfg *config.Config) *GatewayHandler {
 	return &GatewayHandler{
 		cfg:          cfg,
-		authProxy:    createReverseProxy(cfg.AuthServiceURL, "/api/v1/auth"),
+		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account"),
 		timerProxy:   createReverseProxy(cfg.TimerServiceURL, "/api/v1/study-timer"),
 		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard"),
 		sessionProxy: createReverseProxy(cfg.SessionServiceURL, "/api/v1/study-session"),
@@ -60,7 +60,8 @@ func (h *GatewayHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/gateway/status", h.withCORS(h.Status))
 
 	// Microservices proxy routes for Client
-	mux.HandleFunc("/api/auth/", h.withCORS(h.handleAuth))
+	mux.HandleFunc("/api/account/", h.withCORS(h.handleAccount))
+	mux.HandleFunc("/api/auth/", h.withCORS(h.handleAccount))
 	mux.HandleFunc("/api/timer/", h.withCORS(h.handleTimer))
 	mux.HandleFunc("/api/leaderboard/", h.withCORS(h.handleLeaderboard))
 	mux.HandleFunc("/api/session/", h.withCORS(h.handleSession))
@@ -98,6 +99,7 @@ func (h *GatewayHandler) Status(w http.ResponseWriter, r *http.Request) {
 		"service": "api-gateway",
 		"layer":   "adapter.handler",
 		"routes": []string{
+			"/api/account/*",
 			"/api/auth/*",
 			"/api/timer/*",
 			"/api/leaderboard/*",
@@ -108,8 +110,8 @@ func (h *GatewayHandler) Status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *GatewayHandler) handleAuth(w http.ResponseWriter, r *http.Request) {
-	h.authProxy.ServeHTTP(w, r)
+func (h *GatewayHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
+	h.accountProxy.ServeHTTP(w, r)
 }
 
 func (h *GatewayHandler) handleTimer(w http.ResponseWriter, r *http.Request) {
