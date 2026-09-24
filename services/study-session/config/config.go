@@ -6,10 +6,9 @@ import (
 )
 
 type Config struct {
-	Port             int
-	Env              string
-	RewardServiceURL string
-	DatabaseURL      string
+	Port        int
+	Env         string
+	DatabaseURL string
 }
 
 func Load() *Config {
@@ -28,11 +27,6 @@ func Load() *Config {
 		env = "development"
 	}
 
-	rewardURL := os.Getenv("REWARD_SERVICE_URL")
-	if rewardURL == "" {
-		rewardURL = "http://localhost:8085"
-	}
-
 	dbURL := os.Getenv("SESSION_DATABASE_URL")
 	if dbURL == "" {
 		dbURL = os.Getenv("DATABASE_URL")
@@ -42,9 +36,8 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:             port,
-		Env:              env,
-		RewardServiceURL: rewardURL,
-		DatabaseURL:      dbURL,
+		Port:        port,
+		Env:         env,
+		DatabaseURL: dbURL,
 	}
 }

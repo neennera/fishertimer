@@ -6,27 +6,49 @@ import (
 )
 
 type Usecase interface {
-	CreateRoom(ctx context.Context, name, creatorID string, limit int) (*domain.StudySession, error)
-	GetRoom(ctx context.Context, id string) (*domain.StudySession, error)
+	CreateSession(ctx context.Context, name, creatorID string, limit int) (*domain.StudySession, error)
+	JoinSession(ctx context.Context, sessionID, userID string) error
+	LeaveSession(ctx context.Context, sessionID, userID string) error
 	EndSession(ctx context.Context, sessionID, userID string) (*domain.StudySession, error)
+	ListActiveSession(ctx context.Context) ([]domain.StudySession, error)
+	GetParticipants(ctx context.Context, sessionID string) ([]domain.Participant, error)
 }
 
 type service struct {
-	repo         domain.Repository
-	rewardClient domain.RewardClient
+	repo domain.Repository
 }
 
-func New(repo domain.Repository, rewardClient domain.RewardClient) Usecase {
-	return &service{repo: repo, rewardClient: rewardClient}
+func New(repo domain.Repository) Usecase {
+	return &service{repo: repo}
 }
 
-func (s *service) CreateRoom(ctx context.Context, name, creatorID string, limit int) (*domain.StudySession, error) {
-	sess := &domain.StudySession{ID: "sess_test", Name: name, CreatorID: creatorID, ParticipantLimit: limit, Status: "ACTIVE"}
-	return sess, s.repo.CreateSession(ctx, sess)
+func (s *service) CreateSession(ctx context.Context, name, creatorID string, limit int) (*domain.StudySession, error) {
+	sess := &domain.StudySession{
+		ID:               "sess_test",
+		Name:             name,
+		CreatorID:        creatorID,
+		ParticipantLimit: limit,
+		Status:           "ACTIVE",
+	}
+	if err := s.repo.CreateSession(ctx, sess); err != nil {
+		return nil, err
+	}
+	_ = s.repo.AddParticipant(ctx, &domain.Participant{
+		SessionID: sess.ID,
+		UserID:    creatorID,
+	})
+	return sess, nil
 }
 
-func (s *service) GetRoom(ctx context.Context, id string) (*domain.StudySession, error) {
-	return s.repo.GetSession(ctx, id)
+func (s *service) JoinSession(ctx context.Context, sessionID, userID string) error {
+	return s.repo.AddParticipant(ctx, &domain.Participant{
+		SessionID: sessionID,
+		UserID:    userID,
+	})
+}
+
+func (s *service) LeaveSession(ctx context.Context, sessionID, userID string) error {
+	return s.repo.RemoveParticipant(ctx, sessionID, userID)
 }
 
 func (s *service) EndSession(ctx context.Context, sessionID, userID string) (*domain.StudySession, error) {
@@ -36,11 +58,14 @@ func (s *service) EndSession(ctx context.Context, sessionID, userID string) (*do
 	} else {
 		sess.Status = "ENDED"
 	}
-
-	// Trigger collaboration to Reward Service: AwardReward()
-	if s.rewardClient != nil {
-		_ = s.rewardClient.AwardReward(ctx, userID, "EndSession")
-	}
-
+	_ = s.repo.UpdateSession(ctx, sess)
 	return sess, nil
+}
+
+func (s *service) ListActiveSession(ctx context.Context) ([]domain.StudySession, error) {
+	return s.repo.ListActiveSessions(ctx)
+}
+
+func (s *service) GetParticipants(ctx context.Context, sessionID string) ([]domain.Participant, error) {
+	return s.repo.GetParticipants(ctx, sessionID)
 }
