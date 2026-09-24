@@ -1,0 +1,95 @@
+/* ============================================================================
+   Fisher Timer — design tokens
+   ----------------------------------------------------------------------------
+   THIS IS THE ONLY FILE THAT CONTAINS RAW COLOUR AND SIZE VALUES.
+
+   No component, page or feature may write a hex colour or a raw px value.
+   Everything derives from what is declared here. Change a token and the whole
+   app changes; hardcode one value somewhere else and that promise is broken.
+
+   See apps/web/DESIGN_SYSTEM.md for the reasoning.
+   ========================================================================== */
+
+@theme {
+  /* --- UI colours: these six build every panel ---------------------------- */
+  --color-ink: #3a2a1e; /* body text on cream */
+  --color-bark: #6b4b35; /* secondary text, panel edges */
+  --color-cream: #fbf0dc; /* panel surface */
+  --color-cream-2: #f2e2c2; /* secondary buttons, dividers */
+  --color-amber: #e08a47; /* primary action */
+  --color-amber-dk: #c4652e; /* hover, button thickness */
+
+  /* --- Scene colours: backgrounds, water, foliage ------------------------- */
+  --color-oak: #8a6244; /* wood, tank frame */
+  --color-oak-lt: #a67c52; /* grain, floor */
+  --color-sage: #7fa05c; /* grass, near foliage */
+  --color-forest: #4e6f42; /* trees, weeds, far hills */
+  --color-lake: #4fa3b8; /* water, avatar, focus */
+  --color-lake-dp: #2e6e85; /* deep water, focus outline */
+  --color-sky: #f3c9a0; /* warm dusk sky, room wall */
+  --color-rust: #b4472f; /* errors, ban badge */
+
+  /* --- Page chrome: the only theme-aware tokens --------------------------- */
+  --color-bg: #f6f0e6;
+  --color-fg: #2f2418;
+  --color-muted: #786651;
+  --color-rule: #ded2be;
+  --color-surface: #fdfaf4;
+  --color-surface-2: #ede4d4;
+
+  /* --- Type ---------------------------------------------------------------
+     The --font-* vars on the right are injected by next/font/google
+     from app/fonts.ts. Never reference those directly in a component.       */
+  --font-display: var(--font-jersey-15), ui-monospace, monospace; /* titles, signs */
+  --font-numeric: var(--font-jersey-25), ui-monospace, monospace; /* numbers, buttons */
+  --font-label: var(--font-silkscreen), ui-monospace, monospace; /* micro labels */
+  --font-body: var(--font-dotgothic), ui-monospace, monospace; /* sentences */
+}
+
+:root {
+  /* ==========================================================================
+     THE token. One art pixel, expressed in screen pixels.
+
+     Every border, bevel, depth band, focus ring, sprite scale and structural
+     padding in pixel.css is a multiple of this. It is what keeps the UI on the
+     same grid as the 16x16 sprites — mismatching it is what makes pixel art
+     look subtly broken.
+     ====================================================================== */
+  --px: 3px;
+
+  /* A one-pixel bevel: a single art pixel clipped off each corner.
+     The same shape at every size, so there is no multi-step staircase that
+     can drift out of alignment with the sprites. */
+  --pixclip: polygon(
+    var(--px) 0,
+    calc(100% - var(--px)) 0,
+    100% var(--px),
+    100% calc(100% - var(--px)),
+    calc(100% - var(--px)) 100%,
+    var(--px) 100%,
+    0 calc(100% - var(--px)),
+    0 var(--px)
+  );
+}
+
+/* Dark mode only re-tints the page chrome. The brand palette above is fixed:
+   parchment is parchment and amber is amber in both themes. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #221a13;
+    --color-fg: #f2e7d6;
+    --color-muted: #a99781;
+    --color-rule: #41342a;
+    --color-surface: #2b2118;
+    --color-surface-2: #372b20;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #221a13;
+  --color-fg: #f2e7d6;
+  --color-muted: #a99781;
+  --color-rule: #41342a;
+  --color-surface: #2b2118;
+  --color-surface-2: #372b20;
+}

@@ -1,14 +1,11 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./pixel.css";
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ============================================================================
+   Base. Keep this file small — tokens.css owns values, pixel.css owns
+   surfaces, and everything else belongs in a component.
+   ========================================================================== */
 
 html,
 body {
@@ -17,14 +14,19 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-body);
+  /* A bitmap face needs more air than a sans. Do not drop this below 1.7. */
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 
 a {
@@ -32,19 +34,13 @@ a {
   text-decoration: none;
 }
 
-.imgDark {
-  display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-
-  .imgLight {
-    display: none;
-  }
-  .imgDark {
-    display: unset;
+/* Anything that animates must be able to stop. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
