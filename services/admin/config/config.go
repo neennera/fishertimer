@@ -6,9 +6,10 @@ import (
 )
 
 type Config struct {
-	Port        int
-	Env         string
-	DatabaseURL string
+	Port              int
+	Env               string
+	DatabaseURL       string
+	SessionServiceURL string
 }
 
 func Load() *Config {
@@ -35,9 +36,15 @@ func Load() *Config {
 		dbURL = "postgres://postgres:postgrespassword@localhost:5435/admin_db?sslmode=disable"
 	}
 
+	sessionURL := os.Getenv("SESSION_SERVICE_URL")
+	if sessionURL == "" {
+		sessionURL = "http://localhost:8083"
+	}
+
 	return &Config{
-		Port:        port,
-		Env:         env,
-		DatabaseURL: dbURL,
+		Port:              port,
+		Env:               env,
+		DatabaseURL:       dbURL,
+		SessionServiceURL: sessionURL,
 	}
 }

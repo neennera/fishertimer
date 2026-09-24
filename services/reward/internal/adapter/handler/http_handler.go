@@ -19,6 +19,24 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", h.Health)
 	mux.HandleFunc("/api/v1/reward/status", h.Status)
 	mux.HandleFunc("/api/v1/reward/award", h.AwardReward)
+	mux.HandleFunc("/api/v1/reward/rewards", h.ViewRewards)
+}
+
+func (h *HTTPHandler) ViewRewards(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.URL.Query().Get("user_id")
+	rewards, err := h.uc.GetUserInventory(r.Context(), userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rewards)
 }
 
 type awardRequest struct {
