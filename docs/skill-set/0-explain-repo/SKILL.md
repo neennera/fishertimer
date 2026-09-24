@@ -35,13 +35,12 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 ## 3. Directory Layout & Mental Map
 
 - **`apps/web`**: The user-facing web application. Feature-sliced structure (`features/timer`, `features/session`, etc.).
-- **`services/*`**: 7 independent Go microservices:
-  - `auth` (8081): Google OAuth & JWT tokens.
-  - `account` (8082): User profile & statistics.
-  - `study-session` (8083): Rooms & capacity limits.
-  - `study-timer` (8084): Work/break interval execution.
+- **`services/*`**: 6 independent Go microservices:
+  - `account` (8082): Google OAuth authentication, user profiles & statistics.
+  - `study-session` (8083): Rooms & capacity limits (gRPC/HTTP).
+  - `study-timer` (8084): Work/break interval execution, reward triggering (gRPC/HTTP).
   - `reward` (8085): Fish drops & rarity progression.
-  - `leaderboard` (8086): Read-optimized rankings.
+  - `leaderboard` (8086): Read-optimized rankings cached in Redis.
   - `admin` (8087): Moderation & live room inspection.
 - **`packages/*`**: Shared libraries:
   - `shared-types`: Common TypeScript interfaces and models.

@@ -32,50 +32,47 @@ graph TD
     end
 
     subgraph Backend Microservices ["Go 1.22+ Clean Architecture (services/*)"]
-        Auth["Auth Service<br/>Port: 8081"]
-        Account["Account Service<br/>Port: 8082"]
-        Session["Study Session Service<br/>Port: 8083"]
-        Timer["Study Timer Service<br/>Port: 8084"]
+        Account["Account Service (Auth & Profiles)<br/>Port: 8082"]
+        Session["Study Session Service (gRPC / HTTP)<br/>Port: 8083"]
+        Timer["Study Timer Service (gRPC / HTTP)<br/>Port: 8084"]
         Reward["Reward Service<br/>Port: 8085"]
         Leaderboard["Leaderboard Service<br/>Port: 8086"]
         Admin["Admin Moderation Service<br/>Port: 8087"]
     end
 
-    subgraph Persistence Layer ["Database Per Service"]
-        AuthDB[("Auth DB")]
-        AccountDB[("Account DB")]
-        SessionDB[("Session DB")]
-        TimerDB[("Timer DB")]
-        RewardDB[("Reward DB")]
-        LeaderboardDB[("Leaderboard DB")]
-        AdminDB[("Admin DB")]
+    subgraph Persistence Layer ["Database & Cache Per Service"]
+        AccountDB[("Account DB<br/>(PostgreSQL)")]
+        SessionDB[("Session DB<br/>(PostgreSQL)")]
+        TimerDB[("Timer DB<br/>(PostgreSQL)")]
+        RewardDB[("Reward DB<br/>(MongoDB)")]
+        LeaderboardCache[("Redis Cache<br/>(Leaderboard)")]
+        AdminDB[("Admin DB<br/>(PostgreSQL)")]
     end
 
     %% Client Routing
     ClientWeb -->|REST API| Gateway
-    Gateway -->|/api/auth/*| Auth
-    Gateway -->|/api/timer/*| Timer
+    Gateway -->|/api/account/*| Account
+    Gateway -->|/api/timer/* (gRPC / REST)| Timer
     Gateway -->|/api/leaderboard/*| Leaderboard
-    Gateway -->|/api/session/*| Session
+    Gateway -->|/api/session/* (gRPC / REST)| Session
     Gateway -->|/api/reward/*| Reward
 
     %% Admin Routing
     AdminWeb -->|Direct REST API| Admin
 
     %% Inter-service calls
-    Admin -.-> Session
-    Admin -.-> Account
-    Account -.-> Timer
-    Account -.-> Reward
-    Session -.->|AwardReward() on EndSession| Reward
+    Admin -.->|LeaveSession() / EndSession()| Session
+    Account -.->|TimerStatistics()| Timer
+    Account -.->|ViewRewards()| Reward
+    Timer -.->|AwardReward() on CompleteCycle| Reward
+    Leaderboard -.->|ViewRewards()| Reward
 
-    %% Databases
-    Auth --> AuthDB
+    %% Databases & Cache
     Account --> AccountDB
     Session --> SessionDB
     Timer --> TimerDB
     Reward --> RewardDB
-    Leaderboard --> LeaderboardDB
+    Leaderboard --> LeaderboardCache
     Admin --> AdminDB
 ```
 
@@ -138,13 +135,12 @@ Client requests route through the Go API Gateway (8080), while Admin requests co
 | **Web Client** | `3000` | `/` | `apps/web` | - |
 | **Admin Web** | `3000` | `/admin` | `apps/web/admin` | - |
 | **API Gateway** | `8080` | `/api/*` | `services/api-gateway` | - |
-| **Auth** | `8081` | `/api/auth/*` | `services/auth` | Auth DB |
-| **Account** | `8082` | - (Internal/Admin) | `services/account` | Account DB |
-| **Study Session** | `8083` | `/api/session/*` | `services/study-session` | Session DB |
-| **Study Timer** | `8084` | `/api/timer/*` | `services/study-timer` | Timer DB |
-| **Reward** | `8085` | `/api/reward/*` | `services/reward` | Reward DB |
-| **Leaderboard** | `8086` | `/api/leaderboard/*` | `services/leaderboard` | Leaderboard DB |
-| **Admin** | `8087` | Direct (`/api/v1/admin/*`) | `services/admin` | Admin DB |
+| **Account** | `8082` | `/api/account/*` | `services/account` | Account DB (`account_db`) |
+| **Study Session** | `8083` | `/api/session/*` (gRPC / HTTP) | `services/study-session` | Session DB (`session_db`) |
+| **Study Timer** | `8084` | `/api/timer/*` (gRPC / HTTP) | `services/study-timer` | Timer DB (`timer_db`) |
+| **Reward** | `8085` | `/api/reward/*` | `services/reward` | Reward DB (`reward_db`) |
+| **Leaderboard** | `8086` | `/api/leaderboard/*` | `services/leaderboard` | Redis Cache (In-Memory) |
+| **Admin** | `8087` | Direct (`/api/v1/admin/*`) | `services/admin` | Admin DB (`admin_db`) |
 
 ---
 

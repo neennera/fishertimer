@@ -11,7 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **[architecture]**: Updated microservice specifications and system topology in `docs/phase1/microservice.md`, `docs/ARCHITECTURE.md`, and `README.md`:
+  - **Study Session -> Study Timer**: Moved `AwardReward` collaborator call trigger from Study Session (`EndSession`) to Study Timer (`CompleteCycle`).
+  - **Leaderboard**: Removed standalone `leaderboard_db`; replaced with Redis Cache and configured Leaderboard to read user reward records from Reward Service `ViewRewards()`.
+  - **Auth -> Account**: Consolidated standalone Auth Service into Account Service (`account_db`), housing Google OAuth (`SignIn`, `SignUp`, `SignOut`) alongside user profiles and statistics dashboard.
+  - **gRPC Protocol**: Adopted **gRPC** for Study Timer and Study Session microservices.
+  - **Admin Collaboration**: Configured Admin service to directly send commands to Study Session (`LeaveSession()` to kick participants and `EndSession()` to close rooms).
+
+### Removed
+- **[admin]**: Removed `BanUser`, `UnbanUser`, `VerifyBanStatus`, `MonitorTimerStatus`, and moderation report operations.
+- **[reward]**: Removed `ClaimReward` and `TrackProgression` operations.
+- **[leaderboard]**: Removed standalone `FilterByPeriod` operation in favor of cached period filtering in `ViewLeaderboard`.
+- **[study-timer]**: Removed `SwitchPhase`, `StartRest`, etc., consolidating cycle transitions into `CompleteCycle` and `SkipRest`.
+- **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
+
 ### Added
+- **[proto]**: Added gRPC protobuf service definitions for Study Session (`proto/studysession/v1/session.proto`) and Study Timer (`proto/studytimer/v1/timer.proto`).
+- **[services]**: Updated Clean Architecture code skeletons across microservices to match updated operations and boundaries:
+  - `account`: Added `SignIn`, `SignUp`, `SignOut`, `ViewProfile`, `UpdateProfile`, and `ViewStatistics` skeletons.
+  - `study-session`: Implemented session lifecycle methods (`CreateSession`, `JoinSession`, `LeaveSession`, `EndSession`, `ListActiveSession`, `GetParticipants`) and decoupled reward triggers.
+  - `study-timer`: Added `RewardClient` collaborator and skeleton operations (`StartTimer`, `PauseTimer`, `ResumeTimer`, `StopTimer`, `ResetTimer`, `CompleteCycle`, `SkipRest`, `UpdateTimerSetting`, `TimerStatistics`).
+  - `admin`: Added `SessionClient` collaborator (`LeaveSession`, `EndSession`) and monitoring skeletons (`ViewActiveSessions`, `ViewParticipants`, `ViewSessionDetails`).
+  - `leaderboard`: Replaced MongoDB configuration with `RedisURL` cache configuration and `ViewLeaderboard`/`GetRanking` endpoints.
+  - `api-gateway`: Updated reverse proxy routing to map `/api/account/*` and `/api/auth/*` directly to Account Service.
 - **[architecture]**: Restructured system architecture according to phase 1 design diagram:
   - Saved and embedded architecture diagram in `docs/phase1/diagram.png` and `docs/phase1/microservice.md`.
   - Separated Client and Admin websites in `apps/web`:
@@ -24,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added `database/` directories with service-level configurations in each microservice.
     - Updated `docker-compose.yml` to provision isolated databases per service (`auth-db`, `account-db`, `session-db`, `timer-db`, `admin-db`, `reward-db`, `leaderboard-db`).
     - Updated service configuration loaders and `.env.example`/`.env` with service-specific database variables.
+- **[leaderboard]**: Added inter-service collaboration from Leaderboard Service to Reward Service:
+  - Added `RewardClient.ViewRewards()` collaborator interface and usecase method `FetchUserRewards()` to fetch earned rewards for leaderboard ranking.
+  - Implemented `HTTPRewardClient` adapter in `services/leaderboard/internal/adapter/client/reward_client.go`.
+  - Exposed `GET /api/v1/reward/rewards` endpoint in Reward Service.
+  - Updated phase 1 architecture diagram, `microservice.md`, and system architecture documentation.
 - Standard Hexagonal / Clean Architecture templates across all 7 Go microservices (`auth`, `account`, `study-session`, `study-timer`, `reward`, `leaderboard`, `admin`).
 - Feature-driven modular architecture template for Next.js web application (`apps/web`).
 - AI Agent Skill Suite in `docs/skill-set/`:

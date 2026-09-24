@@ -20,50 +20,48 @@ graph TD
     end
 
     subgraph Backend Microservices [Go 1.22+ Clean Architecture]
-        Auth["Auth Service<br/>Port: 8081"]
-        Account["Account Service<br/>Port: 8082"]
-        Session["Study Session Service<br/>Port: 8083"]
-        Timer["Study Timer Service<br/>Port: 8084"]
+        Account["Account Service (Auth & Profiles)<br/>Port: 8082"]
+        Session["Study Session Service (gRPC / HTTP)<br/>Port: 8083"]
+        Timer["Study Timer Service (gRPC / HTTP)<br/>Port: 8084"]
         Reward["Reward Service<br/>Port: 8085"]
         Leaderboard["Leaderboard Service<br/>Port: 8086"]
         Admin["Admin Moderation Service<br/>Port: 8087"]
     end
 
-    subgraph Persistence Layer [Database Per Service]
-        AuthDB[("Auth DB")]
-        AccountDB[("Account DB")]
-        SessionDB[("Study Session DB")]
-        TimerDB[("Study Timer DB")]
-        RewardDB[("Reward DB")]
-        LeaderboardDB[("Leaderboard DB")]
-        AdminDB[("Admin DB")]
+    subgraph Persistence Layer [Database & Cache per Service]
+        AccountDB[("Account DB<br/>(PostgreSQL)")]
+        SessionDB[("Study Session DB<br/>(PostgreSQL)")]
+        TimerDB[("Study Timer DB<br/>(PostgreSQL)")]
+        RewardDB[("Reward DB<br/>(MongoDB)")]
+        LeaderboardCache[("Redis Cache<br/>(Leaderboard)")]
+        AdminDB[("Admin DB<br/>(PostgreSQL)")]
     end
 
     %% Client routing via API Gateway
     ClientWeb -->|REST API| Gateway
-    Gateway -->|REST API| Auth
-    Gateway -->|REST API| Timer
+    Gateway -->|REST API| Account
+    Gateway -->|gRPC / REST| Timer
     Gateway -->|REST API| Leaderboard
-    Gateway -->|REST API| Session
+    Gateway -->|gRPC / REST| Session
     Gateway -->|REST API| Reward
 
     %% Admin routing direct to Admin Service
     AdminWeb -->|REST API| Admin
 
     %% Inter-service collaborations
-    Admin -.->|Kick Participant / Leave| Session
-    Admin -.->|Update Ban Status| Account
-    Account -.->|Fetch Stats| Timer
-    Account -.->|Fetch Items| Reward
-    Session -.->|AwardReward() on EndSession| Reward
+    Admin -.->|Kick Participant / LeaveSession()| Session
+    Admin -.->|End Session / EndSession()| Session
+    Account -.->|Fetch History / TimerStatistics()| Timer
+    Account -.->|Fetch Items / ViewRewards()| Reward
+    Timer -.->|AwardReward() on CompleteCycle| Reward
+    Leaderboard -.->|Fetch Rewards / ViewRewards()| Reward
 
-    %% Service Database connections
-    Auth --> AuthDB
+    %% Service Database & Cache connections
     Account --> AccountDB
     Session --> SessionDB
     Timer --> TimerDB
     Reward --> RewardDB
-    Leaderboard --> LeaderboardDB
+    Leaderboard --> LeaderboardCache
     Admin --> AdminDB
 ```
 
@@ -77,14 +75,13 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Web Client** | 3000 | `apps/web` | HTTP / WS | - | Responsive student UI, live timer render. |
 | **Admin Web** | 3000 | `apps/web/admin` | HTTP / WS | - | Admin moderation portal, direct connection to Admin Service. |
-| **API Gateway** | 8080 | `services/api-gateway` | HTTP / REST | - | Client reverse proxy routing to Auth, Timer, Leaderboard, Session, Reward. |
-| **Auth** | 8081 | `services/auth` | HTTP / REST | Auth DB | Google OAuth, JWT issuance & verification. |
-| **Account** | 8082 | `services/account` | HTTP / REST | Account DB | Profiles, personal stats aggregation, ban records. |
-| **Study Session** | 8083 | `services/study-session` | HTTP / REST / WS | Session DB | Room lifecycles, roster limits, real-time presence. |
-| **Study Timer** | 8084 | `services/study-timer` | HTTP / REST | Timer DB | Isolated user focus timers, work/break cycles. |
-| **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB | Gamified fish drops, inventory, milestone tracker. |
-| **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Leaderboard DB | Fast read-cached rankings by period (weekly/all-time). |
-| **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB | Real-time session monitoring, reports, user bans. |
+| **API Gateway** | 8080 | `services/api-gateway` | HTTP / REST / gRPC Proxy | - | Client reverse proxy routing to Account, Timer, Leaderboard, Session, Reward. |
+| **Account** | 8082 | `services/account` | HTTP / REST | Account DB (`account_db`) | Google OAuth (SignIn, SignUp, SignOut), user profiles, personal stats dashboard aggregation. |
+| **Study Session** | 8083 | `services/study-session` | gRPC / HTTP / WS | Session DB (`session_db`) | Room lifecycles (create/join/leave/end), roster limits, active participant listings for admin. |
+| **Study Timer** | 8084 | `services/study-timer` | gRPC / HTTP | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. |
+| **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB (`reward_db`) | Gamified fish drops, rarity table buffed by session participants, user inventory. |
+| **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
+| **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. |
 
 ---
 
@@ -93,16 +90,16 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 As defined in `docs/phase1/microservice.md`:
 
 ```
-+---------------+------------------------+------------------------------------------+
-| Source Service| Target Service & Call  | Reason / Trigger                         |
-+---------------+------------------------+------------------------------------------+
-| Account       | StudyTimer.Statistics()| Aggregate total focus time on dashboard  |
-| Account       | Reward.ViewRewards()   | Render earned fish collection on profile |
-| Study Session | Admin.VerifyBanStatus()| Block banned users from creating/joining |
-| Study Session | Reward.AwardReward()   | Grant reward to user upon EndSession     |
-| Admin         | StudySession.Leave()   | Kick banned or reported users from rooms |
-| Admin         | Account.UpdateBanStatus| Write ban flag to user account record    |
-+---------------+------------------------+------------------------------------------+
++---------------+-----------------------------+----------+------------------------------------------------+
+| Source Service| Target Service & Call       | Protocol | Reason / Trigger                               |
++---------------+-----------------------------+----------+------------------------------------------------+
+| Account       | StudyTimer.TimerStatistics()| gRPC     | Aggregate total sessions and focus time        |
+| Account       | Reward.ViewRewards()        | REST     | Render earned fish collection on profile       |
+| Study Timer   | Reward.AwardReward()        | REST     | Grant reward to user upon CompleteCycle        |
+| Leaderboard   | Reward.ViewRewards()        | REST     | Fetches earned rewards for leaderboard ranking |
+| Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
+| Admin         | StudySession.EndSession()   | gRPC     | Command to close/end active study session room |
++---------------+-----------------------------+----------+------------------------------------------------+
 ```
 
 ---
