@@ -1,0 +1,284 @@
+/* ============================================================================
+   Fisher Timer — pixel primitives
+   ----------------------------------------------------------------------------
+   The five building blocks every screen is made of. All geometry derives from
+   --px in tokens.css. Nothing here contains a raw px value or a hex colour.
+
+   Use Tailwind utilities for LAYOUT (flex, grid, gap, breakpoints).
+   Use these classes for the pixel SURFACES. Don't try to express a
+   clip-path bevel as twenty utility classes.
+   ========================================================================== */
+
+@layer components {
+  /* --- Panel: the parchment surface everything sits on -------------------- */
+  .pixel-panel {
+    position: relative;
+    background: var(--color-cream);
+    color: var(--color-ink);
+    clip-path: var(--pixclip);
+    padding: calc(var(--px) * 6);
+    box-shadow:
+      inset 0 0 0 var(--px) rgb(107 75 53 / 0.22),
+      inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.14);
+  }
+
+  /* --- Button: a chunky key sitting in its own socket ---------------------
+     ::after draws the thickness, ::before draws the cap one pixel above it.
+     Pressing drops the cap and the thickness vanishes, so the key ends flush.
+     The element's own box never changes size, so nothing around it reflows. */
+  .pixel-btn {
+    --cap: var(--color-amber);
+    --thick: var(--color-amber-dk);
+
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--px) * 3);
+
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 6.5);
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+
+    padding: calc(var(--px) * 4) calc(var(--px) * 7) calc(var(--px) * 5);
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .pixel-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background: var(--thick);
+    clip-path: var(--pixclip);
+    pointer-events: none;
+  }
+
+  .pixel-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 var(--px) 0;
+    z-index: -1;
+    background: var(--cap);
+    clip-path: var(--pixclip);
+    pointer-events: none;
+    transition: background 0.08s linear;
+  }
+
+  .pixel-btn:hover {
+    --cap: var(--color-amber-dk);
+    --thick: #8a5220;
+  }
+
+  /* The press. Padding swaps one pixel top-for-bottom so the label drops with
+     the cap while the box height stays identical. */
+  .pixel-btn:active {
+    padding: calc(var(--px) * 5) calc(var(--px) * 7) calc(var(--px) * 4);
+  }
+  .pixel-btn:active::before {
+    inset: var(--px) 0 0 0;
+  }
+  .pixel-btn:active::after {
+    opacity: 0;
+  }
+
+  .pixel-btn:focus-visible {
+    outline: none;
+  }
+  .pixel-btn:focus-visible::before {
+    box-shadow: inset 0 0 0 var(--px) var(--color-lake-dp);
+  }
+
+  .pixel-btn--ghost {
+    --cap: var(--color-cream-2);
+    --thick: #c9b189;
+    color: var(--color-ink);
+  }
+  .pixel-btn--ghost:hover {
+    --cap: #e6d3ae;
+    --thick: #bca47c;
+  }
+
+  .pixel-btn:disabled {
+    --cap: #e3d6bc;
+    --thick: #cbbb9c;
+    color: #96866d;
+    cursor: not-allowed;
+  }
+  /* Disabled refuses to press, however hard you click it. */
+  .pixel-btn:disabled:active {
+    padding: calc(var(--px) * 4) calc(var(--px) * 7) calc(var(--px) * 5);
+  }
+  .pixel-btn:disabled:active::before {
+    inset: 0 0 var(--px) 0;
+  }
+  .pixel-btn:disabled:active::after {
+    opacity: 1;
+  }
+
+  .pixel-btn--block {
+    width: 100%;
+  }
+
+  /* --- Input -------------------------------------------------------------- */
+  .pixel-label {
+    display: block;
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3.4);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-bark);
+    margin-bottom: calc(var(--px) * 2);
+  }
+
+  .pixel-input {
+    width: 100%;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--color-ink);
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    clip-path: var(--pixclip);
+    padding: calc(var(--px) * 4) calc(var(--px) * 5);
+    box-shadow: inset 0 0 0 var(--px) #e0ceac;
+  }
+  .pixel-input:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 var(--px) var(--color-lake);
+  }
+  .pixel-input[aria-invalid="true"] {
+    box-shadow: inset 0 0 0 var(--px) var(--color-rust);
+  }
+
+  .pixel-error {
+    color: var(--color-rust);
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-top: calc(var(--px) * 2);
+  }
+
+  /* --- Alert -------------------------------------------------------------- */
+  .pixel-alert {
+    clip-path: var(--pixclip);
+    border: none;
+    border-radius: 0;
+    padding: calc(var(--px) * 4) calc(var(--px) * 5);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    background: #fbe0d8;
+    color: #7e2c1b;
+    box-shadow: inset 0 0 0 var(--px) #ebb6a6;
+  }
+  .pixel-alert--warn {
+    background: #fcebd2;
+    color: #7a4a15;
+    box-shadow: inset 0 0 0 var(--px) #efce9c;
+  }
+
+  /* --- Badge -------------------------------------------------------------- */
+  .pixel-badge {
+    display: inline-block;
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3);
+    letter-spacing: 0.07em;
+    padding: calc(var(--px) * 2) calc(var(--px) * 3);
+    clip-path: var(--pixclip);
+    background: var(--color-rust);
+    color: #fff;
+  }
+
+  /* --- Stat tile ---------------------------------------------------------- */
+  .pixel-tile {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    clip-path: var(--pixclip);
+    text-align: center;
+    padding: calc(var(--px) * 5) calc(var(--px) * 3) calc(var(--px) * 6);
+    box-shadow:
+      inset 0 0 0 var(--px) rgb(107 75 53 / 0.17),
+      inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.12);
+  }
+  .pixel-tile__value {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 11);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .pixel-tile__caption {
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--color-bark);
+    margin-top: calc(var(--px) * 2);
+  }
+
+  /* --- Sprites ------------------------------------------------------------
+     Pixel art only ever renders at a whole multiple of a screen pixel.
+     Never stretch a sprite to an arbitrary size. */
+  .pixel-sprite {
+    image-rendering: pixelated;
+    display: block;
+    height: auto;
+  }
+
+  /* --- Header -------------------------------------------------------------
+     Fixed height. It must not change between pages, whether or not an avatar
+     is present, so the height is set here and never derived from content. */
+  .pixel-header {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 3);
+    height: calc(var(--px) * 18);
+    flex: none;
+    padding-inline: calc(var(--px) * 4);
+    overflow: hidden;
+    background: var(--color-oak);
+    color: var(--color-cream);
+    box-shadow: inset 0 calc(var(--px) * -1) 0 rgb(58 42 30 / 0.3);
+  }
+
+  .pixel-header__brand {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 3);
+    min-width: 0;
+  }
+
+  .pixel-header__logo {
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+    flex: none;
+    background: var(--color-cream);
+    clip-path: var(--pixclip);
+  }
+
+  .pixel-header__title {
+    font-family: var(--font-display);
+    font-size: calc(var(--px) * 7);
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pixel-header__avatar {
+    margin-left: auto;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: calc(var(--px) * 10);
+    height: calc(var(--px) * 10);
+    background: var(--color-lake);
+    color: var(--color-cream);
+    clip-path: var(--pixclip);
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 5);
+    line-height: 1;
+  }
+}

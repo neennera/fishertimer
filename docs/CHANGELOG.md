@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `admin`: Added `SessionClient` collaborator (`LeaveSession`, `EndSession`) and monitoring skeletons (`ViewActiveSessions`, `ViewParticipants`, `ViewSessionDetails`).
   - `leaderboard`: Replaced MongoDB configuration with `RedisURL` cache configuration and `ViewLeaderboard`/`GetRanking` endpoints.
   - `api-gateway`: Updated reverse proxy routing to map `/api/account/*` and `/api/auth/*` directly to Account Service.
+- **[web]**: Added TailwindCSS v4 and a pixel-art design system, fulfilling ADR-002:
+  - `app/tokens.css`: the single source of truth — 14 colours, the `--px` art-pixel unit, the `--pixclip` one-pixel bevel, and four type roles. No other file may contain a raw hex or px value.
+  - `app/pixel.css`: surface primitives (`.pixel-panel`, `.pixel-btn`, `.pixel-input`, `.pixel-alert`, `.pixel-badge`, `.pixel-tile`), all geometry derived from `--px`.
+  - `app/fonts.ts`: Jersey 15, Jersey 25, Silkscreen and DotGothic16 via `next/font/google`.
+- **[web]**: Added `components/ui/` primitives (`PixelButton`, `PixelPanel`, `PixelInput`, `PixelAlert`, `PixelBadge`, `StatTile`) and a shared `Header`.
+- **[web]**: Added `/styleguide` route rendering every component and state from the real components — the verification surface for the design system.
+- **[web]**: Added `apps/web/DESIGN_SYSTEM.md` — reference for the token rules, the `--px` art-pixel grid, the colour and type tokens, and the `pixel.css` class list.
 - **[architecture]**: Restructured system architecture according to phase 1 design diagram:
   - Saved and embedded architecture diagram in `docs/phase1/diagram.png` and `docs/phase1/microservice.md`.
   - Separated Client and Admin websites in `apps/web`:
@@ -84,6 +91,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
 
 ---
+
+### Changed
+- **[web]**: Replaced the Turborepo starter `layout.tsx`, `page.tsx` and `globals.css`; the app is no longer titled "Create Next App".
+
+### Fixed
+- **[web]**: Fixed `pnpm lint` failure in `apps/web/next.config.js` — added a Node globals override in `apps/web/eslint.config.js` so `process` is recognized, and declared the 7 gateway service URL env vars (`AUTH_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `SESSION_SERVICE_URL`, `TIMER_SERVICE_URL`, `REWARD_SERVICE_URL`, `LEADERBOARD_SERVICE_URL`, `ADMIN_SERVICE_URL`) in `turbo.json`'s `build` task so Turborepo hashes them correctly and `turbo/no-undeclared-env-vars` stops flagging them.
+- **[shared-types]**: Fixed `pnpm check-types` failure caused by `packages/shared-types/tsconfig.json` extending the nonexistent `@fishertimer/typescript-config/base.json`; corrected to `@repo/typescript-config/base.json`.
 
 ## [0.1.0] - 2026-09-11
 
