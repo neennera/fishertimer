@@ -16,7 +16,7 @@ graph TD
     end
 
     subgraph API Gateway Layer
-        Gateway["API Gateway (Go Clean Architecture)<br/>services/api-gateway (Port 8080)"]
+        Gateway["API Gateway (Go Clean Architecture)<br/>services/api-gateway (Port 8000)"]
     end
 
     subgraph Backend Microservices [Go 1.22+ Clean Architecture]
@@ -75,7 +75,7 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Web Client** | 3000 | `apps/web` | HTTP / WS | - | Responsive student UI, live timer render. |
 | **Admin Web** | 3000 | `apps/web/admin` | HTTP / WS | - | Admin moderation portal, direct connection to Admin Service. |
-| **API Gateway** | 8080 | `services/api-gateway` | HTTP / REST / gRPC Proxy | - | Client reverse proxy routing to Account, Timer, Leaderboard, Session, Reward. |
+| **API Gateway** | 8000 | `services/api-gateway` | HTTP / REST / gRPC Proxy | - | Client reverse proxy routing to Account, Timer, Leaderboard, Session, Reward. |
 | **Account** | 8082 | `services/account` | HTTP / REST | Account DB (`account_db`) | Google OAuth (SignIn, SignUp, SignOut), user profiles, personal stats dashboard aggregation. |
 | **Study Session** | 8083 | `services/study-session` | gRPC / HTTP / WS | Session DB (`session_db`) | Room lifecycles (create/join/leave/end), roster limits, active participant listings for admin. |
 | **Study Timer** | 8084 | `services/study-timer` | gRPC / HTTP | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. |

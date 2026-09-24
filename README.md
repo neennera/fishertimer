@@ -27,7 +27,7 @@ graph TD
         AdminWeb["Frontend Website (Admin page)<br/><code>apps/web/admin</code>"]
     end
 
-    subgraph Gateway Layer ["API Gateway (Port 8080)"]
+    subgraph Gateway Layer ["API Gateway (Port 8000)"]
         Gateway["Go API Gateway<br/><code>services/api-gateway</code>"]
     end
 
@@ -128,13 +128,13 @@ Visit **`http://localhost:3000`** in your browser.
 
 ## 🔌 Microservice Port & API Routing Registry
 
-Client requests route through the Go API Gateway (8080), while Admin requests communicate directly with the Admin Service (8087):
+Client requests route through the Go API Gateway (8000), while Admin requests communicate directly with the Admin Service (8087):
 
 | Service | Internal Port | Gateway Route | Target Directory | Storage Engine |
 | :--- | :---: | :--- | :--- | :--- |
 | **Web Client** | `3000` | `/` | `apps/web` | - |
 | **Admin Web** | `3000` | `/admin` | `apps/web/admin` | - |
-| **API Gateway** | `8080` | `/api/*` | `services/api-gateway` | - |
+| **API Gateway** | `8000` | `/api/*` | `services/api-gateway` | - |
 | **Account** | `8082` | `/api/account/*` | `services/account` | Account DB (`account_db`) |
 | **Study Session** | `8083` | `/api/session/*` (gRPC / HTTP) | `services/study-session` | Session DB (`session_db`) |
 | **Study Timer** | `8084` | `/api/timer/*` (gRPC / HTTP) | `services/study-timer` | Timer DB (`timer_db`) |

@@ -34,7 +34,7 @@ export default function Home() {
         <div style={{ textAlign: "center", marginBottom: "1rem" }}>
           <h1 style={{ fontSize: "2rem", margin: "0.5rem 0" }}>🎣 Fisher Timer — Student Portal</h1>
           <p style={{ color: "#888", margin: 0 }}>
-            Frontend Website (Client page) — Communicating via API Gateway (Port 8080)
+            Frontend Website (Client page) — Communicating via API Gateway (Port 8000)
           </p>
         </div>
 

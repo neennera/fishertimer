@@ -11,7 +11,7 @@ import (
 
 func TestGatewayHandler_Health(t *testing.T) {
 	cfg := &config.Config{
-		Port:                  8080,
+		Port:                  8000,
 		Env:                   "test",
 		AccountServiceURL:     "http://localhost:8082",
 		TimerServiceURL:       "http://localhost:8084",
@@ -36,7 +36,7 @@ func TestGatewayHandler_Health(t *testing.T) {
 
 func TestGatewayHandler_Status(t *testing.T) {
 	cfg := &config.Config{
-		Port:                  8080,
+		Port:                  8000,
 		Env:                   "test",
 		AccountServiceURL:     "http://localhost:8082",
 		TimerServiceURL:       "http://localhost:8084",
