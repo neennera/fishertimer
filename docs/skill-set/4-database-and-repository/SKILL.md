@@ -22,27 +22,28 @@ services/<service-name>/database/
 ```
 
 ### Schema Convention:
-- **Relational Databases (PostgreSQL):** Each service (`auth`, `account`, `study-session`, `study-timer`, `admin`) manages its own isolated database instance and schema.
-- **Document Databases (MongoDB):** Each service (`reward`, `leaderboard`) manages its own isolated document database and collections.
+- **Relational Databases (PostgreSQL):** Each service (`account`, `study-session`, `study-timer`, `admin`) manages its own isolated database instance and 3NF schema.
+- **Document Databases (MongoDB):** The `reward` service manages its own isolated document database and collections.
+- **In-Memory Cache (Redis):** The `leaderboard` service utilizes Redis sorted sets for caching rankings dynamically.
 
 ---
 
 ## 2. Sample Data Models & Ownership
 
-### Sample Table 1: `auth.users` & `account.profiles` (PostgreSQL)
-- **Service Owners:** Auth Service & Account Service
-- **File:** [`database/schemas/postgres/001_create_users_table.sql`](../../../database/schemas/postgres/001_create_users_table.sql)
-- **Purpose:** Manages core user identity, Google OAuth metadata, personal focus statistics, and ban moderation status.
+### Sample Table 1: `account_db.users` (PostgreSQL)
+- **Service Owner:** Account Service
+- **File:** [`services/account/database/schemas/001_create_users_table.sql`](../../../services/account/database/schemas/001_create_users_table.sql)
+- **Purpose:** Manages core user identity, Google OAuth metadata, and role moderation (`CUSTOMER`, `ADMIN`).
 
-### Sample Table 2: `session.study_sessions` & `session_participants` (PostgreSQL)
+### Sample Table 2: `session_db.study_sessions` & `session_participants` (PostgreSQL)
 - **Service Owner:** Study Session Service
-- **File:** [`database/schemas/postgres/002_create_study_sessions_table.sql`](../../../database/schemas/postgres/002_create_study_sessions_table.sql)
-- **Purpose:** Tracks room lifecycles (`ACTIVE`, `ENDED`), creator ownership, and atomic roster participant caps.
+- **File:** [`services/study-session/database/schemas/001_create_study_sessions_tables.sql`](../../../services/study-session/database/schemas/001_create_study_sessions_tables.sql)
+- **Purpose:** Tracks room lifecycles (`is_active`, `max_participants`), creator ownership, and atomic roster participant caps.
 
-### Sample Collection 1: `fish_rewards` (MongoDB)
+### Sample Collection 1: `reward_items` & `user_rewards` (MongoDB)
 - **Service Owner:** Reward Service
-- **File:** [`database/schemas/mongodb/001_create_fish_rewards_collection.js`](../../../database/schemas/mongodb/001_create_fish_rewards_collection.js)
-- **Purpose:** Stores caught fish items with dynamic properties (rarity, species, weight score) and completion timestamps.
+- **File:** [`services/reward/database/schemas/001_create_reward_collections.js`](../../../services/reward/database/schemas/001_create_reward_collections.js)
+- **Purpose:** Stores catalog of unlockable items (`SKIN`, `BADGE`, `FISH_SPECIES`) and unlocked user inventory.
 
 ---
 
@@ -134,10 +135,10 @@ h := handler.New(uc)
 
 | Service | Environment Variable | Default Local Connection | Target Technology |
 | :--- | :--- | :--- | :--- |
-| `auth` | `DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5432/fishertimer?sslmode=disable` | Supabase / PostgreSQL |
-| `account` | `DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5432/fishertimer?sslmode=disable` | Supabase / PostgreSQL |
-| `study-session` | `DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5432/fishertimer?sslmode=disable` | Supabase / PostgreSQL |
-| `study-timer` | `DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5432/fishertimer?sslmode=disable` | Supabase / PostgreSQL |
-| `reward` | `MONGODB_URI` | `mongodb://mongoadmin:mongopassword@localhost:27017/fishertimer?authSource=admin` | MongoDB |
-| `leaderboard`| `MONGODB_URI` | `mongodb://mongoadmin:mongopassword@localhost:27017/fishertimer?authSource=admin` | MongoDB |
-| `admin` | `DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5432/fishertimer?sslmode=disable` | Supabase / PostgreSQL |
+| `account` | `ACCOUNT_DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5432/account_db?sslmode=disable` | Supabase / PostgreSQL |
+| `study-session` | `SESSION_DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5433/session_db?sslmode=disable` | Supabase / PostgreSQL |
+| `study-timer` | `TIMER_DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5434/timer_db?sslmode=disable` | Supabase / PostgreSQL |
+| `admin` | `ADMIN_DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5435/admin_db?sslmode=disable` | Supabase / PostgreSQL |
+| `reward` | `REWARD_MONGODB_URI` | `mongodb://mongoadmin:mongopassword@localhost:27017/reward_db?authSource=admin` | MongoDB |
+| `leaderboard`| `LEADERBOARD_REDIS_URL` | `redis://localhost:6379` | Redis (Cache) |
+

@@ -1,0 +1,121 @@
+// =======================================================
+// Fisher Timer - Microservices 3NF Database Schema (DBML)
+// Architecture Pattern: Database-per-Service
+// =======================================================
+
+// -------------------------------------------------------
+// 1. Account Service Database (account_db - Supabase/PostgreSQL)
+// Managed with integrated Google OAuth 2.0 Adapter
+// -------------------------------------------------------
+Table users {
+  user_id uuid [pk]
+  email varchar(255) [unique, not null]
+  display_name varchar(100) [not null]
+  avatar_url varchar(255) [note: 'Use fixed image in our system, not able user to customize']
+  role varchar(20) [not null, default: 'CUSTOMER', note: 'CUSTOMER | ADMIN']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+// -------------------------------------------------------
+// 2. Study Session Service Database (session_db - PostgreSQL)
+// -------------------------------------------------------
+Table study_sessions {
+  session_id uuid [pk]
+  title varchar(150) [not null]
+  host_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  is_active boolean [not null, default: true]
+  max_participants int [not null, default: 4]
+  created_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table session_participants {
+  session_id uuid [not null]
+  user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  joined_at timestamptz [not null]
+  left_at timestamptz
+
+  indexes {
+    (session_id, user_id) [pk]
+  }
+}
+
+Ref: study_sessions.session_id < session_participants.session_id
+
+// -------------------------------------------------------
+// 3. Study Timer Service Database (timer_db - PostgreSQL)
+// -------------------------------------------------------
+Table timer_settings {
+  user_id uuid [pk, note: 'Refers to account_db.users(user_id)']
+  focus_duration int [not null, default: 1500, note: 'Seconds (default 25 mins)']
+  short_break_duration int [not null, default: 300, note: 'Seconds (default 5 mins)']
+  long_break_duration int [not null, default: 900, note: 'Seconds (default 15 mins)']
+  cycles_before_long_break int [not null, default: 4]
+  updated_at timestamptz [not null]
+}
+
+Table timer_sessions {
+  timer_session_id uuid [pk]
+  user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  study_session_id uuid [note: 'Refers to session_db.study_sessions(session_id). Nullable for solo study']
+  status varchar(20) [not null, note: 'FOCUS | SHORT_BREAK | LONG_BREAK | PAUSED | COMPLETED | STOPPED']
+  started_at timestamptz [not null]
+  completed_at timestamptz
+}
+
+Table timer_cycles {
+  cycle_id uuid [pk]
+  timer_session_id uuid [not null]
+  cycle_number int [not null]
+  phase_type varchar(20) [not null, note: 'FOCUS | SHORT_BREAK | LONG_BREAK']
+  duration int [not null, note: 'Recorded elapsed time in seconds']
+  is_completed boolean [not null, default: false]
+  ended_at timestamptz [not null]
+}
+
+Ref: timer_sessions.timer_session_id < timer_cycles.timer_session_id
+
+// -------------------------------------------------------
+// 4. Reward Service Database (reward_db - MongoDB)
+// Represented as Document Schemas
+// -------------------------------------------------------
+Table reward_items {
+  _id objectid [pk]
+  item_name varchar(100) [not null]
+  description text
+  item_type varchar(50) [not null, note: 'SKIN | BADGE | FISH_SPECIES']
+  cost int [not null, default: 0]
+  created_at timestamptz [not null]
+}
+
+Table user_rewards {
+  _id objectid [pk]
+  user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  item_id objectid [not null]
+  unlocked_at timestamptz [not null]
+
+  indexes {
+    (user_id, item_id) [unique]
+  }
+}
+
+Ref: reward_items._id < user_rewards.item_id
+
+// -------------------------------------------------------
+// 5. Admin Service Database (admin_db - PostgreSQL)
+// -------------------------------------------------------
+Table admin_logs {
+  log_id uuid [pk]
+  admin_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  action varchar(50) [not null, note: 'FORCE_CLOSE_SESSION | KICK_USER']
+  target_id uuid [not null, note: 'ID of target session or user']
+  reason text
+  created_at timestamptz [not null]
+}
+
+// -------------------------------------------------------
+// 6. Leaderboard Service
+// Architecture Decision: In-memory Caching only (No dedicated DB)
+// Uses Redis sorted set populated dynamically from Reward Service & Timer Service
+// -------------------------------------------------------
