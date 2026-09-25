@@ -150,6 +150,7 @@ func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Known e-mail: signed in.
 	h.clearCookie(w, SignUpCookie)
 	h.setCookie(w, SessionCookie, result.Session.Token, h.opts.SessionMaxAge)
+	log.Printf("account: issued session token for %s: %s", result.Session.User.Email, result.Session.Token)
 	h.redirectTo(w, r, nextPath, "")
 }
 
@@ -213,6 +214,7 @@ func (h *HTTPHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	h.clearCookie(w, SignUpCookie)
 	h.setCookie(w, SessionCookie, session.Token, h.opts.SessionMaxAge)
+	log.Printf("account: issued session token for %s: %s", session.User.Email, session.Token)
 	writeJSON(w, http.StatusCreated, session.User)
 }
 
