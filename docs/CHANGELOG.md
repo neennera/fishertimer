@@ -30,9 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[account]**: Implemented Google OAuth 2.0 sign-in (UC-06 SignIn / SignUp / SignOut) in the Account Service:
   - `GET /api/v1/account/google/login` (redirect to Google with an anti-CSRF `state` cookie), `GET /api/v1/account/google/callback` (code exchange, account match-or-create, session cookie), `GET /api/v1/account/me`, `POST /api/v1/account/signout`.
   - Accounts are matched by e-mail per UC-06; new accounts are created with `role = CUSTOMER`, and an existing `ADMIN` row keeps its role (E-4).
-  - Driven ports `domain.OAuthProvider` and `domain.TokenService` with adapters `internal/adapter/oauth` (Google) and `internal/adapter/token` (7-day HS256 JWT carrying `user_id` and `role`).
+  - Driven ports `domain.OAuthProvider` and `domain.TokenService` with adapters `internal/adapter/oauth` (Google) and `internal/adapter/token` (7-day HS256 JWT carrying `user_id`, `role` and `display_name`).
   - PostgreSQL adapter for `account_db.users`; the service fails fast at startup when `account_db` is unreachable instead of running on a volatile store.
   - `profile` and `statistics` endpoints now require a valid session instead of a `user_id` query parameter.
+- **[api-gateway]**: Added identity-forwarding middleware (`internal/adapter/middleware.Verifier`) wrapping the whole proxy mux in `cmd/main.go`:
+  - Verifies the account service's session JWT (`ft_session` cookie or `Authorization: Bearer` header) using a standard-library-only copy of its HS256 check (shared `JWT_SECRET`/`JWT_ISSUER`).
+  - On a valid token, sets `X-User-Id`, `X-User-Role` and `X-Display-Name` (URL-encoded) on the proxied request; always strips any client-supplied copies of these headers first so downstream services can trust them.
+  - Does not itself reject unauthenticated requests — passthrough only; enforcing that a route requires a session is left to each downstream service.
 - **[database]**: Implemented 3NF database schemas across all microservices and authored full DBML documentation:
   - Added authoritative DBML specification in `docs/database/schema.dbml` and architecture guide in `docs/database/README.md`.
   - Created DDL migration scripts:

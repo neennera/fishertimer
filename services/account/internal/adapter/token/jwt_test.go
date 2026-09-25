@@ -10,9 +10,10 @@ import (
 
 func user() *domain.UserAccount {
 	return &domain.UserAccount{
-		UserID: "11111111-1111-4111-8111-111111111111",
-		Email:  "student@example.com",
-		Role:   domain.RoleCustomer,
+		UserID:      "11111111-1111-4111-8111-111111111111",
+		Email:       "student@example.com",
+		DisplayName: "Student One",
+		Role:        domain.RoleCustomer,
 	}
 }
 
@@ -28,7 +29,7 @@ func TestIssueAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
-	if claims.UserID != user().UserID || claims.Role != domain.RoleCustomer {
+	if claims.UserID != user().UserID || claims.Role != domain.RoleCustomer || claims.DisplayName != user().DisplayName {
 		t.Fatalf("unexpected claims: %+v", claims)
 	}
 }

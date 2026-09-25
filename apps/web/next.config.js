@@ -27,6 +27,11 @@ const nextConfig = {
         source: '/api/leaderboard/:path*',
         destination: `${gatewayUrl}/api/leaderboard/:path*`,
       },
+      // Gateway's own endpoints (health/status/whoami), not proxied to a service
+      {
+        source: '/api/gateway/:path*',
+        destination: `${gatewayUrl}/api/v1/gateway/:path*`,
+      },
       // Admin-side routes call Admin Service directly
       {
         source: '/api/admin/:path*',

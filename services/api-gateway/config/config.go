@@ -16,6 +16,8 @@ type Config struct {
 	LeaderboardServiceURL string
 	SessionServiceURL     string
 	RewardServiceURL      string
+	JWTSecret             string
+	JWTIssuer             string
 }
 
 func loadEnv() {
@@ -96,6 +98,11 @@ func Load() *Config {
 		rewardURL = "http://localhost:8085"
 	}
 
+	jwtIssuer := os.Getenv("JWT_ISSUER")
+	if jwtIssuer == "" {
+		jwtIssuer = "fishertimer-account"
+	}
+
 	return &Config{
 		Port:                  port,
 		Env:                   env,
@@ -104,5 +111,7 @@ func Load() *Config {
 		LeaderboardServiceURL: leaderboardURL,
 		SessionServiceURL:     sessionURL,
 		RewardServiceURL:      rewardURL,
+		JWTSecret:             os.Getenv("JWT_SECRET"),
+		JWTIssuer:             jwtIssuer,
 	}
 }
