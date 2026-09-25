@@ -109,7 +109,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 | --- | --- |
 | `.pixel-header` | Top bar. Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` |
 | `.pixel-panel` | Panel background with an edge and a bottom band |
-| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph) or `--block` |
+| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller icon key for an inline action beside text) or `--block` |
 | `.pixel-label` | Uppercase field label |
 | `.pixel-input` | Text field. Set `aria-invalid="true"` for the error state |
 | `.pixel-error` | Message under a field |
@@ -121,6 +121,8 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-badge` | Small tag |
 | `.pixel-tile` | Number and caption, with `__value` and `__caption` |
 | `.pixel-sprite` | Pixel image. Sets `image-rendering: pixelated` |
+| `.pixel-placeholder` | Inset cream-2 box holding the place of content not built yet |
+| `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__fallback` for the pixelarticons glyph shown when there is no photo or it fails to load |
 
 React components in `components/ui/`: `PixelPanel`, `PixelButton`,
 `PixelInput`, `PixelCheckbox`, `PixelModal`, `PixelAlert`, `PixelBadge`,

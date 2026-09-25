@@ -10,6 +10,8 @@ export interface PixelButtonProps
   block?: boolean;
   /** Square key holding a single pixelarticons icon. Pass an `aria-label`. */
   icon?: boolean;
+  /** Smaller icon key, for an inline action beside text. Use with `icon`. */
+  small?: boolean;
 }
 
 /**
@@ -22,6 +24,7 @@ export function PixelButton({
   variant = "primary",
   block = false,
   icon = false,
+  small = false,
   className,
   type = "button",
   ...props
@@ -35,6 +38,7 @@ export function PixelButton({
         variant === "danger" && "pixel-btn--danger",
         block && "pixel-btn--block",
         icon && "pixel-btn--icon",
+        small && "pixel-btn--sm",
         className,
       )}
       {...props}

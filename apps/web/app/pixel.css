@@ -281,6 +281,20 @@
     height: calc(var(--px) * 8);
   }
 
+  /* Small square key for an inline action next to text (edit display name).
+     Same press, one pixel less padding all round, and a 6-unit glyph. */
+  .pixel-btn--icon.pixel-btn--sm,
+  .pixel-btn--icon.pixel-btn--sm:disabled:active {
+    padding: var(--px) var(--px) calc(var(--px) * 2);
+  }
+  .pixel-btn--icon.pixel-btn--sm:active {
+    padding: calc(var(--px) * 2) var(--px) var(--px);
+  }
+  .pixel-btn--sm svg {
+    width: calc(var(--px) * 6);
+    height: calc(var(--px) * 6);
+  }
+
   /* --- Input -------------------------------------------------------------- */
   .pixel-label {
     display: block;
@@ -521,6 +535,47 @@
     image-rendering: pixelated;
     display: block;
     height: auto;
+  }
+
+  /* --- Avatar --------------------------------------------------------------
+     Square profile picture with the panel bevel. The photo (Google's
+     avatar_url) is not pixel art, so it is not .pixel-sprite. With no photo,
+     or one that fails to load, __fallback shows a pixelarticons glyph in the
+     same box, so nothing reflows between the two. */
+  .pixel-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: calc(var(--px) * 28);
+    height: calc(var(--px) * 28);
+    overflow: hidden;
+    background: var(--color-cream-2);
+    color: var(--color-bark);
+    clip-path: var(--pixclip);
+    box-shadow: inset 0 0 0 var(--px) rgb(107 75 53 / 0.17);
+  }
+  .pixel-avatar__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .pixel-avatar__fallback {
+    width: calc(var(--px) * 16);
+    height: calc(var(--px) * 16);
+  }
+
+  /* --- Placeholder -----------------------------------------------------------
+     Inset box holding the spot for content that isn't built yet, so the page
+     keeps its final shape. */
+  .pixel-placeholder {
+    display: grid;
+    place-items: center;
+    min-height: calc(var(--px) * 40);
+    padding: calc(var(--px) * 4);
+    background: var(--color-cream-2);
+    color: var(--color-bark);
+    clip-path: var(--pixclip);
+    text-align: center;
   }
 
   /* --- Parallax scene ------------------------------------------------------
