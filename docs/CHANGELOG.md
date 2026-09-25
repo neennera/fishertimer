@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[config]**: Created root `.env.example` defining central environment variables, database strings, and OAuth/JWT secrets.
 - **[web]**: Configured Next.js API Gateway reverse proxy rewrites in `apps/web/next.config.js` to proxy `/api/*` to backend microservices, eliminating CORS.
 - **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
+- **[web]**: Added `@fishertimer/shared-types` as an `apps/web` dependency and `'account'` to `client-api.ts`'s `ClientServiceName`, for future profile/statistics calls (`'auth'` stays as the existing gateway alias used by `lib/auth.ts`).
 
 ---
 
@@ -98,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **[web]**: Fixed `pnpm lint` failure in `apps/web/next.config.js` — added a Node globals override in `apps/web/eslint.config.js` so `process` is recognized, and declared the 7 gateway service URL env vars (`AUTH_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `SESSION_SERVICE_URL`, `TIMER_SERVICE_URL`, `REWARD_SERVICE_URL`, `LEADERBOARD_SERVICE_URL`, `ADMIN_SERVICE_URL`) in `turbo.json`'s `build` task so Turborepo hashes them correctly and `turbo/no-undeclared-env-vars` stops flagging them.
 - **[shared-types]**: Fixed `pnpm check-types` failure caused by `packages/shared-types/tsconfig.json` extending the nonexistent `@fishertimer/typescript-config/base.json`; corrected to `@repo/typescript-config/base.json`.
+- **[web]**: Fixed `lib/auth.ts` casting the account service's real (non-mock) response straight into the camelCase `Session`/`SessionUser` shape with no mapping. The account service actually returns snake_case JSON (`user_id`, `display_name`), so this would have silently produced `undefined` fields once `NEXT_PUBLIC_USE_MOCKS` is `false`. Added an `AccountUserWire` type and `mapAccountUserToSession()` mapper used by the real branches of `handleAuthCallback`/`completeFirstTimeSetup`/`getSession`; `role` and `isFirstLogin` aren't in the account service's schema yet, so they're left as commented unresolved defaults rather than invented values.
 
 ## [0.1.0] - 2026-09-11
 

@@ -3,6 +3,7 @@
 // call these functions and never touch fetch or lib/mocks/auth.mock.ts
 // directly. Toggled by NEXT_PUBLIC_USE_MOCKS (see .env.example).
 
+import type { User } from '@fishertimer/shared-types';
 import { AUTH_CALLBACK_ERROR_MESSAGES, type AuthCallbackErrorCode } from './auth-error-messages';
 import { clientApiFetch } from './client-api';
 import {
@@ -45,6 +46,35 @@ export type CompleteFirstTimeSetupResult =
   | { ok: true; session: Session }
   | { ok: false; error: string };
 
+// Raw JSON shape the account service actually sends (snake_case). Covers the
+// fields common to both UserAccount and Profile in
+// services/account/internal/domain/entity.go — the two response shapes the
+// 'auth' gateway alias can proxy to for callback/setup/session.
+interface AccountUserWire {
+  user_id: string;
+  email: string;
+  display_name: string;
+}
+
+// Maps the account service's real response onto our existing Session shape.
+function mapAccountUserToSession(wire: AccountUserWire): Session {
+  // `role` lines up with shared-types User['role'], but entity.go's
+  // UserAccount/Profile structs don't have a role field yet — unresolved,
+  // defaulting to CUSTOMER rather than inventing a real value.
+  const role: User['role'] = 'CUSTOMER';
+  return {
+    user: {
+      id: wire.user_id,
+      email: wire.email,
+      displayName: wire.display_name,
+      role,
+    },
+    // `isFirstLogin` doesn't exist anywhere in the real schema either —
+    // unresolved, same as `role` above.
+    isFirstLogin: false,
+  };
+}
+
 // In-memory cache of the current session, populated by handleAuthCallback(),
 // completeFirstTimeSetup() and getSession() itself.
 let currentSession: Session | null = null;
@@ -67,10 +97,11 @@ export async function handleAuthCallback(
   if (!USE_MOCKS) {
     try {
       const query = params.toString();
-      const session = await clientApiFetch<Session>(
+      const wire = await clientApiFetch<AccountUserWire>(
         'auth',
         `callback${query ? `?${query}` : ''}`
       );
+      const session = mapAccountUserToSession(wire);
       currentSession = session;
       return { ok: true, session };
     } catch (err) {
@@ -111,10 +142,11 @@ export async function completeFirstTimeSetup(
   const trimmed = displayName.trim();
 
   if (!USE_MOCKS) {
-    const session = await clientApiFetch<Session>('auth', 'setup', {
+    const wire = await clientApiFetch<AccountUserWire>('auth', 'setup', {
       method: 'POST',
       body: JSON.stringify({ displayName: trimmed }),
     });
+    const session = mapAccountUserToSession(wire);
     currentSession = session;
     return { ok: true, session };
   }
@@ -140,7 +172,8 @@ export async function getSession(): Promise<Session | null> {
   }
 
   try {
-    const session = await clientApiFetch<Session>('auth', 'session');
+    const wire = await clientApiFetch<AccountUserWire>('auth', 'session');
+    const session = mapAccountUserToSession(wire);
     currentSession = session;
     return session;
   } catch {

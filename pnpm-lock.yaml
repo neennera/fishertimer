@@ -20,6 +20,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fishertimer/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui

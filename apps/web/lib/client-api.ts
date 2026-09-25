@@ -3,6 +3,7 @@
 
 export type ClientServiceName =
   | 'auth'
+  | 'account'
   | 'timer'
   | 'session'
   | 'reward'
