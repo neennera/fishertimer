@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PixelAlert } from "../../../components/ui/PixelAlert";
 import { PixelButton } from "../../../components/ui/PixelButton";
 import { PixelInput } from "../../../components/ui/PixelInput";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
@@ -110,11 +109,12 @@ function WelcomeForm() {
           </div>
         )}
 
-        {displayedError && <PixelAlert className="mt-4">{displayedError}</PixelAlert>}
-        {submitError && <PixelAlert className="mt-4">{submitError}</PixelAlert>}
+        <p className="pixel-field-error" role={displayedError || submitError ? "alert" : undefined}>
+          {displayedError ?? submitError ?? " "}
+        </p>
 
         {session ? (
-          <p className="mt-4 text-sm text-bark">
+          <p className="text-sm text-bark">
             Signed in as {session.user.email}
           </p>
         ) : (
@@ -123,7 +123,7 @@ function WelcomeForm() {
           </p>
         )}
 
-        <PixelButton block type="submit" className="mt-6" disabled={submitting || !session}>
+        <PixelButton block type="submit" className="mt-2" disabled={submitting || !session}>
           {submitting ? "Saving…" : "Continue"}
         </PixelButton>
       </form>

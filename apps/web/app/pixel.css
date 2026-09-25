@@ -289,6 +289,21 @@
     margin-top: calc(var(--px) * 2);
   }
 
+  /* Same slot as .pixel-label (font, tracking, case) but red, and always
+     mounted with a reserved line-height — even with no message — so a
+     field's error appearing/disappearing never shifts the panel around it. */
+  .pixel-field-error {
+    display: block;
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3.4);
+    line-height: 1.4;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-rust);
+    margin-top: calc(var(--px) * 2);
+    min-height: calc(1.4em);
+  }
+
   /* --- Alert -------------------------------------------------------------- */
   .pixel-alert {
     clip-path: var(--pixclip);
