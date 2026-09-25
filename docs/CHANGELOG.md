@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Added
+- **[account]**: Implemented Google OAuth 2.0 sign-in (UC-06 SignIn / SignUp / SignOut) in the Account Service:
+  - `GET /api/v1/account/google/login` (redirect to Google with an anti-CSRF `state` cookie), `GET /api/v1/account/google/callback` (code exchange, account match-or-create, session cookie), `GET /api/v1/account/me`, `POST /api/v1/account/signout`.
+  - Accounts are matched by e-mail per UC-06; new accounts are created with `role = CUSTOMER`, and an existing `ADMIN` row keeps its role (E-4).
+  - Driven ports `domain.OAuthProvider` and `domain.TokenService` with adapters `internal/adapter/oauth` (Google) and `internal/adapter/token` (7-day HS256 JWT carrying `user_id` and `role`).
+  - PostgreSQL adapter for `account_db.users`; the service fails fast at startup when `account_db` is unreachable instead of running on a volatile store.
+  - `profile` and `statistics` endpoints now require a valid session instead of a `user_id` query parameter.
 - **[database]**: Implemented 3NF database schemas across all microservices and authored full DBML documentation:
   - Added authoritative DBML specification in `docs/database/schema.dbml` and architecture guide in `docs/database/README.md`.
   - Created DDL migration scripts:
