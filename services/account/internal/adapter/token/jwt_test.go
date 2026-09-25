@@ -64,3 +64,38 @@ func TestVerify_RejectsAlgNone(t *testing.T) {
 		t.Fatal("alg=none must be rejected")
 	}
 }
+
+func TestSignUpTicket_RoundTripAndSeparateFromSession(t *testing.T) {
+	svc := token.New("test-secret-test-secret-test-secret", "fishertimer-account", time.Hour)
+	profile := &domain.GoogleProfile{Email: "New@Example.com", EmailVerified: true, Name: "New Person"}
+
+	raw, _, err := svc.IssueSignUp(profile)
+	if err != nil {
+		t.Fatalf("IssueSignUp: %v", err)
+	}
+	ticket, err := svc.VerifySignUp(raw)
+	if err != nil {
+		t.Fatalf("VerifySignUp: %v", err)
+	}
+	if ticket.Email != "new@example.com" {
+		t.Fatalf("unexpected ticket: %+v", ticket)
+	}
+
+	if _, err := svc.Verify(raw); err != token.ErrWrongUse {
+		t.Fatalf("a sign-up ticket must not verify as a session, got %v", err)
+	}
+	session, _, err := svc.Issue(user())
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	if _, err := svc.VerifySignUp(session); err != token.ErrWrongUse {
+		t.Fatalf("a session must not verify as a sign-up ticket, got %v", err)
+	}
+}
+
+func TestIssueSignUp_RejectsUnverifiedEmail(t *testing.T) {
+	svc := token.New("test-secret-test-secret-test-secret", "fishertimer-account", time.Hour)
+	if _, _, err := svc.IssueSignUp(&domain.GoogleProfile{Email: "x@example.com"}); err == nil {
+		t.Fatal("an unverified e-mail must not get a sign-up ticket")
+	}
+}

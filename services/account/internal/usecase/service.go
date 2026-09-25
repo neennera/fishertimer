@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/neennera/fishertimer/services/account/internal/domain"
 )
@@ -18,17 +19,21 @@ type Usecase interface {
 	// SignInURL returns the Google consent-screen URL for this sign-in attempt.
 	SignInURL(state string) string
 
-	// CompleteSignIn turns Google's authorization code into a session:
-	// read the profile -> match the account by e-mail (or create it on first
-	// login) -> issue the JWT. This is UC-06 SignIn + SignUp.
-	CompleteSignIn(ctx context.Context, code string) (*domain.Session, error)
+	// CompleteSignIn turns Google's authorization code into either a session
+	// (the e-mail already has an account: SignIn) or a sign-up ticket (it does
+	// not: the user must pick a display name first). UC-06.
+	CompleteSignIn(ctx context.Context, code string) (*domain.SignInResult, error)
+
+	// PendingSignUp reads a sign-up ticket back so the form can show the
+	// e-mail and suggest a display name.
+	PendingSignUp(token string) (*domain.SignUpTicket, error)
+
+	// CompleteSignUp creates the account from a sign-up ticket and the chosen
+	// display name, then issues the session. UC-06 SignUp.
+	CompleteSignUp(ctx context.Context, token, displayName string) (*domain.Session, error)
 
 	// Authenticate verifies a session token and returns the live user record.
 	Authenticate(ctx context.Context, token string) (*domain.UserAccount, error)
-
-	ViewProfile(ctx context.Context, userID string) (*domain.Profile, error)
-	UpdateProfile(ctx context.Context, userID, displayName string) (*domain.Profile, error)
-	ViewStatistics(ctx context.Context, userID string) (*domain.UserStatistics, error)
 }
 
 type service struct {
@@ -45,7 +50,7 @@ func (s *service) SignInURL(state string) string {
 	return s.provider.AuthCodeURL(state)
 }
 
-func (s *service) CompleteSignIn(ctx context.Context, code string) (*domain.Session, error) {
+func (s *service) CompleteSignIn(ctx context.Context, code string) (*domain.SignInResult, error) {
 	if strings.TrimSpace(code) == "" {
 		return nil, domain.ErrInvalid
 	}
@@ -58,27 +63,53 @@ func (s *service) CompleteSignIn(ctx context.Context, code string) (*domain.Sess
 		return nil, domain.ErrInvalid
 	}
 
-	user, err := s.matchOrCreateUser(ctx, profile)
-	if err != nil {
-		return nil, err
-	}
-
-	token, claims, err := s.tokens.Issue(user)
-	if err != nil {
-		return nil, err
-	}
-	return &domain.Session{Token: token, ExpiresAt: claims.ExpiresAt, User: user}, nil
-}
-
-// matchOrCreateUser is UC-06 S-1: match by e-mail, otherwise create a new
-// account with role CUSTOMER. An existing user keeps their stored role, so a
-// pre-provisioned ADMIN stays ADMIN.
-func (s *service) matchOrCreateUser(ctx context.Context, profile *domain.GoogleProfile) (*domain.UserAccount, error) {
+	// UC-06 S-1: accounts are matched by e-mail. An existing user keeps their
+	// stored role, so a pre-provisioned ADMIN stays ADMIN.
 	email := strings.ToLower(strings.TrimSpace(profile.Email))
-
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err == nil {
-		return user, nil
+		session, err := s.newSession(user)
+		if err != nil {
+			return nil, err
+		}
+		return &domain.SignInResult{Session: session}, nil
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return nil, err
+	}
+
+	// No account yet: nothing is written until the user picks a display name.
+	token, ticket, err := s.tokens.IssueSignUp(profile)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.SignInResult{SignUpToken: token, SignUp: ticket}, nil
+}
+
+func (s *service) PendingSignUp(token string) (*domain.SignUpTicket, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, domain.ErrUnauthorized
+	}
+	return s.tokens.VerifySignUp(token)
+}
+
+func (s *service) CompleteSignUp(ctx context.Context, token, displayName string) (*domain.Session, error) {
+	ticket, err := s.PendingSignUp(token)
+	if err != nil {
+		return nil, err
+	}
+
+	name, err := validDisplayName(displayName)
+	if err != nil {
+		return nil, err
+	}
+
+	// The form can be submitted twice (double click, back button). If the
+	// account already exists, sign into it rather than failing on the
+	// UNIQUE(email) constraint.
+	user, err := s.repo.GetUserByEmail(ctx, ticket.Email)
+	if err == nil {
+		return s.newSession(user)
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return nil, err
@@ -91,17 +122,25 @@ func (s *service) matchOrCreateUser(ctx context.Context, profile *domain.GoogleP
 	now := time.Now().UTC()
 	user = &domain.UserAccount{
 		UserID:      userID,
-		Email:       email,
-		DisplayName: displayName(profile, email),
-		AvatarURL:   profile.Picture,
-		Role:        domain.RoleCustomer,
+		Email:       ticket.Email,
+		DisplayName: name,
+		AvatarURL:   ticket.Picture,
+		Role:        domain.RoleCustomer, // UC-06 E-4: sign-up never produces ADMIN
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
-	return user, nil
+	return s.newSession(user)
+}
+
+func (s *service) newSession(user *domain.UserAccount) (*domain.Session, error) {
+	token, claims, err := s.tokens.Issue(user)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.Session{Token: token, ExpiresAt: claims.ExpiresAt, User: user}, nil
 }
 
 func (s *service) Authenticate(ctx context.Context, token string) (*domain.UserAccount, error) {
@@ -115,39 +154,13 @@ func (s *service) Authenticate(ctx context.Context, token string) (*domain.UserA
 	return s.repo.GetUserByID(ctx, claims.UserID)
 }
 
-func (s *service) ViewProfile(ctx context.Context, userID string) (*domain.Profile, error) {
-	return s.repo.GetProfile(ctx, userID)
-}
-
-func (s *service) UpdateProfile(ctx context.Context, userID, displayName string) (*domain.Profile, error) {
-	p, err := s.repo.GetProfile(ctx, userID)
-	if err != nil {
-		return nil, err
+// validDisplayName trims the name and checks it fits users.display_name.
+func validDisplayName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || utf8.RuneCountInString(name) > domain.MaxDisplayNameLength {
+		return "", domain.ErrInvalid
 	}
-	p.DisplayName = displayName
-	p.UpdatedAt = time.Now().UTC()
-	return p, s.repo.UpdateProfile(ctx, p)
-}
-
-func (s *service) ViewStatistics(ctx context.Context, userID string) (*domain.UserStatistics, error) {
-	// Placeholder until the Timer and Reward collaborations are implemented.
-	return &domain.UserStatistics{
-		UserID:        userID,
-		TotalSessions: 10,
-		TotalFocusMin: 250,
-		RewardsEarned: 5,
-	}, nil
-}
-
-// displayName falls back to the local part of the e-mail: the column is NOT NULL.
-func displayName(profile *domain.GoogleProfile, email string) string {
-	if name := strings.TrimSpace(profile.Name); name != "" {
-		return name
-	}
-	if local, _, found := strings.Cut(email, "@"); found && local != "" {
-		return local
-	}
-	return "Fisher"
+	return name, nil
 }
 
 // newUserID returns a version 4 UUID, matching the `user_id uuid` column.

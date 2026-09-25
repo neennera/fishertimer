@@ -1,7 +1,7 @@
 # Account Service
 
 ## Overview
-Google OAuth authentication (UC-06), user profile management, and user statistics.
+Google OAuth authentication (UC-06): sign in, sign up on first login, sign out.
 
 ## Port
 Default port: `8082` (the browser reaches it through the API Gateway as `/api/auth/*` or `/api/account/*`).
@@ -10,13 +10,15 @@ Default port: `8082` (the browser reaches it through the API Gateway as `/api/au
 
 | Method | Gateway route | Service route | Purpose |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/auth/google/login` | `/api/v1/account/google/login` | Start sign-in: sets the `state` cookie and redirects to Google. |
-| `GET` | `/api/auth/google/callback` | `/api/v1/account/google/callback` | Google redirect target: checks `state`, exchanges the code, matches or creates the account, sets the `ft_session` cookie. |
-| `GET` | `/api/auth/me` | `/api/v1/account/me` | Current signed-in user (`401` when anonymous). |
-| `POST` | `/api/auth/signout` | `/api/v1/account/signout` | Clears the session cookie. |
-| `GET` / `PUT` | `/api/account/profile` | `/api/v1/account/profile` | View or update the display name (requires a session). |
-| `GET` | `/api/account/statistics` | `/api/v1/account/statistics` | Personal statistics (requires a session). |
+| `GET` | `/api/auth/google/login` | `/api/v1/account/google/login` | Start sign-in. Optional `?next=/path` (where to land when signed in, default `/`) and `?signup=/path` (where to land when the e-mail has no account, default `/signup`); both must be same-site paths. Sets the `state` cookie and redirects to Google. |
+| `GET` | `/api/auth/google/callback` | `/api/v1/account/google/callback` | Google redirect target: checks `state`, exchanges the code, then asks whether the e-mail exists. Yes → `ft_session` + redirect to `next`. No → 15-min `ft_signup` ticket, no row written, redirect to `signup`. |
+| `GET` | `/api/auth/me` | `/api/v1/account/me` | One call, always `200`: `{"status":"signed_in","user":…}`, `{"status":"needs_signup","email":…}` or `{"status":"signed_out"}`. The frontend routes on this. |
+| `POST` | `/api/auth/signup` | `/api/v1/account/signup` | `{display_name}` → creates the account for the ticket's e-mail and signs the user in (`201`). |
+| `POST` | `/api/auth/signout` | `/api/v1/account/signout` | Clears the cookies. |
 | `GET` | - | `/health`, `/api/v1/account/status` | Liveness and configuration status. |
+
+The full walkthrough is in [`flow.md`](flow.md). Profile editing and statistics
+are not built yet - this service is deliberately only Google sign-in.
 
 ## Environment
 

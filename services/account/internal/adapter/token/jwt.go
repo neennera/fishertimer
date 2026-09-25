@@ -1,5 +1,7 @@
 // Package token implements the session token required by UC-06: a compact JWS
 // (JWT) signed with HMAC-SHA256, carrying user_id and role, valid for 7 days.
+// It also signs the short-lived sign-up ticket that carries a new user's
+// verified Google identity to the display-name form.
 // Only the standard library is used, so any service in the monorepo can verify
 // a token without pulling in a third-party dependency.
 package token
@@ -10,16 +12,30 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/neennera/fishertimer/services/account/internal/domain"
 )
 
+// Every rejection wraps domain.ErrUnauthorized, so callers outside this
+// package only need errors.Is(err, domain.ErrUnauthorized).
 var (
-	ErrMalformed = errors.New("account: malformed token")
-	ErrSignature = errors.New("account: invalid token signature")
-	ErrExpired   = errors.New("account: token expired")
+	ErrMalformed = fmt.Errorf("%w: malformed token", domain.ErrUnauthorized)
+	ErrSignature = fmt.Errorf("%w: invalid token signature", domain.ErrUnauthorized)
+	ErrExpired   = fmt.Errorf("%w: token expired", domain.ErrUnauthorized)
+	ErrWrongUse  = fmt.Errorf("%w: token used for the wrong purpose", domain.ErrUnauthorized)
+)
+
+// SignUpTTL is how long a new user has to pick a display name.
+const SignUpTTL = 15 * time.Minute
+
+// Values of the `use` claim. Both kinds share one secret, so the claim is what
+// stops a sign-up ticket from being replayed as a session and vice versa.
+const (
+	useSession = "session"
+	useSignUp  = "signup"
 )
 
 type header struct {
@@ -28,14 +44,17 @@ type header struct {
 }
 
 // payload is the wire format. `sub` holds the user_id (standard JWT subject)
-// and `role` is the authorisation claim other services read.
+// and `role` is the authorisation claim other services read. `picture` is only
+// set on sign-up tickets, where it becomes the new row's avatar_url.
 type payload struct {
-	Sub   string `json:"sub"`
-	Role  string `json:"role"`
-	Email string `json:"email"`
-	Iss   string `json:"iss"`
-	Iat   int64  `json:"iat"`
-	Exp   int64  `json:"exp"`
+	Sub     string `json:"sub,omitempty"`
+	Role    string `json:"role,omitempty"`
+	Email   string `json:"email"`
+	Picture string `json:"picture,omitempty"`
+	Use     string `json:"use"`
+	Iss     string `json:"iss"`
+	Iat     int64  `json:"iat"`
+	Exp     int64  `json:"exp"`
 }
 
 type JWTService struct {
@@ -54,31 +73,21 @@ func (s *JWTService) Issue(user *domain.UserAccount) (string, *domain.TokenClaim
 	if user == nil || user.UserID == "" {
 		return "", nil, domain.ErrInvalid
 	}
-	if len(s.secret) == 0 {
-		return "", nil, errors.New("account: JWT_SECRET is not configured")
-	}
 
 	issued := s.now().UTC()
 	expires := issued.Add(s.ttl)
 
-	head, err := json.Marshal(header{Alg: "HS256", Typ: "JWT"})
-	if err != nil {
-		return "", nil, err
-	}
-	body, err := json.Marshal(payload{
+	token, err := s.seal(payload{
 		Sub:   user.UserID,
 		Role:  user.Role,
 		Email: user.Email,
-		Iss:   s.issuer,
+		Use:   useSession,
 		Iat:   issued.Unix(),
 		Exp:   expires.Unix(),
 	})
 	if err != nil {
 		return "", nil, err
 	}
-
-	signingInput := encode(head) + "." + encode(body)
-	token := signingInput + "." + encode(s.sign(signingInput))
 
 	return token, &domain.TokenClaims{
 		UserID:    user.UserID,
@@ -88,8 +97,89 @@ func (s *JWTService) Issue(user *domain.UserAccount) (string, *domain.TokenClaim
 	}, nil
 }
 
-// Verify checks the signature, the algorithm, the issuer and the expiry.
+// Verify checks a session token: signature, algorithm, issuer, expiry and use.
 func (s *JWTService) Verify(raw string) (*domain.TokenClaims, error) {
+	body, err := s.open(raw, useSession)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.TokenClaims{
+		UserID:    body.Sub,
+		Role:      body.Role,
+		Email:     body.Email,
+		ExpiresAt: time.Unix(body.Exp, 0).UTC(),
+	}, nil
+}
+
+// IssueSignUp signs a ticket for a verified Google identity with no account.
+func (s *JWTService) IssueSignUp(profile *domain.GoogleProfile) (string, *domain.SignUpTicket, error) {
+	if !profile.Valid() {
+		return "", nil, domain.ErrInvalid
+	}
+
+	issued := s.now().UTC()
+	expires := issued.Add(SignUpTTL)
+	email := strings.ToLower(strings.TrimSpace(profile.Email))
+
+	token, err := s.seal(payload{
+		Email:   email,
+		Picture: profile.Picture,
+		Use:     useSignUp,
+		Iat:     issued.Unix(),
+		Exp:     expires.Unix(),
+	})
+	if err != nil {
+		return "", nil, err
+	}
+
+	return token, &domain.SignUpTicket{
+		Email:     email,
+		Picture:   profile.Picture,
+		ExpiresAt: expires,
+	}, nil
+}
+
+// VerifySignUp checks a sign-up ticket the same way Verify checks a session.
+func (s *JWTService) VerifySignUp(raw string) (*domain.SignUpTicket, error) {
+	body, err := s.open(raw, useSignUp)
+	if err != nil {
+		return nil, err
+	}
+	if body.Email == "" {
+		return nil, ErrMalformed
+	}
+
+	return &domain.SignUpTicket{
+		Email:     body.Email,
+		Picture:   body.Picture,
+		ExpiresAt: time.Unix(body.Exp, 0).UTC(),
+	}, nil
+}
+
+// seal stamps the issuer and signs the payload as header.payload.signature.
+func (s *JWTService) seal(body payload) (string, error) {
+	if len(s.secret) == 0 {
+		return "", errors.New("account: JWT_SECRET is not configured")
+	}
+	body.Iss = s.issuer
+
+	head, err := json.Marshal(header{Alg: "HS256", Typ: "JWT"})
+	if err != nil {
+		return "", err
+	}
+	claims, err := json.Marshal(body)
+	if err != nil {
+		return "", err
+	}
+
+	signingInput := encode(head) + "." + encode(claims)
+	return signingInput + "." + encode(s.sign(signingInput)), nil
+}
+
+// open checks the algorithm, the signature, the issuer, the expiry and that
+// the token was issued for `use`, then returns its payload.
+func (s *JWTService) open(raw, use string) (*payload, error) {
 	parts := strings.Split(raw, ".")
 	if len(parts) != 3 {
 		return nil, ErrMalformed
@@ -133,13 +223,11 @@ func (s *JWTService) Verify(raw string) (*domain.TokenClaims, error) {
 	if body.Exp == 0 || s.now().UTC().After(time.Unix(body.Exp, 0).UTC()) {
 		return nil, ErrExpired
 	}
+	if body.Use != use {
+		return nil, ErrWrongUse
+	}
 
-	return &domain.TokenClaims{
-		UserID:    body.Sub,
-		Role:      body.Role,
-		Email:     body.Email,
-		ExpiresAt: time.Unix(body.Exp, 0).UTC(),
-	}, nil
+	return &body, nil
 }
 
 func (s *JWTService) sign(input string) []byte {

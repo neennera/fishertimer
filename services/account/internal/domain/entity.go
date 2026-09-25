@@ -31,20 +31,6 @@ type UserAccount struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type Profile struct {
-	UserID      string    `json:"user_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-type UserStatistics struct {
-	UserID        string `json:"user_id"`
-	TotalSessions int    `json:"total_sessions"`
-	TotalFocusMin int    `json:"total_focus_minutes"`
-	RewardsEarned int    `json:"rewards_earned"`
-}
-
 // GoogleProfile is what we read back from Google after a successful sign-in.
 type GoogleProfile struct {
 	Email         string
@@ -74,3 +60,24 @@ type Session struct {
 	ExpiresAt time.Time    `json:"expires_at"`
 	User      *UserAccount `json:"user"`
 }
+
+// SignUpTicket is a Google identity that has no account yet. It travels from
+// the OAuth callback to the display-name form inside a signed, short-lived
+// token, so the browser can read it back but cannot change the e-mail.
+type SignUpTicket struct {
+	Email     string    `json:"email"`
+	Picture   string    `json:"picture"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// SignInResult is what the OAuth callback produces: a Session when the e-mail
+// already has an account, otherwise a sign-up ticket to finish with a display
+// name. Exactly one of the two is set.
+type SignInResult struct {
+	Session     *Session
+	SignUpToken string
+	SignUp      *SignUpTicket
+}
+
+// MaxDisplayNameLength matches users.display_name VARCHAR(100).
+const MaxDisplayNameLength = 100

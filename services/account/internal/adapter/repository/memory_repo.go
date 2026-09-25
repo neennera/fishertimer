@@ -60,36 +60,6 @@ func (r *InMemoryRepository) GetUserByID(ctx context.Context, userID string) (*d
 	return clone(u), nil
 }
 
-func (r *InMemoryRepository) GetProfile(ctx context.Context, userID string) (*domain.Profile, error) {
-	u, err := r.GetUserByID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	return &domain.Profile{
-		UserID:      u.UserID,
-		Email:       u.Email,
-		DisplayName: u.DisplayName,
-		UpdatedAt:   u.UpdatedAt,
-	}, nil
-}
-
-func (r *InMemoryRepository) UpdateProfile(ctx context.Context, p *domain.Profile) error {
-	if p == nil || p.UserID == "" {
-		return domain.ErrInvalid
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	u, ok := r.byID[p.UserID]
-	if !ok {
-		return domain.ErrNotFound
-	}
-	u.DisplayName = p.DisplayName
-	u.UpdatedAt = p.UpdatedAt
-	return nil
-}
-
 func clone(u *domain.UserAccount) *domain.UserAccount {
 	if u == nil {
 		return nil

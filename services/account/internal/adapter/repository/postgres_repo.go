@@ -41,34 +41,6 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, userID string) (*d
 	return r.findOne(ctx, `SELECT `+userColumns+` FROM users WHERE user_id = $1`, userID)
 }
 
-func (r *PostgresRepository) GetProfile(ctx context.Context, userID string) (*domain.Profile, error) {
-	u, err := r.GetUserByID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	return &domain.Profile{
-		UserID:      u.UserID,
-		Email:       u.Email,
-		DisplayName: u.DisplayName,
-		UpdatedAt:   u.UpdatedAt,
-	}, nil
-}
-
-func (r *PostgresRepository) UpdateProfile(ctx context.Context, p *domain.Profile) error {
-	if p == nil || p.UserID == "" {
-		return domain.ErrInvalid
-	}
-	const query = `UPDATE users SET display_name = $2, updated_at = $3 WHERE user_id = $1`
-	res, err := r.db.ExecContext(ctx, query, p.UserID, p.DisplayName, p.UpdatedAt)
-	if err != nil {
-		return err
-	}
-	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
-		return domain.ErrNotFound
-	}
-	return nil
-}
-
 func (r *PostgresRepository) findOne(ctx context.Context, query string, arg any) (*domain.UserAccount, error) {
 	var u domain.UserAccount
 	var avatar sql.NullString
