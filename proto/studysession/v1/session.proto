@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package fishertimer.studysession.v1;
+
+option go_package = "github.com/neennera/fishertimer/proto/studysession/v1;sessionv1";
+
+service StudySessionService {
+  rpc CreateSession(CreateSessionRequest) returns (StudySessionResponse);
+  rpc JoinSession(JoinSessionRequest) returns (JoinSessionResponse);
+  rpc LeaveSession(LeaveSessionRequest) returns (LeaveSessionResponse);
+  rpc EndSession(EndSessionRequest) returns (StudySessionResponse);
+  rpc ListActiveSession(ListActiveSessionRequest) returns (ListActiveSessionResponse);
+  rpc GetParticipants(GetParticipantsRequest) returns (GetParticipantsResponse);
+}
+
+message CreateSessionRequest {
+  string name = 1;
+  string creator_id = 2;
+  int32 participant_limit = 3;
+}
+
+message JoinSessionRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message JoinSessionResponse {
+  bool success = 1;
+}
+
+message LeaveSessionRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message LeaveSessionResponse {
+  bool success = 1;
+}
+
+message EndSessionRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message ListActiveSessionRequest {}
+
+message ParticipantInfo {
+  string session_id = 1;
+  string user_id = 2;
+  string joined_at = 3;
+}
+
+message StudySessionResponse {
+  string id = 1;
+  string name = 2;
+  string creator_id = 3;
+  int32 participant_limit = 4;
+  string status = 5;
+  string created_at = 6;
+}
+
+message ListActiveSessionResponse {
+  repeated StudySessionResponse sessions = 1;
+}
+
+message GetParticipantsRequest {
+  string session_id = 1;
+}
+
+message GetParticipantsResponse {
+  repeated ParticipantInfo participants = 1;
+}

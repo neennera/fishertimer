@@ -56,13 +56,12 @@ The microservices are scaffolded strictly based on the specifications in `micros
 
 | Service | Package Name | Default Port | Primary Responsibilities | Collaborating Services |
 | :--- | :--- | :--- | :--- | :--- |
-| **Auth** | `@fishertimer/auth-service` | `8081` | Google OAuth verification, user creation, session token management. | None |
-| **Account** | `@fishertimer/account-service` | `8082` | User profiles, personal stats dashboard, ban status flag. | Study Timer, Reward |
-| **Study Session** | `@fishertimer/study-session-service` | `8083` | Room creation, join/leave lifecycle, room capacity enforcement. | Admin Moderation |
-| **Study Timer** | `@fishertimer/study-timer-service` | `8084` | Independent user timers, work/break cycle calculations, focus stats. | None |
-| **Reward** | `@fishertimer/reward-service` | `8085` | Drop rate calculations, item claiming, milestone progression. | None |
-| **Leaderboard** | `@fishertimer/leaderboard-service` | `8086` | Read-optimized rankings (weekly, monthly, all-time). | None |
-| **Admin** | `@fishertimer/admin-service` | `8087` | Live session monitoring, user moderation reports, ban enforcement. | Study Session, Account |
+| **Account** | `@fishertimer/account-service` | `8082` | Google OAuth authentication, user profiles, personal stats dashboard. | Study Timer, Reward |
+| **Study Session** | `@fishertimer/study-session-service` | `8083` | Room creation, join/leave lifecycle, room capacity enforcement (gRPC/HTTP). | None |
+| **Study Timer** | `@fishertimer/study-timer-service` | `8084` | Independent user timers, work/break cycle calculations, complete cycle reward trigger (gRPC/HTTP). | Reward |
+| **Reward** | `@fishertimer/reward-service` | `8085` | Drop rate calculations, rarity table buffed by participants, user inventory. | None |
+| **Leaderboard** | `@fishertimer/leaderboard-service` | `8086` | Read-optimized rankings cached in Redis, reads from Reward Service. | Reward |
+| **Admin** | `@fishertimer/admin-service` | `8087` | Live session monitoring, active room oversight, kicking participants and closing rooms. | Study Session |
 | **Web** | `web` | `3000` | Next.js responsive frontend client and real-time dashboard. | All Backend Services |
 
 ---
@@ -158,8 +157,8 @@ Executes Next.js static and server compilation alongside Go binary builds in par
 To run or build an individual service using Turborepo filters:
 
 ```bash
-# Run only the Auth service in dev mode
-pnpm turbo dev --filter=@fishertimer/auth-service
+# Run only the Account service in dev mode
+pnpm turbo dev --filter=@fishertimer/account-service
 
 # Run only the Web frontend
 pnpm turbo dev --filter=web

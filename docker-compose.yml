@@ -1,25 +1,7 @@
 services:
   # ----------------------------------------------------------------------------
-  # 1. Relational Databases (PostgreSQL per Service)
+  # 1. Relational Databases (PostgreSQL per Service - 3NF Architecture)
   # ----------------------------------------------------------------------------
-  auth-db:
-    image: postgres:16-alpine
-    container_name: fishertimer-auth-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: auth_db
-    ports:
-      - "5431:5432"
-    volumes:
-      - auth_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   account-db:
     image: postgres:16-alpine
     container_name: fishertimer-account-db
@@ -32,6 +14,7 @@ services:
       - "5432:5432"
     volumes:
       - account_db_data:/var/lib/postgresql/data
+      - ./services/account/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d account_db"]
       interval: 5s
@@ -50,6 +33,7 @@ services:
       - "5433:5432"
     volumes:
       - session_db_data:/var/lib/postgresql/data
+      - ./services/study-session/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d session_db"]
       interval: 5s
@@ -68,6 +52,7 @@ services:
       - "5434:5432"
     volumes:
       - timer_db_data:/var/lib/postgresql/data
+      - ./services/study-timer/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d timer_db"]
       interval: 5s
@@ -86,6 +71,7 @@ services:
       - "5435:5432"
     volumes:
       - admin_db_data:/var/lib/postgresql/data
+      - ./services/admin/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d admin_db"]
       interval: 5s
@@ -93,7 +79,7 @@ services:
       retries: 5
 
   # ----------------------------------------------------------------------------
-  # 2. Document Databases (MongoDB per Service)
+  # 2. Document Database (MongoDB for Reward Service)
   # ----------------------------------------------------------------------------
   reward-db:
     image: mongo:7.0
@@ -107,35 +93,34 @@ services:
       - "27017:27017"
     volumes:
       - reward_db_data:/data/db
+      - ./services/reward/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  leaderboard-db:
-    image: mongo:7.0
-    container_name: fishertimer-leaderboard-db
+  # ----------------------------------------------------------------------------
+  # 3. In-Memory Cache (Redis for Leaderboard Service)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: fishertimer-redis
     restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: mongoadmin
-      MONGO_INITDB_ROOT_PASSWORD: mongopassword
-      MONGO_INITDB_DATABASE: leaderboard_db
     ports:
-      - "27018:27017"
+      - "6379:6379"
     volumes:
-      - leaderboard_db_data:/data/db
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  auth_db_data:
   account_db_data:
   session_db_data:
   timer_db_data:
   admin_db_data:
   reward_db_data:
-  leaderboard_db_data:
+  redis_data:

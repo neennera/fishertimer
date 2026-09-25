@@ -11,7 +11,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **[architecture]**: Updated microservice specifications and system topology in `docs/phase1/microservice.md`, `docs/ARCHITECTURE.md`, and `README.md`:
+  - **Study Session -> Study Timer**: Moved `AwardReward` collaborator call trigger from Study Session (`EndSession`) to Study Timer (`CompleteCycle`).
+  - **Leaderboard**: Removed standalone `leaderboard_db`; replaced with Redis Cache and configured Leaderboard to read user reward records from Reward Service `ViewRewards()`.
+  - **Auth -> Account**: Consolidated standalone Auth Service into Account Service (`account_db`), housing Google OAuth (`SignIn`, `SignUp`, `SignOut`) alongside user profiles and statistics dashboard.
+  - **gRPC Protocol**: Adopted **gRPC** for Study Timer and Study Session microservices.
+  - **Admin Collaboration**: Configured Admin service to directly send commands to Study Session (`LeaveSession()` to kick participants and `EndSession()` to close rooms).
+
+### Removed
+- **[admin]**: Removed `BanUser`, `UnbanUser`, `VerifyBanStatus`, `MonitorTimerStatus`, and moderation report operations.
+- **[reward]**: Removed `ClaimReward` and `TrackProgression` operations.
+- **[leaderboard]**: Removed standalone `FilterByPeriod` operation in favor of cached period filtering in `ViewLeaderboard`.
+- **[study-timer]**: Removed `SwitchPhase`, `StartRest`, etc., consolidating cycle transitions into `CompleteCycle` and `SkipRest`.
+- **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
+
 ### Added
+- **[database]**: Implemented 3NF database schemas across all microservices and authored full DBML documentation:
+  - Added authoritative DBML specification in `docs/database/schema.dbml` and architecture guide in `docs/database/README.md`.
+  - Created DDL migration scripts:
+    - Account: `services/account/database/schemas/001_create_users_table.sql` (`users`).
+    - Study Session: `services/study-session/database/schemas/001_create_study_sessions_tables.sql` (`study_sessions`, `session_participants`).
+    - Study Timer: `services/study-timer/database/schemas/001_create_timer_tables.sql` (`timer_settings`, `timer_sessions`, `timer_cycles`).
+    - Reward: `services/reward/database/schemas/001_create_reward_collections.js` (`reward_items`, `user_rewards`).
+    - Admin Moderation: `services/admin/database/schemas/001_create_admin_logs_table.sql` (`admin_logs`).
+  - Updated `docker-compose.yml` to remove `auth-db` and `leaderboard-db`, provision `redis:7-alpine`, and auto-mount DDL scripts.
+  - Aligned `@fishertimer/shared-types` domain TypeScript models to reflect 3NF schemas.
+- **[proto]**: Added gRPC protobuf service definitions for Study Session (`proto/studysession/v1/session.proto`) and Study Timer (`proto/studytimer/v1/timer.proto`).
+- **[services]**: Updated Clean Architecture code skeletons across microservices to match updated operations and boundaries:
+  - `account`: Added `SignIn`, `SignUp`, `SignOut`, `ViewProfile`, `UpdateProfile`, and `ViewStatistics` skeletons.
+  - `study-session`: Implemented session lifecycle methods (`CreateSession`, `JoinSession`, `LeaveSession`, `EndSession`, `ListActiveSession`, `GetParticipants`) and decoupled reward triggers.
+  - `study-timer`: Added `RewardClient` collaborator and skeleton operations (`StartTimer`, `PauseTimer`, `ResumeTimer`, `StopTimer`, `ResetTimer`, `CompleteCycle`, `SkipRest`, `UpdateTimerSetting`, `TimerStatistics`).
+  - `admin`: Added `SessionClient` collaborator (`LeaveSession`, `EndSession`) and monitoring skeletons (`ViewActiveSessions`, `ViewParticipants`, `ViewSessionDetails`).
+  - `leaderboard`: Replaced MongoDB configuration with `RedisURL` cache configuration and `ViewLeaderboard`/`GetRanking` endpoints.
+  - `api-gateway`: Updated reverse proxy routing to map `/api/account/*` and `/api/auth/*` directly to Account Service.
 - **[web]**: Added TailwindCSS v4 and a pixel-art design system, fulfilling ADR-002:
   - `app/tokens.css`: the single source of truth — 14 colours, the `--px` art-pixel unit, the `--pixclip` one-pixel bevel, and four type roles. No other file may contain a raw hex or px value.
   - `app/pixel.css`: surface primitives (`.pixel-panel`, `.pixel-btn`, `.pixel-input`, `.pixel-alert`, `.pixel-badge`, `.pixel-tile`), all geometry derived from `--px`.
@@ -31,6 +64,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added `database/` directories with service-level configurations in each microservice.
     - Updated `docker-compose.yml` to provision isolated databases per service (`auth-db`, `account-db`, `session-db`, `timer-db`, `admin-db`, `reward-db`, `leaderboard-db`).
     - Updated service configuration loaders and `.env.example`/`.env` with service-specific database variables.
+- **[leaderboard]**: Added inter-service collaboration from Leaderboard Service to Reward Service:
+  - Added `RewardClient.ViewRewards()` collaborator interface and usecase method `FetchUserRewards()` to fetch earned rewards for leaderboard ranking.
+  - Implemented `HTTPRewardClient` adapter in `services/leaderboard/internal/adapter/client/reward_client.go`.
+  - Exposed `GET /api/v1/reward/rewards` endpoint in Reward Service.
+  - Updated phase 1 architecture diagram, `microservice.md`, and system architecture documentation.
 - Standard Hexagonal / Clean Architecture templates across all 7 Go microservices (`auth`, `account`, `study-session`, `study-timer`, `reward`, `leaderboard`, `admin`).
 - Feature-driven modular architecture template for Next.js web application (`apps/web`).
 - AI Agent Skill Suite in `docs/skill-set/`:

@@ -33,7 +33,7 @@ func main() {
 
 	go func() {
 		log.Printf("api-gateway service listening on port %d [%s]", cfg.Port, cfg.Env)
-		log.Printf("  -> Auth:        %s", cfg.AuthServiceURL)
+		log.Printf("  -> Account:     %s", cfg.AccountServiceURL)
 		log.Printf("  -> Timer:       %s", cfg.TimerServiceURL)
 		log.Printf("  -> Leaderboard: %s", cfg.LeaderboardServiceURL)
 		log.Printf("  -> Session:     %s", cfg.SessionServiceURL)

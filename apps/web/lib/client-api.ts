@@ -1,5 +1,5 @@
 // Typed API client for Fisher Timer Client Website
-// Communicates with backend microservices via the API Gateway (Port 8080)
+// Communicates with backend microservices via the API Gateway (Port 8000)
 
 export type ClientServiceName =
   | 'auth'
@@ -9,7 +9,7 @@ export type ClientServiceName =
   | 'leaderboard';
 
 const API_GATEWAY_URL =
-  process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8080';
+  process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
 
 export async function clientApiFetch<T>(
   service: ClientServiceName,

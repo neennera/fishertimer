@@ -6,9 +6,10 @@ import (
 )
 
 type Config struct {
-	Port       int
-	Env        string
-	MongoDBURI string
+	Port             int
+	Env              string
+	RedisURL         string
+	RewardServiceURL string
 }
 
 func Load() *Config {
@@ -27,17 +28,20 @@ func Load() *Config {
 		env = "development"
 	}
 
-	mongoURI := os.Getenv("LEADERBOARD_MONGODB_URI")
-	if mongoURI == "" {
-		mongoURI = os.Getenv("MONGODB_URI")
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379/0"
 	}
-	if mongoURI == "" {
-		mongoURI = "mongodb://mongoadmin:mongopassword@localhost:27018/leaderboard_db?authSource=admin"
+
+	rewardURL := os.Getenv("REWARD_SERVICE_URL")
+	if rewardURL == "" {
+		rewardURL = "http://localhost:8085"
 	}
 
 	return &Config{
-		Port:       port,
-		Env:        env,
-		MongoDBURI: mongoURI,
+		Port:             port,
+		Env:              env,
+		RedisURL:         redisURL,
+		RewardServiceURL: rewardURL,
 	}
 }

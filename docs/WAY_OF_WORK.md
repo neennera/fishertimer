@@ -30,7 +30,7 @@ flowchart LR
 pnpm lint
 
 # Target a specific service
-pnpm turbo lint --filter=@fishertimer/auth-service
+pnpm turbo lint --filter=@fishertimer/account-service
 ```
 - Go services run `go vet ./...`.
 - TypeScript/Next.js projects run ESLint with `@repo/eslint-config`.

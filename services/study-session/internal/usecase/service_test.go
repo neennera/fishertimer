@@ -17,39 +17,57 @@ func (r *mockRepository) CreateSession(ctx context.Context, s *domain.StudySessi
 	return nil
 }
 
-type mockRewardClient struct {
-	called bool
-	userID string
-	reason string
+func (r *mockRepository) UpdateSession(ctx context.Context, s *domain.StudySession) error {
+	return nil
 }
 
-func (m *mockRewardClient) AwardReward(ctx context.Context, userID, reason string) error {
-	m.called = true
-	m.userID = userID
-	m.reason = reason
+func (r *mockRepository) ListActiveSessions(ctx context.Context) ([]domain.StudySession, error) {
+	return []domain.StudySession{{ID: "sess_1", Name: "Deep Work Room", Status: "ACTIVE"}}, nil
+}
+
+func (r *mockRepository) AddParticipant(ctx context.Context, p *domain.Participant) error {
 	return nil
+}
+
+func (r *mockRepository) RemoveParticipant(ctx context.Context, sessionID, userID string) error {
+	return nil
+}
+
+func (r *mockRepository) GetParticipants(ctx context.Context, sessionID string) ([]domain.Participant, error) {
+	return []domain.Participant{{SessionID: sessionID, UserID: "usr_1"}}, nil
 }
 
 func TestUsecase_Success(t *testing.T) {
 	repo := &mockRepository{}
-	rewardClient := &mockRewardClient{}
-	svc := usecase.New(repo, rewardClient)
+	svc := usecase.New(repo)
 	if svc == nil {
 		t.Fatal("expected usecase service to be initialized")
 	}
 	ctx := context.Background()
 
-	sess, err := svc.EndSession(ctx, "sess_1", "usr_999")
+	sess, err := svc.CreateSession(ctx, "Test Room", "usr_1", 5)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("unexpected error creating session: %v", err)
 	}
-	if sess.Status != "ENDED" {
-		t.Fatalf("expected status ENDED, got %s", sess.Status)
+	if sess.Name != "Test Room" {
+		t.Fatalf("expected room name Test Room, got %s", sess.Name)
 	}
-	if !rewardClient.called {
-		t.Fatal("expected rewardClient.AwardReward to be called upon EndSession")
+
+	ended, err := svc.EndSession(ctx, sess.ID, "usr_1")
+	if err != nil {
+		t.Fatalf("unexpected error ending session: %v", err)
 	}
-	if rewardClient.userID != "usr_999" {
-		t.Fatalf("expected userID usr_999, got %s", rewardClient.userID)
+	if ended.Status != "ENDED" {
+		t.Fatalf("expected status ENDED, got %s", ended.Status)
+	}
+
+	active, err := svc.ListActiveSession(ctx)
+	if err != nil || len(active) == 0 {
+		t.Fatalf("expected active sessions, got %v (err: %v)", active, err)
+	}
+
+	parts, err := svc.GetParticipants(ctx, "sess_1")
+	if err != nil || len(parts) == 0 {
+		t.Fatalf("expected participants, got %v (err: %v)", parts, err)
 	}
 }

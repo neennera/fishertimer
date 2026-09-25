@@ -1,10 +1,14 @@
-# Leaderboard Service Database
+# Leaderboard Service Cache & Datastore
 
-This directory contains the database configuration, connection management, and migrations for the **Leaderboard Service**.
+This directory documents the caching and datastore architecture for the **Leaderboard Service**.
 
-- **Database Engine:** MongoDB
-- **Default Database:** `leaderboard_db`
-- **Default Port:** `27018`
-- **Environment Variable:** `LEADERBOARD_MONGODB_URI`
+## Architectural Decision: In-Memory Redis Cache Only
 
-> **Note:** The definitive schema definitions and migrations will be specified later.
+As defined in the v2 microservices architecture:
+- The Leaderboard Service **does not** maintain a dedicated SQL or MongoDB database.
+- It operates an in-memory **Redis Cache** (`redis://localhost:6379`) utilizing Redis Sorted Sets (`ZSET`).
+- Rankings and scores are computed dynamically by querying the **Reward Service** (`ViewRewards`) and **Study Timer Service**.
+
+- **Engine:** Redis 7
+- **Default Port:** `6379`
+- **Environment Variable:** `LEADERBOARD_REDIS_URL`

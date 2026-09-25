@@ -18,3 +18,9 @@ type StudySession struct {
 	Status           string    `json:"status"`
 	CreatedAt        time.Time `json:"created_at"`
 }
+
+type Participant struct {
+	SessionID string    `json:"session_id"`
+	UserID    string    `json:"user_id"`
+	JoinedAt  time.Time `json:"joined_at"`
+}

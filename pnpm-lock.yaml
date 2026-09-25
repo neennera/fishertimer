@@ -145,8 +145,6 @@ importers:
 
   services/api-gateway: {}
 
-  services/auth: {}
-
   services/leaderboard: {}
 
   services/reward: {}

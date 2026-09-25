@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/neennera/fishertimer/services/study-session/config"
-	"github.com/neennera/fishertimer/services/study-session/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/study-session/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/study-session/internal/adapter/repository"
 	"github.com/neennera/fishertimer/services/study-session/internal/usecase"
@@ -20,12 +19,11 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// 1. Instantiate Driven Adapter (Repository & Collaborator Client)
+	// 1. Instantiate Driven Adapter (Repository)
 	repo := repository.NewInMemory()
-	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
 
 	// 2. Inject into Application Usecase
-	uc := usecase.New(repo, rewardClient)
+	uc := usecase.New(repo)
 
 	// 3. Inject into Driving Adapter (HTTP Handler)
 	h := handler.New(uc)

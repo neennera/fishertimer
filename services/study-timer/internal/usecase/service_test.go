@@ -17,9 +17,20 @@ func (r *mockRepository) SaveTimer(ctx context.Context, t *domain.TimerState) er
 	return nil
 }
 
+func (r *mockRepository) GetHistory(ctx context.Context, userID string) (*domain.TimerHistory, error) {
+	return &domain.TimerHistory{UserID: userID}, nil
+}
+
+type mockRewardClient struct{}
+
+func (m *mockRewardClient) AwardReward(ctx context.Context, userID, reason string) error {
+	return nil
+}
+
 func TestUsecase_Success(t *testing.T) {
 	repo := &mockRepository{}
-	svc := usecase.New(repo)
+	rewardClient := &mockRewardClient{}
+	svc := usecase.New(repo, rewardClient)
 	if svc == nil {
 		t.Fatal("expected usecase service to be initialized")
 	}

@@ -10,11 +10,17 @@ var (
 	ErrInvalid  = errors.New("admin: invalid input")
 )
 
-type ModerationReport struct {
-	ID         string    `json:"id"`
-	ReporterID string    `json:"reporter_id"`
-	ReportedID string    `json:"reported_id"`
-	Reason     string    `json:"reason"`
-	Status     string    `json:"status"`
-	CreatedAt  time.Time `json:"created_at"`
+type SessionOverview struct {
+	SessionID        string    `json:"session_id"`
+	Name             string    `json:"name"`
+	CreatorID        string    `json:"creator_id"`
+	ParticipantCount int       `json:"participant_count"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+type SessionParticipantOverview struct {
+	SessionID string    `json:"session_id"`
+	UserID    string    `json:"user_id"`
+	JoinedAt  time.Time `json:"joined_at"`
 }
