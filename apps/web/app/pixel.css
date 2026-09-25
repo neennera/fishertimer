@@ -230,10 +230,13 @@
     --thick: #bca47c;
   }
 
-  .pixel-btn:disabled {
-    --cap: #e3d6bc;
-    --thick: #cbbb9c;
-    color: #96866d;
+  /* :hover too, so a variant's hover colours (ghost, danger) never show
+     through on a disabled key. */
+  .pixel-btn:disabled,
+  .pixel-btn:disabled:hover {
+    --cap: var(--color-stone);
+    --thick: var(--color-stone-dk);
+    color: var(--color-stone-ink);
     cursor: not-allowed;
   }
   /* Disabled refuses to press, however hard you click it. */
@@ -249,6 +252,33 @@
 
   .pixel-btn--block {
     width: 100%;
+  }
+
+  /* Destructive actions (sign out). */
+  .pixel-btn--danger {
+    --cap: var(--color-rust);
+    --thick: var(--color-rust-dk);
+    color: var(--color-cream);
+  }
+  .pixel-btn--danger:hover {
+    --cap: var(--color-rust-dk);
+    --thick: var(--color-rust-dp);
+  }
+
+  /* Square key holding one pixelarticons glyph (24-unit grid, so 8 art
+     pixels keeps it crisp at --px: 3). Same press as the text button: one
+     pixel of padding swaps top-for-bottom. Declared after :disabled so the
+     disabled "refuses to press" reset keeps the icon padding. */
+  .pixel-btn--icon,
+  .pixel-btn--icon:disabled:active {
+    padding: calc(var(--px) * 2) calc(var(--px) * 2) calc(var(--px) * 3);
+  }
+  .pixel-btn--icon:active {
+    padding: calc(var(--px) * 3) calc(var(--px) * 2) calc(var(--px) * 2);
+  }
+  .pixel-btn--icon svg {
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
   }
 
   /* --- Input -------------------------------------------------------------- */
@@ -643,5 +673,11 @@
     font-family: var(--font-numeric);
     font-size: calc(var(--px) * 5);
     line-height: 1;
+  }
+
+  /* The sign-out key. No avatar before it (no initials) — push it right on
+     its own; otherwise it follows the avatar. */
+  .pixel-header__brand + .pixel-header__action {
+    margin-left: auto;
   }
 }

@@ -29,6 +29,9 @@ importers:
       next:
         specifier: 16.3.4
         version: 16.3.4(@babel/core@8.0.1)(@types/node@26.4.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      pixelarticons:
+        specifier: ^2.4.1
+        version: 2.4.1(react@19.2.8)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -1380,6 +1383,12 @@ packages:
     resolution: {integrity: sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==}
     engines: {node: '>=8.6'}
 
+  pixelarticons@2.4.1:
+    resolution: {integrity: sha512-NIiwuEmBrFT6YG5PdMnOPRsGm0rbz4TiH0P5sgftjrQugxgdF+xtZPgGrgAOL76KUMJ04kk5Bq2lVLnmBg7IPw==}
+    hasBin: true
+    peerDependencies:
+      react: '>=16'
+
   postcss@8.5.23:
     resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
     engines: {node: ^10 || ^12 || >=14}
@@ -2584,6 +2593,10 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@2.3.1: {}
+
+  pixelarticons@2.4.1(react@19.2.8):
+    dependencies:
+      react: 19.2.8
 
   postcss@8.5.23:
     dependencies:

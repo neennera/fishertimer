@@ -57,10 +57,13 @@ Tokens are in the `@theme` block of `tokens.css`. Each one works as
 | `--color-cream-2` | Secondary buttons, dividers |
 | `--color-amber` | Primary buttons |
 | `--color-amber-dk` | Button hover and depth |
+| `--color-stone` / `-dk` / `-ink` | Disabled button cap, depth, label |
 | `--color-oak` | Header bar, wood |
 | `--color-lake` | Accent, input focus |
 | `--color-lake-dp` | Button focus ring |
-| `--color-rust` | Errors |
+| `--color-rust` | Errors, danger buttons |
+| `--color-rust-dk` | Danger button hover and depth |
+| `--color-rust-dp` | Danger button hover depth |
 
 **Not used yet** — for background scenes, not for UI.
 
@@ -106,7 +109,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 | --- | --- |
 | `.pixel-header` | Top bar. Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` |
 | `.pixel-panel` | Panel background with an edge and a bottom band |
-| `.pixel-btn` | Button. Add `--ghost` or `--block` |
+| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph) or `--block` |
 | `.pixel-label` | Uppercase field label |
 | `.pixel-input` | Text field. Set `aria-invalid="true"` for the error state |
 | `.pixel-error` | Message under a field |

@@ -18,6 +18,9 @@
   --color-cream-2: #f2e2c2; /* secondary buttons, dividers */
   --color-amber: #e08a47; /* primary action */
   --color-amber-dk: #c4652e; /* hover, button thickness */
+  --color-stone: #c2c0bc; /* disabled button cap */
+  --color-stone-dk: #a19e99; /* disabled button thickness */
+  --color-stone-ink: #6f6c68; /* disabled button label */
 
   /* --- Scene colours: backgrounds, water, foliage ------------------------- */
   --color-oak: #8a6244; /* wood, tank frame */
@@ -27,7 +30,9 @@
   --color-lake: #4fa3b8; /* water, avatar, focus */
   --color-lake-dp: #2e6e85; /* deep water, focus outline */
   --color-sky: #f3c9a0; /* warm dusk sky, room wall */
-  --color-rust: #b4472f; /* errors, ban badge */
+  --color-rust: #b4472f; /* errors, ban badge, danger button */
+  --color-rust-dk: #8e3523; /* danger button hover and thickness */
+  --color-rust-dp: #6a2719; /* danger button hover thickness */
   --color-sky-fill: #9fc9f1; /* sampled from Sky_sky.png's last opaque pixel
     before it fades to transparent — extends the gradient where the art's own
     alpha runs out. Not --color-sky above: that's the warm dusk tone used

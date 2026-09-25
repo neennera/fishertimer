@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Logout } from "pixelarticons/react/Logout";
 import { Header } from "../../components/Header";
 import { PixelAlert } from "../../components/ui/PixelAlert";
 import { PixelBadge } from "../../components/ui/PixelBadge";
@@ -19,10 +20,15 @@ const ASSIGNED = [
   ["cream-2", "Secondary control"],
   ["amber", "Primary action"],
   ["amber-dk", "Hover, depth"],
+  ["stone", "Disabled"],
+  ["stone-dk", "Disabled depth"],
+  ["stone-ink", "Disabled label"],
   ["oak", "Header, wood"],
   ["lake", "Accent, field focus"],
   ["lake-dp", "Focus ring"],
-  ["rust", "Error"],
+  ["rust", "Error, danger"],
+  ["rust-dk", "Danger hover, depth"],
+  ["rust-dp", "Danger hover depth"],
 ] as const;
 
 const AVAILABLE = [
@@ -189,7 +195,8 @@ export default function StyleguidePage() {
 
   return (
     <>
-      <Header user={{ displayName: "Chayut A." }} />
+      {/* Demo only: the real sign-out wiring lives in SessionHeader. */}
+      <Header user={{ displayName: "Chayut A." }} onSignOut={() => {}} />
 
       <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -257,6 +264,15 @@ export default function StyleguidePage() {
                 <PixelButton>Continue</PixelButton>
                 <PixelButton variant="ghost">Cancel</PixelButton>
                 <PixelButton disabled>Saving…</PixelButton>
+                <div className="flex gap-2">
+                  <PixelButton variant="danger">Sign out</PixelButton>
+                  <PixelButton variant="danger" icon aria-label="Sign out" title="Sign out">
+                    <Logout aria-hidden="true" />
+                  </PixelButton>
+                  <PixelButton variant="danger" icon disabled aria-label="Signing out">
+                    <Logout aria-hidden="true" />
+                  </PixelButton>
+                </div>
               </div>
             </Demo>
 
