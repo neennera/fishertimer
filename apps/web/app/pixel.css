@@ -304,6 +304,132 @@
     min-height: calc(1.4em);
   }
 
+  /* --- Checkbox ------------------------------------------------------------
+     A real <input type="checkbox">, visually hidden (clipped, not
+     display:none, so it stays tabbable/announced) rather than replaced —
+     the box and label are both `<label for>` siblings that toggle it, and
+     the box itself is styled off the input's :checked state via the
+     adjacent-sibling selector below. */
+  .pixel-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: calc(var(--px) * 3);
+    cursor: pointer;
+  }
+
+  .pixel-checkbox__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .pixel-checkbox__box {
+    position: relative;
+    flex: none;
+    width: calc(var(--px) * 6);
+    height: calc(var(--px) * 6);
+    margin-top: calc(var(--px) * 0.5);
+    background: #fff;
+    clip-path: var(--pixclip);
+    box-shadow: inset 0 0 0 var(--px) var(--color-cream-2);
+    cursor: pointer;
+  }
+
+  .pixel-checkbox__input:checked + .pixel-checkbox__box {
+    background: var(--color-amber);
+    box-shadow: inset 0 0 0 var(--px) var(--color-amber-dk);
+  }
+
+  .pixel-checkbox__input:focus-visible + .pixel-checkbox__box {
+    box-shadow:
+      inset 0 0 0 var(--px) var(--color-lake-dp),
+      0 0 0 var(--px) var(--color-lake-dp);
+  }
+
+  .pixel-checkbox__label {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  /* --- Inline link ---------------------------------------------------------
+     A <button> made to read as a link — used where a sentence needs an
+     inline action (e.g. "the Privacy Notice" opening a modal) rather than
+     navigating away. */
+  .pixel-link {
+    font: inherit;
+    color: var(--color-lake-dp);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .pixel-link:hover {
+    color: var(--color-lake);
+  }
+
+  /* --- Modal -----------------------------------------------------------------
+     Dimmed backdrop plus a .pixel-panel surface — same parchment bevel as
+     every other panel, just floated over the page instead of sitting in it. */
+  .pixel-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--px) * 6);
+    background: rgb(58 42 30 / 0.55);
+  }
+
+  .pixel-modal {
+    width: 100%;
+    max-width: 32rem;
+    max-height: 80vh;
+    overflow-y: auto;
+    text-align: left;
+  }
+
+  .pixel-modal__title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1.1;
+  }
+
+  .pixel-modal__close {
+    flex: none;
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+    line-height: 1;
+    font-size: 1.25rem;
+    color: var(--color-bark);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .pixel-modal__close:hover {
+    color: var(--color-rust);
+  }
+
+  .pixel-modal__body {
+    margin-top: calc(var(--px) * 4);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-ink);
+  }
+  .pixel-modal__body p + p {
+    margin-top: calc(var(--px) * 3);
+  }
+
   /* --- Alert -------------------------------------------------------------- */
   .pixel-alert {
     clip-path: var(--pixclip);

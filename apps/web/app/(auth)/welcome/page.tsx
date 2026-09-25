@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PixelButton } from "../../../components/ui/PixelButton";
+import { PixelCheckbox } from "../../../components/ui/PixelCheckbox";
 import { PixelInput } from "../../../components/ui/PixelInput";
+import { PixelModal } from "../../../components/ui/PixelModal";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
 import { completeFirstTimeSetup, getSession, handleAuthCallback, type Session } from "../../../lib/auth";
 import { validateDisplayName } from "../../../lib/validate-display-name";
@@ -17,6 +19,8 @@ function WelcomeForm() {
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +70,7 @@ function WelcomeForm() {
     setAttemptedSubmit(true);
     setSubmitError(null);
 
-    if (validateDisplayName(name)) {
+    if (validateDisplayName(name) || !consentChecked) {
       return;
     }
 
@@ -115,7 +119,7 @@ function WelcomeForm() {
 
         {session ? (
           <p className="text-sm text-bark">
-            Signed in as {session.user.email}
+            Signed in as <span className="font-bold text-amber-dk">{session.user.email}</span>
           </p>
         ) : (
           <p className="mt-4 text-sm text-bark" aria-hidden="true">
@@ -123,10 +127,52 @@ function WelcomeForm() {
           </p>
         )}
 
-        <PixelButton block type="submit" className="mt-2" disabled={submitting || !session}>
+        <PixelCheckbox
+          className="mt-4"
+          checked={consentChecked}
+          onChange={(event) => setConsentChecked(event.target.checked)}
+          required
+        >
+          I have read and acknowledge the{" "}
+          <button type="button" className="pixel-link" onClick={() => setPrivacyOpen(true)}>
+            Privacy Notice
+          </button>{" "}
+          and consent to the collection and use of my personal data as described above.
+        </PixelCheckbox>
+
+        <PixelButton
+          block
+          type="submit"
+          className="mt-4"
+          disabled={submitting || !session || !consentChecked}
+        >
           {submitting ? "Saving…" : "Continue"}
         </PixelButton>
       </form>
+
+      <PixelModal
+        open={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+        title="Privacy and Personal Data Consent"
+      >
+        <p>
+          By continuing, you acknowledge that Fisher Timer will collect and use your
+          personal data, including your Google account email, display name, and
+          account information, for the purposes of creating and managing your
+          account, providing study session features, displaying your profile and
+          statistics, managing rewards and leaderboard features, and maintaining the
+          security of the service.
+        </p>
+        <p>
+          Your personal data will be handled in accordance with Thailand&rsquo;s
+          Personal Data Protection Act (PDPA) and our Privacy Policy.
+        </p>
+        <p>
+          You may update certain profile information and exercise your applicable
+          personal data rights through your account or by contacting the service
+          administrator.
+        </p>
+      </PixelModal>
     </PixelPanel>
   );
 }

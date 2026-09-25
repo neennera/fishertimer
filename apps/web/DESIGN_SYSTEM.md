@@ -110,13 +110,24 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-label` | Uppercase field label |
 | `.pixel-input` | Text field. Set `aria-invalid="true"` for the error state |
 | `.pixel-error` | Message under a field |
+| `.pixel-field-error` | Same slot as `.pixel-label` (font, tracking, case) but red. Always mounted with a reserved line-height, even with no message, so an error appearing doesn't shift the layout |
+| `.pixel-checkbox` | Real `<input type="checkbox">`, visually hidden, plus a `__box` and `__label`. Checked state is fully filled amber, driven off the input's `:checked` via the adjacent-sibling selector |
+| `.pixel-link` | A `<button>` styled to read as an inline text link (e.g. opening a modal from inside a sentence) |
+| `.pixel-modal` | `.pixel-panel` surface for a dialog. Pair with `.pixel-modal-overlay` (fixed, dimmed backdrop), `__title`, `__close` (red on hover), `__body` |
 | `.pixel-alert` | Status message. Add `--warn` |
 | `.pixel-badge` | Small tag |
 | `.pixel-tile` | Number and caption, with `__value` and `__caption` |
 | `.pixel-sprite` | Pixel image. Sets `image-rendering: pixelated` |
 
 React components in `components/ui/`: `PixelPanel`, `PixelButton`,
-`PixelInput`, `PixelAlert`, `PixelBadge`, `StatTile`.
+`PixelInput`, `PixelCheckbox`, `PixelModal`, `PixelAlert`, `PixelBadge`,
+`StatTile`.
+
+**Modals** portal to `document.body` (`react-dom`'s `createPortal`) rather
+than rendering in place — `position: fixed` is still clipped to the paint
+region of any ancestor with its own `clip-path`, which every `.pixel-panel`
+has, so an in-place overlay would be boxed into the panel instead of covering
+the viewport.
 
 **The style.** Square corners with one pixel cut off each corner
 (`--pixclip`), a one-pixel inset edge, and a one-pixel darker band along the

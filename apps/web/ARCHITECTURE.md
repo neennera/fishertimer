@@ -16,8 +16,8 @@ apps/web/
 │   └── styleguide/                # Every component and state, built from the real components
 ├── components/                    # Global shared UI
 │   ├── Header.tsx                 # The walnut bar on every screen
-│   └── ui/                        # PixelButton, PixelPanel, PixelInput, PixelAlert,
-│                                  # PixelBadge, StatTile
+│   └── ui/                        # PixelButton, PixelPanel, PixelInput, PixelCheckbox,
+│                                  # PixelModal, PixelAlert, PixelBadge, StatTile
 ├── features/                      # Feature-sliced modules
 │   ├── auth/                      # Google OAuth sign-in & session state (UC-06)
 │   ├── account/                   # Profile, display name, stats dashboard (UC-07)
