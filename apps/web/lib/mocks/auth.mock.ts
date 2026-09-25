@@ -1,5 +1,7 @@
-// Canned auth responses used while NEXT_PUBLIC_USE_MOCKS is on. Covers the 7
-// states shown by the sign-in and first-time setup wireframes:
+// Canned auth responses used while NEXT_PUBLIC_USE_MOCKS is on, shaped exactly
+// like the account service's real responses (snake_case users, GET /me's
+// status union). Covers the 7 states shown by the sign-in and first-time
+// setup wireframes:
 //   01a Sign In (Default)
 //   01b Sign In (Error: Consent Denied)
 //   01c Sign In (Error: Code Exchange Failed)
@@ -8,12 +10,13 @@
 //   02b First-Time Setup (Error: Name Empty)
 //   02c First-Time Setup (Error: Name Too Long)
 
-import { AUTH_CALLBACK_ERROR_MESSAGES, type AuthCallbackErrorCode } from '../auth-error-messages';
-import type { Session } from '../auth';
+import type { AuthErrorCode } from '../auth-error-messages';
+import type { Session, SessionUser } from '../auth';
 import { validateDisplayName } from '../validate-display-name';
 
-// Query param read by handleAuthCallback() in mock mode to force a given
-// outcome, e.g. /auth/callback?mockScenario=signin-consent-denied
+// Query param read by the mock signInWithGoogle() (on /signin) and the mock
+// getSession() (on /welcome) to force a given outcome, e.g.
+// /signin?mockScenario=signin-consent-denied, then click "Sign in with Google".
 export const MOCK_SCENARIO_PARAM = 'mockScenario';
 
 export type MockAuthScenario =
@@ -27,53 +30,64 @@ export type MockAuthScenario =
 
 export const MOCK_SIGN_IN_DELAY_MS = 400;
 
-export const MOCK_SESSION: Session = {
-  user: {
-    id: 'mock-user-1',
-    email: 'angler@example.com',
-    displayName: 'Chayut A.',
-    role: 'CUSTOMER',
-  },
-  isFirstLogin: false,
+export const MOCK_USER: SessionUser = {
+  user_id: 'mock-user-1',
+  email: 'angler@example.com',
+  display_name: 'Chayut A.',
+  avatar_url: '',
+  role: 'CUSTOMER',
+  created_at: '2026-09-01T00:00:00Z',
+  updated_at: '2026-09-01T00:00:00Z',
 };
 
-// Returned when the callback creates a new account — per UC-06 S-1, the
-// display name comes from the Google profile at creation time (editable,
-// not blank). 02a/02b/02c (the /welcome states) all start from this
-// session, differing only in what the user does to that prefilled name.
-export const MOCK_FIRST_TIME_SESSION: Session = {
-  user: {
-    id: 'mock-user-new',
-    email: 'new-angler@example.com',
-    displayName: 'Chayut A.',
-    role: 'CUSTOMER',
-  },
-  isFirstLogin: true,
+// The e-mail GET /me reports for a verified Google identity with no account
+// yet. The real needs_signup response carries only the e-mail — no Google
+// display name — so 02a/02b/02c all start from an empty name field.
+export const MOCK_SIGNUP_EMAIL = 'new-angler@example.com';
+
+// What the mock "Google round trip" does for each scenario: which of the two
+// paths passed to signInWithGoogle() the backend would redirect to, with
+// which ?auth_error=, leaving which GET /me state behind.
+export interface MockSignInOutcome {
+  redirectTo: 'next' | 'signup';
+  authError?: AuthErrorCode;
+  session: Session;
+}
+
+const NEEDS_SIGNUP: MockSignInOutcome = {
+  redirectTo: 'signup',
+  session: { status: 'needs_signup', email: MOCK_SIGNUP_EMAIL },
 };
 
-// 01b, 01c, 01d
-export const MOCK_AUTH_CALLBACK_ERRORS: Record<
-  Extract<
-    MockAuthScenario,
-    | 'signin-consent-denied'
-    | 'signin-code-exchange-failed'
-    | 'signin-account-creation-failed'
-  >,
-  { code: AuthCallbackErrorCode; message: string }
-> = {
+export const MOCK_SIGN_IN_OUTCOMES: Record<MockAuthScenario, MockSignInOutcome> = {
+  // 01a
+  'signin-default': {
+    redirectTo: 'next',
+    session: { status: 'signed_in', user: MOCK_USER },
+  },
+  // 01b, 01c — errors come back to `next`, like the real GoogleCallback
   'signin-consent-denied': {
-    code: 'consent_denied',
-    message: AUTH_CALLBACK_ERROR_MESSAGES.consent_denied,
+    redirectTo: 'next',
+    authError: 'access_denied',
+    session: { status: 'signed_out' },
   },
   'signin-code-exchange-failed': {
-    code: 'code_exchange_failed',
-    message: AUTH_CALLBACK_ERROR_MESSAGES.code_exchange_failed,
+    redirectTo: 'next',
+    authError: 'login_failed',
+    session: { status: 'signed_out' },
   },
-  'signin-account-creation-failed': {
-    code: 'account_creation_failed',
-    message: AUTH_CALLBACK_ERROR_MESSAGES.account_creation_failed,
-  },
+  // 01d — sign-in succeeds; the signup POST is what fails (MOCK_SIGNUP_FAILS)
+  'signin-account-creation-failed': NEEDS_SIGNUP,
+  // 02a, 02b, 02c
+  'setup-default': NEEDS_SIGNUP,
+  'setup-name-empty': NEEDS_SIGNUP,
+  'setup-name-too-long': NEEDS_SIGNUP,
 };
+
+// Scenarios whose POST /signup answers 500 "could not create account".
+export const MOCK_SIGNUP_FAILS: ReadonlySet<MockAuthScenario> = new Set([
+  'signin-account-creation-failed',
+]);
 
 // 02b, 02c — the exact copy the first-time setup form shows for each
 // scenario. These come from validateDisplayName() at typing time, not from
@@ -86,6 +100,42 @@ export const MOCK_SETUP_FORM_ERRORS: Record<
   'setup-name-empty': validateDisplayName('') as string,
   'setup-name-too-long': validateDisplayName('a'.repeat(31)) as string,
 };
+
+export function isMockAuthScenario(value: string | null): value is MockAuthScenario {
+  return value !== null && value in MOCK_SIGN_IN_OUTCOMES;
+}
+
+// Stand-in for the ft_session / ft_signup cookies: the mock sign-in is a real
+// full-page navigation, so the state it leaves behind has to survive a reload.
+// sessionStorage can be unavailable (private mode, blocked storage) — every
+// access is guarded and falls back to "no state".
+const MOCK_STATE_KEY = 'ft_mock_auth';
+
+export interface MockAuthState {
+  scenario: MockAuthScenario;
+  session: Session;
+}
+
+export function readMockAuthState(): MockAuthState | null {
+  try {
+    const raw = window.sessionStorage.getItem(MOCK_STATE_KEY);
+    return raw ? (JSON.parse(raw) as MockAuthState) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeMockAuthState(state: MockAuthState | null): void {
+  try {
+    if (state) {
+      window.sessionStorage.setItem(MOCK_STATE_KEY, JSON.stringify(state));
+    } else {
+      window.sessionStorage.removeItem(MOCK_STATE_KEY);
+    }
+  } catch {
+    // storage unavailable — mock state just won't persist
+  }
+}
 
 export function mockDelay<T>(value: T, ms = MOCK_SIGN_IN_DELAY_MS): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));

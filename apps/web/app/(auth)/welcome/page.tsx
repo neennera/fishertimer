@@ -1,20 +1,19 @@
 "use client";
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { PixelButton } from "../../../components/ui/PixelButton";
 import { PixelCheckbox } from "../../../components/ui/PixelCheckbox";
 import { PixelInput } from "../../../components/ui/PixelInput";
 import { PixelModal } from "../../../components/ui/PixelModal";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
-import { completeFirstTimeSetup, getSession, handleAuthCallback, type Session } from "../../../lib/auth";
+import { AUTH_ERROR_PARAM, completeFirstTimeSetup, getSession } from "../../../lib/auth";
 import { validateDisplayName } from "../../../lib/validate-display-name";
 
 function WelcomeForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [session, setSession] = useState<Session | null>(null);
+  // The pending Google e-mail from GET /me's needs_signup; null while loading.
+  const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -26,29 +25,27 @@ function WelcomeForm() {
     let cancelled = false;
 
     async function load() {
-      let current = await getSession();
-
-      // No callback route exists yet to land here for real, so there's no
-      // session in this tab when testing directly — ?mockScenario=
-      // setup-default/setup-name-empty/setup-name-too-long lets this page
-      // be reached directly for each state, the same way /signin's
-      // ?error= links work.
-      if (!current) {
-        const result = await handleAuthCallback(searchParams);
-        current = result.ok ? result.session : null;
-      }
+      // In mock mode, /welcome?mockScenario=setup-default/setup-name-empty/
+      // setup-name-too-long reaches this page directly for each state, the
+      // same way /signin's ?auth_error= links work.
+      const session = await getSession();
 
       if (cancelled) {
         return;
       }
 
-      if (!current) {
+      if (session.status === "signed_in") {
+        router.replace("/");
+        return;
+      }
+      if (session.status === "signed_out") {
         router.replace("/signin");
         return;
       }
 
-      setSession(current);
-      setName(current.user.displayName);
+      // GET /me only carries the e-mail for a pending sign-up, so the name
+      // starts empty.
+      setEmail(session.email);
     }
 
     void load();
@@ -56,7 +53,7 @@ function WelcomeForm() {
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams]);
+  }, [router]);
 
   const liveError = validateDisplayName(name);
   const isEmpty = name.trim().length === 0;
@@ -77,10 +74,14 @@ function WelcomeForm() {
     setSubmitting(true);
     try {
       const result = await completeFirstTimeSetup(name);
-      if (!result.ok) {
-        return;
+      if (result.ok) {
+        router.push("/");
+      } else if (result.code === "account_creation_failed") {
+        // 01d lives on the sign-in screen in the wireframes.
+        router.replace(`/signin?${AUTH_ERROR_PARAM}=account_creation_failed`);
+      } else {
+        setSubmitError(result.error);
       }
-      router.push("/");
     } catch {
       setSubmitError("Something went wrong. Please try again.");
     } finally {
@@ -97,8 +98,8 @@ function WelcomeForm() {
         Let&rsquo;s set up your profile before you start
       </p>
 
-      <form className="mt-6 text-left" onSubmit={handleSubmit} aria-busy={!session}>
-        {session ? (
+      <form className="mt-6 text-left" onSubmit={handleSubmit} aria-busy={!email}>
+        {email ? (
           <PixelInput
             label="Display name"
             value={name}
@@ -117,9 +118,9 @@ function WelcomeForm() {
           {displayedError ?? submitError ?? " "}
         </p>
 
-        {session ? (
+        {email ? (
           <p className="text-sm text-bark">
-            Signed in as <span className="font-bold text-amber-dk">{session.user.email}</span>
+            Signed in as <span className="font-bold text-amber-dk">{email}</span>
           </p>
         ) : (
           <p className="mt-4 text-sm text-bark" aria-hidden="true">
@@ -144,7 +145,7 @@ function WelcomeForm() {
           block
           type="submit"
           className="mt-4"
-          disabled={submitting || !session || !consentChecked}
+          disabled={submitting || !email || !consentChecked}
         >
           {submitting ? "Saving…" : "Continue"}
         </PixelButton>

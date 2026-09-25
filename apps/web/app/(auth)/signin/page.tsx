@@ -1,39 +1,36 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PixelButton } from "../../../components/ui/PixelButton";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
-import { handleAuthCallback, signInWithGoogle } from "../../../lib/auth";
+import { getSession, signInWithGoogle } from "../../../lib/auth";
 import { SignInError } from "./SignInError";
 
 function SignInPanel() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [signingIn, setSigningIn] = useState(false);
+
+  // The backend sends every Google round trip back here (signInWithGoogle()'s
+  // default `next`) — a successful sign-in lands signed in, so move on.
+  useEffect(() => {
+    let cancelled = false;
+    void getSession().then((session) => {
+      if (!cancelled && session.status === "signed_in") {
+        router.replace("/");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function handleSignIn() {
     setSigningIn(true);
-
-    // Real mode: this navigates the whole browser away to the gateway and
-    // never resolves in this page, so nothing below runs. Mock mode: it
-    // resolves after a short delay — the actual new-vs-existing-user
-    // decision still comes from handleAuthCallback(), reading the same
-    // ?mockScenario= param /welcome's fallback reads, so
-    // /signin?mockScenario=setup-default plus a click walks through the
-    // whole flow in one step during testing.
+    // A full-page navigation to Google via the backend (mock mode plays out
+    // the same redirect for ?mockScenario=), so the button just stays in its
+    // busy state until the page unloads.
     await signInWithGoogle();
-    const result = await handleAuthCallback(searchParams);
-
-    if (!result.ok) {
-      setSigningIn(false);
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.set("error", result.error);
-      router.replace(`/signin?${nextParams.toString()}`);
-      return;
-    }
-
-    router.push(result.session.isFirstLogin ? "/welcome" : "/");
   }
 
   return (

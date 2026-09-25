@@ -95,11 +95,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **[web]**: Replaced the Turborepo starter `layout.tsx`, `page.tsx` and `globals.css`; the app is no longer titled "Create Next App".
+- **[web]**: Rewrote the sign-in / sign-up code (`lib/auth.ts`, `lib/client-api.ts`, `lib/mocks/auth.mock.ts`) to match the real account service API:
+  - Sign-in now redirects the browser to `/api/auth/google/login`; the backend sends it back to `/welcome` (new account) or `/signin` (existing account, or `?auth_error=`). `handleAuthCallback()` is replaced by `readAuthError()`.
+  - `getSession()` uses `GET /api/auth/me` (`signed_in` / `needs_signup` / `signed_out`); user fields are now the backend's snake_case names, with `role` passed through. Sign-up posts to `/api/auth/signup`; added `signOut()`.
+  - API calls go through the same-origin Next rewrites so the backend's login cookies are sent. Mock scenarios 01a–01d / 02a–02c still work via `?mockScenario=`.
 
 ### Fixed
 - **[web]**: Fixed `pnpm lint` failure in `apps/web/next.config.js` — added a Node globals override in `apps/web/eslint.config.js` so `process` is recognized, and declared the 7 gateway service URL env vars (`AUTH_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `SESSION_SERVICE_URL`, `TIMER_SERVICE_URL`, `REWARD_SERVICE_URL`, `LEADERBOARD_SERVICE_URL`, `ADMIN_SERVICE_URL`) in `turbo.json`'s `build` task so Turborepo hashes them correctly and `turbo/no-undeclared-env-vars` stops flagging them.
 - **[shared-types]**: Fixed `pnpm check-types` failure caused by `packages/shared-types/tsconfig.json` extending the nonexistent `@fishertimer/typescript-config/base.json`; corrected to `@repo/typescript-config/base.json`.
-- **[web]**: Fixed `lib/auth.ts` casting the account service's real (non-mock) response straight into the camelCase `Session`/`SessionUser` shape with no mapping. The account service actually returns snake_case JSON (`user_id`, `display_name`), so this would have silently produced `undefined` fields once `NEXT_PUBLIC_USE_MOCKS` is `false`. Added an `AccountUserWire` type and `mapAccountUserToSession()` mapper used by the real branches of `handleAuthCallback`/`completeFirstTimeSetup`/`getSession`; `role` and `isFirstLogin` aren't in the account service's schema yet, so they're left as commented unresolved defaults rather than invented values.
 
 ## [0.1.0] - 2026-09-11
 

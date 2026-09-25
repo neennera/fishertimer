@@ -2,24 +2,19 @@
 
 import { useSearchParams } from "next/navigation";
 import { PixelAlert } from "../../../components/ui/PixelAlert";
-import { AUTH_CALLBACK_ERROR_MESSAGES, type AuthCallbackErrorCode } from "../../../lib/auth";
+import { readAuthError } from "../../../lib/auth";
 
-function isAuthCallbackErrorCode(value: string | null): value is AuthCallbackErrorCode {
-  return value !== null && value in AUTH_CALLBACK_ERROR_MESSAGES;
-}
-
-// Reads ?error=<code> so each of 01b/01c/01d is directly linkable, e.g.
-// /signin?error=consent_denied — also how SignInPanel surfaces a real
-// sign-in failure, by replacing the URL with this param rather than holding
-// its own separate error state. Isolated from SignInPanel so only this part
-// re-renders on a searchParams change.
+// Reads the ?auth_error=<code> the backend's Google callback redirects back
+// with, so each of 01b/01c/01d is also directly linkable, e.g.
+// /signin?auth_error=access_denied. Isolated from SignInPanel so only this
+// part re-renders on a searchParams change.
 export function SignInError() {
   const searchParams = useSearchParams();
-  const code = searchParams.get("error");
+  const error = readAuthError(searchParams);
 
-  if (!isAuthCallbackErrorCode(code)) {
+  if (!error) {
     return null;
   }
 
-  return <PixelAlert className="mt-4">{AUTH_CALLBACK_ERROR_MESSAGES[code]}</PixelAlert>;
+  return <PixelAlert className="mt-4">{error.message}</PixelAlert>;
 }
