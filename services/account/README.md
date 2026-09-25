@@ -17,9 +17,6 @@ Default port: `8082` (the browser reaches it through the API Gateway as `/api/au
 | `POST` | `/api/auth/signout` | `/api/v1/account/signout` | Clears the cookies. |
 | `GET` | - | `/health`, `/api/v1/account/status` | Liveness and configuration status. |
 
-The full walkthrough is in [`flow.md`](flow.md). Profile editing and statistics
-are not built yet - this service is deliberately only Google sign-in.
-
 ## Environment
 
 | Variable | Purpose |
