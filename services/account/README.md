@@ -12,9 +12,11 @@ Default port: `8082` (the browser reaches it through the API Gateway as `/api/au
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/auth/google/login` | `/api/v1/account/google/login` | Start sign-in. Optional `?next=/path` (where to land when signed in, default `/`) and `?signup=/path` (where to land when the e-mail has no account, default `/signup`); both must be same-site paths. Sets the `state` cookie and redirects to Google. |
 | `GET` | `/api/auth/google/callback` | `/api/v1/account/google/callback` | Google redirect target: checks `state`, exchanges the code, then asks whether the e-mail exists. Yes → `ft_session` + redirect to `next`. No → 15-min `ft_signup` ticket, no row written, redirect to `signup`. |
-| `GET` | `/api/auth/me` | `/api/v1/account/me` | One call, always `200`: `{"status":"signed_in","user":…}`, `{"status":"needs_signup","email":…}` or `{"status":"signed_out"}`. The frontend routes on this. |
+| `GET` | `/api/auth/me` | `/api/v1/account/me` | Returns the signed-in user (`200` + user JSON), or `401 {"error":"sign in required"}` if there is no valid session. Reads the session from the `ft_session` cookie or an `Authorization: Bearer <token>` header. |
 | `POST` | `/api/auth/signup` | `/api/v1/account/signup` | `{display_name}` → creates the account for the ticket's e-mail and signs the user in (`201`). |
 | `POST` | `/api/auth/signout` | `/api/v1/account/signout` | Clears the cookies. |
+| `PATCH` | `/api/auth/update-profile` | `/api/v1/account/update-profile` | `{display_name}` → renames the signed-in user and re-issues `ft_session` (`200` + updated user). Requires a session (`ft_session` cookie or `Authorization: Bearer <token>`). Errors: `400` (missing/too-long display name), `401` (no/expired session). |
+| `GET` | `/api/auth/profile?id=<user_id>` | `/api/v1/account/profile?id=<user_id>` | Looks up any user by id (no session required) → `200` + user JSON. Errors: `400` (missing `id`), `404` (no such user). |
 | `GET` | - | `/health`, `/api/v1/account/status` | Liveness and configuration status. |
 
 ## Environment

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/neennera/fishertimer/services/account/internal/domain"
 )
@@ -57,6 +58,19 @@ func (r *InMemoryRepository) GetUserByID(ctx context.Context, userID string) (*d
 	if !ok {
 		return nil, domain.ErrNotFound
 	}
+	return clone(u), nil
+}
+
+func (r *InMemoryRepository) UpdateProfile(ctx context.Context, userID, displayName string) (*domain.UserAccount, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	u, ok := r.byID[userID]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	u.DisplayName = displayName
+	u.UpdatedAt = time.Now().UTC()
 	return clone(u), nil
 }
 

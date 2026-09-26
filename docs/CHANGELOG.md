@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Driven ports `domain.OAuthProvider` and `domain.TokenService` with adapters `internal/adapter/oauth` (Google) and `internal/adapter/token` (7-day HS256 JWT carrying `user_id`, `role` and `display_name`).
   - PostgreSQL adapter for `account_db.users`; the service fails fast at startup when `account_db` is unreachable instead of running on a volatile store.
   - `profile` and `statistics` endpoints now require a valid session instead of a `user_id` query parameter.
+  - Added `PATCH /api/v1/account/update-profile` — `{display_name}` body, requires a session (`ft_session` cookie or `Authorization: Bearer`); renames the user, persists it via a new `Repository.UpdateProfile(userID, displayName)` method, and re-issues `ft_session` (`200` + updated user) since the JWT carries `display_name`. Errors: `400` (missing/too-long name), `401` (no/expired session).
+  - Added `GET /api/v1/account/profile?id=<user_id>` — looks up any user by id via `Usecase.GetProfile`, no session required (`200` + user JSON, `400` missing `id`, `404` not found).
 - **[api-gateway]**: Added identity-forwarding middleware (`internal/adapter/middleware.Verifier`) wrapping the whole proxy mux in `cmd/main.go`:
   - Verifies the account service's session JWT (`ft_session` cookie or `Authorization: Bearer` header) using a standard-library-only copy of its HS256 check (shared `JWT_SECRET`/`JWT_ISSUER`).
   - On a valid token, sets `X-User-Id`, `X-User-Role` and `X-Display-Name` (URL-encoded) on the proxied request; always strips any client-supplied copies of these headers first so downstream services can trust them.

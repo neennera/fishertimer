@@ -34,6 +34,15 @@ type Usecase interface {
 
 	// Authenticate verifies a session token and returns the live user record.
 	Authenticate(ctx context.Context, token string) (*domain.UserAccount, error)
+
+	// UpdateProfile renames the signed-in user and re-issues the session
+	// token, since TokenClaims carries display_name for the gateway to forward
+	// without a DB lookup.
+	UpdateProfile(ctx context.Context, token, displayName string) (*domain.Session, error)
+
+	// GetProfile looks up a user by id, for callers that already know which
+	// account they want (e.g. another service resolving a user_id from a JWT).
+	GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error)
 }
 
 type service struct {
@@ -152,6 +161,34 @@ func (s *service) Authenticate(ctx context.Context, token string) (*domain.UserA
 		return nil, err
 	}
 	return s.repo.GetUserByID(ctx, claims.UserID)
+}
+
+func (s *service) UpdateProfile(ctx context.Context, token, displayName string) (*domain.Session, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, domain.ErrUnauthorized
+	}
+	claims, err := s.tokens.Verify(token)
+	if err != nil {
+		return nil, err
+	}
+
+	name, err := validDisplayName(displayName)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.repo.UpdateProfile(ctx, claims.UserID, name)
+	if err != nil {
+		return nil, err
+	}
+	return s.newSession(user)
+}
+
+func (s *service) GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domain.ErrInvalid
+	}
+	return s.repo.GetUserByID(ctx, userID)
 }
 
 // validDisplayName trims the name and checks it fits users.display_name.

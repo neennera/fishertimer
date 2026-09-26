@@ -238,6 +238,52 @@ func TestAuthenticate(t *testing.T) {
 	}
 }
 
+func TestUpdateProfile(t *testing.T) {
+	svc, repo := newService(googleProfile())
+	ctx := context.Background()
+
+	session := signUp(t, svc, "Fish Lover")
+
+	updated, err := svc.UpdateProfile(ctx, session.Token, "  New Name  ")
+	if err != nil {
+		t.Fatalf("UpdateProfile: %v", err)
+	}
+	if updated.User.DisplayName != "New Name" {
+		t.Fatalf("expected trimmed new name, got %q", updated.User.DisplayName)
+	}
+	if updated.User.UserID != session.User.UserID {
+		t.Fatal("update must not change the account identity")
+	}
+	if updated.Token == "" {
+		t.Fatal("expected a refreshed session token")
+	}
+
+	stored, err := repo.GetUserByID(ctx, session.User.UserID)
+	if err != nil {
+		t.Fatalf("GetUserByID: %v", err)
+	}
+	if stored.DisplayName != "New Name" {
+		t.Fatalf("display name was not persisted, got %q", stored.DisplayName)
+	}
+}
+
+func TestUpdateProfile_RejectsBadInputOrToken(t *testing.T) {
+	svc, _ := newService(googleProfile())
+	ctx := context.Background()
+
+	session := signUp(t, svc, "Fish Lover")
+
+	for _, name := range []string{"", "   ", strings.Repeat("a", domain.MaxDisplayNameLength+1)} {
+		if _, err := svc.UpdateProfile(ctx, session.Token, name); !errors.Is(err, domain.ErrInvalid) {
+			t.Fatalf("display name %q: expected ErrInvalid, got %v", name, err)
+		}
+	}
+
+	if _, err := svc.UpdateProfile(ctx, "not-a-token", "Name"); !errors.Is(err, domain.ErrUnauthorized) {
+		t.Fatalf("invalid token: expected ErrUnauthorized, got %v", err)
+	}
+}
+
 func TestAuthenticate_RejectsSignUpTicket(t *testing.T) {
 	svc, _ := newService(googleProfile())
 	ctx := context.Background()
