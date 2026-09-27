@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Auth -> Account**: Consolidated standalone Auth Service into Account Service (`account_db`), housing Google OAuth (`SignIn`, `SignUp`, `SignOut`) alongside user profiles and statistics dashboard.
   - **gRPC Protocol**: Adopted **gRPC** for Study Timer and Study Session microservices.
   - **Admin Collaboration**: Configured Admin service to directly send commands to Study Session (`LeaveSession()` to kick participants and `EndSession()` to close rooms).
+- **[go.work]**: Raised the workspace Go version from 1.22 to 1.25.0, the minimum required by `google.golang.org/grpc` v1.84.
+- **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
 
 ### Removed
 - **[admin]**: Removed `BanUser`, `UnbanUser`, `VerifyBanStatus`, `MonitorTimerStatus`, and moderation report operations.
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Added
+- **[proto]**: Made `proto/` its own Go module (`github.com/neennera/fishertimer/proto`, registered in `go.work`) holding the generated gRPC code for Study Timer and Study Session, so every service imports one shared contract. Regenerate with `pnpm proto:gen` (`scripts/gen-proto.mjs`); the generated `*.pb.go` files are committed so only contract authors need `protoc`.
 - **[account]**: Implemented Google OAuth 2.0 sign-in (UC-06 SignIn / SignUp / SignOut) in the Account Service:
   - `GET /api/v1/account/google/login` (redirect to Google with an anti-CSRF `state` cookie), `GET /api/v1/account/google/callback` (code exchange, account match-or-create, session cookie), `GET /api/v1/account/me`, `POST /api/v1/account/signout`.
   - Accounts are matched by e-mail per UC-06; new accounts are created with `role = CUSTOMER`, and an existing `ADMIN` row keeps its role (E-4).

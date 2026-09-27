@@ -1,11 +1,12 @@
-go 1.22
+go 1.25.0
 
 use (
+	./proto
 	./services/account
-	./services/study-session
-	./services/study-timer
-	./services/reward
-	./services/leaderboard
 	./services/admin
 	./services/api-gateway
+	./services/leaderboard
+	./services/reward
+	./services/study-session
+	./services/study-timer
 )
