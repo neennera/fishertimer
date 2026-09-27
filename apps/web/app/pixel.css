@@ -1005,7 +1005,12 @@
   /* --- Header -------------------------------------------------------------
      Fixed height. It must not change between pages, whether or not an avatar
      is present, so the height is set here and never derived from content. */
+  /* Pinned to the top of the viewport; above the page's own stacking (the
+     fish tank's layers go up to 11). */
   .pixel-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
     display: flex;
     align-items: center;
     gap: calc(var(--px) * 3);
@@ -1055,6 +1060,20 @@
     font-family: var(--font-numeric);
     font-size: calc(var(--px) * 5);
     line-height: 1;
+    overflow: hidden;
+  }
+  .pixel-header__avatar:hover {
+    background: var(--color-lake-dp);
+  }
+  /* Inset: the corner clip-path would cut off an outline outside the box. */
+  .pixel-header__avatar:focus-visible {
+    outline: var(--px) solid var(--color-cream);
+    outline-offset: calc(var(--px) * -1);
+  }
+  .pixel-header__avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   /* The sign-out key. No avatar before it (no initials) — push it right on

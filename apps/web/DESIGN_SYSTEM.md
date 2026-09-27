@@ -108,7 +108,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 
 | Class | What it is |
 | --- | --- |
-| `.pixel-header` | Top bar. Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` |
+| `.pixel-header` | Top bar, pinned to the top of the viewport (sticky, above page content). Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` (a link to `/account` showing the user's picture via `__avatar-img`, initials when there is none) |
 | `.pixel-panel` | Panel background with an edge and a bottom band |
 | `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller key: with `--icon` a small icon key beside text, without it a small text key such as a link-like action), `--busy` (spins its icon while an action is in flight) or `--block` |
 | `.pixel-label` | Uppercase field label |

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: The header stays pinned to the top of the page while scrolling, and its avatar shows the user's picture (initials if there is none or it fails to load) and links to `/account`.
 - **[web]**: The `/account` display-name editor now edits the name in place: the name itself becomes an underlined input in the same font and position, with small check / close icon buttons in the pencil's spot, so nothing shifts: the error line between the name and the e-mail is always reserved. The underline colour, the check / close keys, the error and the saving dim fade in over about 120ms (off under reduced motion). This intentionally departs from wireframe 04b's large input and Cancel / Save buttons; all six 04a–04f states, the validator and the mock `updateDisplayName()` are unchanged. New `.pixel-name-row`, `.pixel-inline-field`, `.pixel-inline-input`, `.pixel-inline-error` classes and a `.pixel-btn--busy` modifier.
 - **[architecture]**: Updated microservice specifications and system topology in `docs/phase1/microservice.md`, `docs/ARCHITECTURE.md`, and `README.md`:
   - **Study Session -> Study Timer**: Moved `AwardReward` collaborator call trigger from Study Session (`EndSession`) to Study Timer (`CompleteCycle`).
@@ -115,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Disabled buttons are now gray (new `--color-stone`, `--color-stone-dk`, `--color-stone-ink` tokens) instead of beige hex values hard-coded in `pixel.css`, and no longer show a variant's hover colour.
 
 ### Fixed
+- **[web]**: `globals.css` used `overflow-x: hidden` on `html`/`body`, which made `body` its own scroll container and broke sticky positioning; it now uses `overflow-x: clip`.
 - **[web]**: Link classes (`.pixel-link`, Tailwind's `underline`) had no effect: an unlayered `a` reset in `globals.css` overrode them. It now sits in `@layer base`.
 - **[web]**: Fixed `pnpm lint` failure in `apps/web/next.config.js` — added a Node globals override in `apps/web/eslint.config.js` so `process` is recognized, and declared the 7 gateway service URL env vars (`AUTH_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `SESSION_SERVICE_URL`, `TIMER_SERVICE_URL`, `REWARD_SERVICE_URL`, `LEADERBOARD_SERVICE_URL`, `ADMIN_SERVICE_URL`) in `turbo.json`'s `build` task so Turborepo hashes them correctly and `turbo/no-undeclared-env-vars` stops flagging them.
 - **[shared-types]**: Fixed `pnpm check-types` failure caused by `packages/shared-types/tsconfig.json` extending the nonexistent `@fishertimer/typescript-config/base.json`; corrected to `@repo/typescript-config/base.json`.
