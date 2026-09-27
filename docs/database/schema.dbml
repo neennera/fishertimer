@@ -81,22 +81,25 @@ Ref: timer_sessions.timer_session_id < timer_cycles.timer_session_id
 // Represented as Document Schemas
 // -------------------------------------------------------
 Table reward_items {
-  _id objectid [pk]
+  _id objectid [pk, note: 'item_id']
   item_name varchar(100) [not null]
-  description text
-  item_type varchar(50) [not null, note: 'SKIN | BADGE | FISH_SPECIES']
-  cost int [not null, default: 0]
-  created_at timestamptz [not null]
+  category varchar(50) [not null, note: 'FISH | DECORATION | ROD']
+  rarity varchar(20) [not null, note: 'COMMON | UNCOMMON | RARE | EPIC | LEGENDARY']
+  base_weight double [not null, note: 'relative drop-rate weight']
+  score_value int [not null, note: 'points this item contributes to a leaderboard score']
+  asset_url varchar(255) [not null]
 }
 
 Table user_rewards {
-  _id objectid [pk]
+  _id objectid [pk, note: 'user_reward_id']
   user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  cycle_id uuid [not null, note: 'Refers to timer_db.timer_cycles(cycle_id), WORK cycle only']
   item_id objectid [not null]
-  unlocked_at timestamptz [not null]
+  awarded_at timestamptz [not null, note: 'Reward drop timestamp; also used by Leaderboard Cache to detect updates']
 
   indexes {
-    (user_id, item_id) [unique]
+    user_id
+    awarded_at
   }
 }
 
