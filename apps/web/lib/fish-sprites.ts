@@ -21,6 +21,12 @@ const KNOWN: { file: string; names: string[]; placeholder: FishPlaceholderColor 
   { file: 'Bass.png', names: ['bass'], placeholder: 'sage' },
   { file: 'Catfish.png', names: ['catfish'], placeholder: 'sage' },
   { file: 'Rainbow Trout.png', names: ['rainbow trout'], placeholder: 'sage' },
+  { file: 'Crab - Dungeness.png', names: ['dungeness crab', 'crab'], placeholder: 'rust' },
+  { file: 'Koi.png', names: ['koi'], placeholder: 'amber' },
+  { file: 'Octopus.png', names: ['octopus'], placeholder: 'rust' },
+  { file: 'Seahorse.png', names: ['seahorse'], placeholder: 'amber' },
+  { file: 'Globefish.png', names: ['globefish'], placeholder: 'sky-fill' },
+  { file: 'Ghostfish.png', names: ['ghostfish'], placeholder: 'cream' },
 ];
 
 const PLACEHOLDER_COLORS: FishPlaceholderColor[] = ['rust', 'sky-fill', 'amber', 'sage', 'cream'];

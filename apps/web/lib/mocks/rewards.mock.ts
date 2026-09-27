@@ -32,7 +32,7 @@ export const MOCK_REWARDS: Record<string, RewardsSummary> = {
     item('Blue Tang', 3, '', 'FISH', 'UNCOMMON', 25),
     item('Goldfish', 5, '/sprites/fish/Goldfish.png'),
     item('Pufferfish', 2, '/sprites/fish/Pufferfish.png', 'FISH', 'RARE', 50),
-    item('Angelfish', 1, '/sprites/fish/Angelfish.png', 'FISH', 'EPIC', 100),
+    item('Angelfish', 1, '/sprites/fish/Angelfish.png', 'FISH', 'UNCOMMON', 25),
     // Unknown sprite: placeholder.
     item('Golden Betta', 1, 'https://assets.example/fish/golden-betta.png', 'FISH', 'LEGENDARY', 250),
     // Not fish: in rewards earned, not in the tank.
@@ -40,7 +40,7 @@ export const MOCK_REWARDS: Record<string, RewardsSummary> = {
     item('Bamboo Rod', 1, '/sprites/items/bamboo-rod.png', 'ROD', 'UNCOMMON', 25),
   ]),
   [MOCK_USER_IDS.mira]: summary([
-    item('Angelfish', 3, '/sprites/fish/Angelfish.png', 'FISH', 'EPIC', 100),
+    item('Angelfish', 3, '/sprites/fish/Angelfish.png', 'FISH', 'UNCOMMON', 25),
     item('Pufferfish', 4, '/sprites/fish/Pufferfish.png', 'FISH', 'RARE', 50),
     item('Blue Tang', 2, '/sprites/fish/Surgeonfish.png', 'FISH', 'UNCOMMON', 25),
     item('Bass', 1, '/sprites/fish/Bass.png'),
