@@ -3,6 +3,7 @@ module github.com/neennera/fishertimer/services/study-timer
 go 1.25.0
 
 require (
+	github.com/lib/pq v1.10.9
 	github.com/neennera/fishertimer/proto v0.0.0
 	google.golang.org/grpc v1.84.0
 )

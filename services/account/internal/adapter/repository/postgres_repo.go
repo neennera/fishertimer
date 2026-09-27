@@ -41,11 +41,19 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, userID string) (*d
 	return r.findOne(ctx, `SELECT `+userColumns+` FROM users WHERE user_id = $1`, userID)
 }
 
-func (r *PostgresRepository) findOne(ctx context.Context, query string, arg any) (*domain.UserAccount, error) {
+func (r *PostgresRepository) UpdateProfile(ctx context.Context, userID, displayName string) (*domain.UserAccount, error) {
+	const query = `
+		UPDATE users SET display_name = $2, updated_at = now()
+		WHERE user_id = $1
+		RETURNING ` + userColumns
+	return r.findOne(ctx, query, userID, displayName)
+}
+
+func (r *PostgresRepository) findOne(ctx context.Context, query string, args ...any) (*domain.UserAccount, error) {
 	var u domain.UserAccount
 	var avatar sql.NullString
 
-	err := r.db.QueryRowContext(ctx, query, arg).
+	err := r.db.QueryRowContext(ctx, query, args...).
 		Scan(&u.UserID, &u.Email, &u.DisplayName, &avatar, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

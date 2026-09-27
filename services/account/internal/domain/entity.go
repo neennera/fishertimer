@@ -46,12 +46,14 @@ func (p *GoogleProfile) Valid() bool {
 	return p != nil && strings.TrimSpace(p.Email) != "" && p.EmailVerified
 }
 
-// TokenClaims is the decoded session JWT: user_id and role, as UC-06 requires.
+// TokenClaims is the decoded session JWT: user_id and role, as UC-06 requires,
+// plus display_name so the gateway can forward it without a DB lookup.
 type TokenClaims struct {
-	UserID    string    `json:"user_id"`
-	Role      string    `json:"role"`
-	Email     string    `json:"email"`
-	ExpiresAt time.Time `json:"expires_at"`
+	UserID      string    `json:"user_id"`
+	Role        string    `json:"role"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	ExpiresAt   time.Time `json:"expires_at"`
 }
 
 // Session is the result of a completed sign-in.

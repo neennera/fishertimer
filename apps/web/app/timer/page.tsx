@@ -4,8 +4,11 @@ import type { TimerOwner } from "../../features/timer/timer.api";
 
 // Demo only: the timer is not linked to a signed-in user or a real room yet.
 // Once rooms (UC-01/02) land, the room id and the signed-in user id replace
-// these fixed values.
-const DEMO_OWNER: TimerOwner = { sessionId: "demo", userId: "demo" };
+// these fixed values. They are UUIDs because timer_db keys timers by UUID.
+const DEMO_OWNER: TimerOwner = {
+  sessionId: "00000000-0000-0000-0000-000000000001",
+  userId: "00000000-0000-0000-0000-000000000002",
+};
 
 export default function TimerPage() {
   return (

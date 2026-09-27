@@ -5,6 +5,6 @@ import (
 )
 
 type Repository interface {
-	Award(ctx context.Context, r *FishReward) error
-	ListByUser(ctx context.Context, userID string) ([]FishReward, error)
+	Award(ctx context.Context, r *UnlockedReward) error
+	ListByUser(ctx context.Context, userID string) ([]UnlockedReward, error)
 }

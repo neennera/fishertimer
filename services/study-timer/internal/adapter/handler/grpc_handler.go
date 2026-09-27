@@ -68,8 +68,8 @@ func (h *GRPCHandler) TimerStatistics(ctx context.Context, req *timerv1.TimerSta
 	}
 	resp := &timerv1.TimerStatisticsResponse{
 		UserId:            stats.UserID,
-		TotalSessions:     int32(stats.TotalSessions),
-		TotalFocusMinutes: int32(stats.TotalFocusMin),
+		TotalSessions:     int32(stats.SessionsJoined),
+		TotalFocusMinutes: int32(stats.TotalFocusMinutes),
 	}
 	if !stats.LastActive.IsZero() {
 		resp.LastActive = stats.LastActive.Format(time.RFC3339)

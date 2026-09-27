@@ -33,8 +33,28 @@ gRPC codes become HTTP statuses: `InvalidArgument` 400, `FailedPrecondition`
 Server-side failures are logged and return a generic `{"error": ...}` message.
 
 ```bash
-curl -X POST localhost:8000/api/timer/start -d '{"session_id":"demo","user_id":"demo"}'
+curl -X POST localhost:8000/api/timer/start -d '{"session_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002"}'
 ```
+
+## Identity forwarding
+Every request passes through `internal/adapter/middleware.Verifier.Identity`
+before routing. It reads the account service's session JWT from the
+`ft_session` cookie (or an `Authorization: Bearer` header), and — if it's
+valid — sets three trusted headers on the proxied request:
+
+| Header | Source |
+| :--- | :--- |
+| `X-User-Id` | JWT `sub` |
+| `X-User-Role` | JWT `role` |
+| `X-Display-Name` | JWT `name`, URL-encoded (may contain non-ASCII characters) |
+
+Any of these headers on the *incoming* request is always stripped first, so a
+caller cannot spoof identity by setting them directly — downstream services
+can trust them once the gateway is in front. A missing or invalid token is
+**not** rejected here: the middleware just forwards no identity headers.
+Whether a route requires a session is a decision left to each downstream
+service. Uses `JWT_SECRET` / `JWT_ISSUER` from the shared root `.env` (same
+values the account service signs with).
 
 ## Scripts
 - `pnpm dev` : Runs the service locally with Go

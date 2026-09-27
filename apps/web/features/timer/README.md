@@ -10,5 +10,6 @@ Contains components, custom React hooks, and view models specific to the timer d
 | `TimerPanel.tsx` | Countdown, progress bar and controls. The primary button keeps its place and width across Start / Pause / Resume; Reset is always present. Space and R shortcuts; the countdown shows in the tab title. |
 
 The page is `app/timer/page.tsx`. It currently uses a fixed demo owner
-(`session_id` / `user_id` = `demo`); replace it with the real room and
+(fixed UUIDs `...0001` / `...0002`, since `timer_db` keys timers by UUID);
+replace it with the real room and
 signed-in user once rooms (UC-01/02) exist.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -26,7 +28,9 @@ func main() {
 	cfg := config.Load()
 
 	// 1. Instantiate Driven Adapter (Repository & Reward Collaborator Client)
-	repo := repository.NewInMemory()
+	db := mustConnectDB(cfg)
+	defer db.Close()
+	repo := repository.NewPostgres(db)
 	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
 
 	// 2. Inject into Application Usecase
@@ -83,4 +87,26 @@ func main() {
 		log.Fatalf("forced shutdown: %s\n", err)
 	}
 	log.Printf("study-timer exited cleanly")
+}
+
+// mustConnectDB opens timer_db and refuses to start without it: statistics
+// (sessions joined, cycles completed, total focus time) are computed with
+// SUM/COUNT queries against real rows, so running on an ephemeral store would
+// make every user's stats reset on restart.
+func mustConnectDB(cfg *config.Config) *sql.DB {
+	db, err := sql.Open("postgres", cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("study-timer: cannot open timer_db: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		log.Fatalf("study-timer: timer_db unreachable (%v). Start it with `pnpm db:up` "+
+			"or fix TIMER_DATABASE_URL (%s)", err, cfg.DatabaseURL)
+	}
+
+	log.Printf("study-timer: connected to timer_db")
+	return db
 }
