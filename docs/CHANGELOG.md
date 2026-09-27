@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[go.work]**: Raised the workspace Go version from 1.22 to 1.25.0, the minimum required by `google.golang.org/grpc` v1.84.
 - **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
 
+### Fixed
+- **[study-timer]**: `CompleteCycle` awarded a reward and counted a cycle after rest phases too; only a completed work phase now does (UC-05 S-2). The in-memory repository returned shared pointers, letting concurrent requests race on one timer; it now stores copies and reports a missing timer as `ErrNotFound`.
+
 ### Removed
 - **[admin]**: Removed `BanUser`, `UnbanUser`, `VerifyBanStatus`, `MonitorTimerStatus`, and moderation report operations.
 - **[reward]**: Removed `ClaimReward` and `TrackProgression` operations.
@@ -29,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Added
+- **[study-timer]**: Timer now keeps real time (UC-05). Remaining time is derived from server timestamps (`RunningSince` + accumulated `Elapsed`), so pause freezes it, resume continues it, and a reload never alters it. State-transition rules live on `domain.TimerState` and are unit tested; `ErrInvalidState` rejects illegal moves (e.g. pausing a stopped timer), and a duplicate Start is ignored (UC-05 E-4). Added `GetTimer` usecase and `GET /api/v1/study-timer/state`; HTTP responses now include `duration_seconds` and `remaining_seconds` and return 400 / 409 instead of a blanket 500.
 - **[proto]**: Made `proto/` its own Go module (`github.com/neennera/fishertimer/proto`, registered in `go.work`) holding the generated gRPC code for Study Timer and Study Session, so every service imports one shared contract. Regenerate with `pnpm proto:gen` (`scripts/gen-proto.mjs`); the generated `*.pb.go` files are committed so only contract authors need `protoc`.
 - **[account]**: Implemented Google OAuth 2.0 sign-in (UC-06 SignIn / SignUp / SignOut) in the Account Service:
   - `GET /api/v1/account/google/login` (redirect to Google with an anti-CSRF `state` cookie), `GET /api/v1/account/google/callback` (code exchange, account match-or-create, session cookie), `GET /api/v1/account/me`, `POST /api/v1/account/signout`.
