@@ -54,6 +54,26 @@
 
 ---
 
+### Incident 004: gRPC Requires a Newer Go Than the Workspace Declared
+- **Date:** 2026-09-27
+- **Component:** `go.work`, `proto` module, `google.golang.org/grpc`
+- **Symptom:** The workspace declared `go 1.22`, but the current `google.golang.org/grpc` cannot be used at that version; `go mod init` / `go mod tidy` also silently set the new module's `go` directive to the local toolchain (`1.27.1`), which would force every teammate onto that exact version.
+- **Root Cause:** `google.golang.org/grpc` v1.84 declares `go 1.25.0` in its own `go.mod`. A dependency's minimum Go version propagates to every module that imports it, and `go.work` must be at least as new as each member module.
+- **Solution:** Raised `go.work` and the modules that import gRPC (`proto`, `study-timer`, `api-gateway`) to `go 1.25.0`. Contributors need Go 1.25 or newer installed.
+- **Action for Future Agents:** Before adding a Go dependency, check the `go` directive in that dependency's `go.mod`; if it is newer than `go.work`, raise the workspace deliberately (and tell the team) rather than letting `go mod tidy` do it silently.
+
+---
+
+### Incident 005: Shared Proto Module Must Also Build Outside the Workspace
+- **Date:** 2026-09-27
+- **Component:** `proto` module consumed by `study-timer` and `api-gateway`
+- **Symptom:** Importing `github.com/neennera/fishertimer/proto/...` works under `go.work`, but `GOWORK=off go build` (as a deploy target such as Render builds a single service) cannot find the module, because it is not published anywhere.
+- **Root Cause:** `go.work` only resolves local modules during workspace builds; a standalone module build resolves imports from its own `go.mod` and the module proxy.
+- **Solution:** Each consumer's `go.mod` requires `github.com/neennera/fishertimer/proto v0.0.0` with `replace github.com/neennera/fishertimer/proto => ../../proto`, then `GOWORK=off go mod tidy`.
+- **Action for Future Agents:** When a service imports a local workspace module, add the `require` + `replace` pair and verify with `GOWORK=off go build ./...`.
+
+---
+
 ## 2. Template for Recording New Lessons Learned
 
 When documenting a new learning, append to Section 1 using this markdown structure:
