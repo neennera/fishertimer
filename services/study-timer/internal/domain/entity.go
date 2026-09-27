@@ -29,8 +29,9 @@ type TimerState struct {
 }
 
 type TimerHistory struct {
-	UserID        string    `json:"user_id"`
-	TotalSessions int       `json:"total_sessions"`
-	TotalFocusMin int       `json:"total_focus_minutes"`
-	LastActive    time.Time `json:"last_active"`
+	UserID            string    `json:"user_id"`
+	SessionsJoined    int       `json:"sessions_joined"`
+	CyclesCompleted   int       `json:"cycles_completed"`
+	TotalFocusMinutes int       `json:"total_focus_minutes"`
+	LastActive        time.Time `json:"last_active"`
 }

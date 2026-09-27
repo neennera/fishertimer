@@ -44,8 +44,9 @@ func (r *InMemoryRepository) SaveTimer(ctx context.Context, t *domain.TimerState
 
 func (r *InMemoryRepository) GetHistory(ctx context.Context, userID string) (*domain.TimerHistory, error) {
 	return &domain.TimerHistory{
-		UserID:        userID,
-		TotalSessions: 12,
-		TotalFocusMin: 300,
+		UserID:            userID,
+		SessionsJoined:    12,
+		CyclesCompleted:   40,
+		TotalFocusMinutes: 300,
 	}, nil
 }

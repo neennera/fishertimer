@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // OAuthProvider is the driven port for Google sign-in.
 // Implemented by internal/adapter/oauth.
@@ -12,6 +15,22 @@ type OAuthProvider interface {
 	// FetchProfile exchanges the one-time authorization code for the user's
 	// Google profile.
 	FetchProfile(ctx context.Context, code string) (*GoogleProfile, error)
+}
+
+// TimerStatistics mirrors the study-timer service's TimerHistory - what a
+// user has done with the Pomodoro timer, pulled by user_id.
+type TimerStatistics struct {
+	UserID            string    `json:"user_id"`
+	SessionsJoined    int       `json:"sessions_joined"`
+	CyclesCompleted   int       `json:"cycles_completed"`
+	TotalFocusMinutes int       `json:"total_focus_minutes"`
+	LastActive        time.Time `json:"last_active"`
+}
+
+// TimerClient is the driven port for the Study Timer service collaborator.
+// Implemented by internal/adapter/client.
+type TimerClient interface {
+	GetStatistics(ctx context.Context, userID string) (*TimerStatistics, error)
 }
 
 // TokenService is the driven port for the session JWT.

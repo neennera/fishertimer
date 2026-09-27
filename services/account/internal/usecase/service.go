@@ -43,16 +43,21 @@ type Usecase interface {
 	// GetProfile looks up a user by id, for callers that already know which
 	// account they want (e.g. another service resolving a user_id from a JWT).
 	GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error)
+
+	// GetTimerStatistics pulls a user's Pomodoro timer stats (sessions joined,
+	// cycles completed, total focus time) from the Study Timer service by id.
+	GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error)
 }
 
 type service struct {
-	repo     domain.Repository
-	provider domain.OAuthProvider
-	tokens   domain.TokenService
+	repo        domain.Repository
+	provider    domain.OAuthProvider
+	tokens      domain.TokenService
+	timerClient domain.TimerClient
 }
 
-func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService) Usecase {
-	return &service{repo: repo, provider: provider, tokens: tokens}
+func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService, timerClient domain.TimerClient) Usecase {
+	return &service{repo: repo, provider: provider, tokens: tokens, timerClient: timerClient}
 }
 
 func (s *service) SignInURL(state string) string {
@@ -189,6 +194,18 @@ func (s *service) GetProfile(ctx context.Context, userID string) (*domain.UserAc
 		return nil, domain.ErrInvalid
 	}
 	return s.repo.GetUserByID(ctx, userID)
+}
+
+func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domain.ErrInvalid
+	}
+	// Confirm the account exists before asking the timer service, so a
+	// made-up id can't be used to probe study-timer's data.
+	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
+		return nil, err
+	}
+	return s.timerClient.GetStatistics(ctx, userID)
 }
 
 // validDisplayName trims the name and checks it fits users.display_name.

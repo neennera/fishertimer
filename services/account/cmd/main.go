@@ -14,6 +14,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/neennera/fishertimer/services/account/config"
+	"github.com/neennera/fishertimer/services/account/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/oauth"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/repository"
@@ -39,9 +40,10 @@ func main() {
 	})
 
 	tokens := token.New(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTExpiry)
+	timerClient := client.NewTimerClient(cfg.TimerServiceURL)
 
 	// 2. Application usecase.
-	uc := usecase.New(repo, provider, tokens)
+	uc := usecase.New(repo, provider, tokens, timerClient)
 
 	// 3. Driving adapter (HTTP).
 	h := handler.New(uc, handler.Options{

@@ -23,10 +23,27 @@ func (p *stubProvider) FetchProfile(ctx context.Context, code string) (*domain.G
 	return p.profile, nil
 }
 
+type stubTimerClient struct {
+	stats *domain.TimerStatistics
+	err   error
+}
+
+func (c *stubTimerClient) GetStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.stats, nil
+}
+
 func newService(profile *domain.GoogleProfile) (usecase.Usecase, *repository.InMemoryRepository) {
 	repo := repository.NewInMemory()
 	tokens := token.New("test-secret-test-secret-test-secret", "fishertimer-account", time.Hour)
-	return usecase.New(repo, &stubProvider{profile: profile}, tokens), repo
+	timerClient := &stubTimerClient{stats: &domain.TimerStatistics{
+		SessionsJoined:    3,
+		CyclesCompleted:   10,
+		TotalFocusMinutes: 250,
+	}}
+	return usecase.New(repo, &stubProvider{profile: profile}, tokens, timerClient), repo
 }
 
 func googleProfile() *domain.GoogleProfile {
@@ -281,6 +298,33 @@ func TestUpdateProfile_RejectsBadInputOrToken(t *testing.T) {
 
 	if _, err := svc.UpdateProfile(ctx, "not-a-token", "Name"); !errors.Is(err, domain.ErrUnauthorized) {
 		t.Fatalf("invalid token: expected ErrUnauthorized, got %v", err)
+	}
+}
+
+func TestGetTimerStatistics(t *testing.T) {
+	svc, _ := newService(googleProfile())
+	ctx := context.Background()
+
+	session := signUp(t, svc, "Fish Lover")
+
+	stats, err := svc.GetTimerStatistics(ctx, session.User.UserID)
+	if err != nil {
+		t.Fatalf("GetTimerStatistics: %v", err)
+	}
+	if stats.SessionsJoined != 3 || stats.CyclesCompleted != 10 || stats.TotalFocusMinutes != 250 {
+		t.Fatalf("expected the stub timer client's stats, got %+v", stats)
+	}
+}
+
+func TestGetTimerStatistics_RejectsMissingOrUnknownUser(t *testing.T) {
+	svc, _ := newService(googleProfile())
+	ctx := context.Background()
+
+	if _, err := svc.GetTimerStatistics(ctx, ""); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("empty id: expected ErrInvalid, got %v", err)
+	}
+	if _, err := svc.GetTimerStatistics(ctx, "no-such-user"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown id: expected ErrNotFound, got %v", err)
 	}
 }
 
