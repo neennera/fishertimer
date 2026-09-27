@@ -9,15 +9,11 @@ export interface SessionHeaderProps {
   className?: string;
 }
 
-/**
- * Header wired to the current session: shows the avatar and sign-out button
- * once GET /me reports signed_in. Signing out clears the account service's
- * ft_session / ft_signup cookies (POST /api/auth/signout), then sends the
- * browser to /signin.
- */
+/** Header wired to the current session. Signing out goes to /signin. */
 export function SessionHeader({ className }: SessionHeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -25,6 +21,7 @@ export function SessionHeader({ className }: SessionHeaderProps) {
     void getSession().then((session) => {
       if (!cancelled) {
         setUser(session.status === "signed_in" ? session.user : null);
+        setSignedOut(session.status === "signed_out");
       }
     });
     return () => {
@@ -51,6 +48,7 @@ export function SessionHeader({ className }: SessionHeaderProps) {
       user={user ? { displayName: user.display_name, avatarUrl: user.avatar_url } : null}
       onSignOut={handleSignOut}
       signingOut={signingOut}
+      showSignIn={signedOut}
     />
   );
 }

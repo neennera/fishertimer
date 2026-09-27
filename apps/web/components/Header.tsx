@@ -13,6 +13,8 @@ export interface HeaderProps {
   onSignOut?: () => void;
   /** Disables the sign-out button while the request is in flight. */
   signingOut?: boolean;
+  /** Only once known signed out, so it never flashes while loading. */
+  showSignIn?: boolean;
   className?: string;
 }
 
@@ -26,7 +28,13 @@ export interface HeaderProps {
  * Presentational only: it never loads the session itself. SessionHeader wires
  * it to lib/auth.ts.
  */
-export function Header({ user, onSignOut, signingOut = false, className }: HeaderProps) {
+export function Header({
+  user,
+  onSignOut,
+  signingOut = false,
+  showSignIn = false,
+  className,
+}: HeaderProps) {
   // Keyed by URL, so a new avatar gets a fresh attempt.
   const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const avatarUrl = user?.avatarUrl && failedAvatar !== user.avatarUrl ? user.avatarUrl : null;
@@ -67,6 +75,12 @@ export function Header({ user, onSignOut, signingOut = false, className }: Heade
           ) : (
             initials
           )}
+        </Link>
+      )}
+
+      {!user && showSignIn && (
+        <Link href="/signin" className="pixel-btn pixel-btn--sm pixel-header__action">
+          Sign in
         </Link>
       )}
 

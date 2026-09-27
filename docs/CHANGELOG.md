@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: The header shows a small "Sign in" button (to `/signin`) once the session is known to be signed out; the bar's height is unchanged.
 - **[web]**: `/account` and `/profile/[userId]` use the real account service (`profile`, `statistics`, `rewards`, `PATCH update-profile`). Each panel loads and fails on its own; stats add "Last active"; the fish tank shows only fish.
 - **[web]**: Follow the account service's new `GET /me` (`prem/account`, `bed051e`): it returns the user or 401, with no pending sign-up state. `/welcome` now always shows the form (no e-mail) and sends expired sign-ups back to `/signin`.
 - **[web]**: The header stays pinned to the top of the page while scrolling, and its avatar shows the user's picture (initials if there is none or it fails to load) and links to `/account`.

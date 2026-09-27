@@ -1143,8 +1143,7 @@
     object-fit: cover;
   }
 
-  /* The sign-out key. No avatar before it (no initials) — push it right on
-     its own; otherwise it follows the avatar. */
+  /* Sign out / Sign in: pushed right when no avatar comes before it. */
   .pixel-header__brand + .pixel-header__action {
     margin-left: auto;
   }
