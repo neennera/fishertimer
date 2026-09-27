@@ -72,6 +72,7 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/account/update-profile", h.UpdateProfile)
 	mux.HandleFunc("/api/v1/account/profile", h.Profile)
 	mux.HandleFunc("/api/v1/account/statistics", h.Statistics)
+	mux.HandleFunc("/api/v1/account/rewards", h.Rewards)
 }
 
 func (h *HTTPHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +286,34 @@ func (h *HTTPHandler) Statistics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, stats)
+}
+
+// Rewards pulls everything a user has unlocked from the Reward service by id
+// and groups it into totals plus one entry per distinct item.
+//
+//	GET ?id=<user_id> -> 200 + {total_awards_earned, total_score, items: [{name, rarity, asset_url, type, score_value, count}, ...]}
+func (h *HTTPHandler) Rewards(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	userID := r.URL.Query().Get("id")
+	rewards, err := h.uc.GetRewards(r.Context(), userID)
+	switch {
+	case errors.Is(err, domain.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id is required"})
+		return
+	case errors.Is(err, domain.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "user not found"})
+		return
+	case err != nil:
+		log.Printf("account: get rewards failed: %v", err)
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "could not fetch rewards"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, rewards)
 }
 
 func (h *HTTPHandler) SignOut(w http.ResponseWriter, r *http.Request) {

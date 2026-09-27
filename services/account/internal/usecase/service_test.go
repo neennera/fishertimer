@@ -35,6 +35,18 @@ func (c *stubTimerClient) GetStatistics(ctx context.Context, userID string) (*do
 	return c.stats, nil
 }
 
+type stubRewardClient struct {
+	rewards []domain.UnlockedReward
+	err     error
+}
+
+func (c *stubRewardClient) GetRewards(ctx context.Context, userID string) ([]domain.UnlockedReward, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.rewards, nil
+}
+
 func newService(profile *domain.GoogleProfile) (usecase.Usecase, *repository.InMemoryRepository) {
 	repo := repository.NewInMemory()
 	tokens := token.New("test-secret-test-secret-test-secret", "fishertimer-account", time.Hour)
@@ -43,7 +55,12 @@ func newService(profile *domain.GoogleProfile) (usecase.Usecase, *repository.InM
 		CyclesCompleted:   10,
 		TotalFocusMinutes: 250,
 	}}
-	return usecase.New(repo, &stubProvider{profile: profile}, tokens, timerClient), repo
+	rewardClient := &stubRewardClient{rewards: []domain.UnlockedReward{
+		{ItemID: "item-1", ItemName: "Goldfish", Category: "FISH", Rarity: "COMMON", ScoreValue: 10},
+		{ItemID: "item-1", ItemName: "Goldfish", Category: "FISH", Rarity: "COMMON", ScoreValue: 10},
+		{ItemID: "item-2", ItemName: "Night Owl Badge", Category: "DECORATION", Rarity: "RARE", ScoreValue: 50},
+	}}
+	return usecase.New(repo, &stubProvider{profile: profile}, tokens, timerClient, rewardClient), repo
 }
 
 func googleProfile() *domain.GoogleProfile {
@@ -324,6 +341,47 @@ func TestGetTimerStatistics_RejectsMissingOrUnknownUser(t *testing.T) {
 		t.Fatalf("empty id: expected ErrInvalid, got %v", err)
 	}
 	if _, err := svc.GetTimerStatistics(ctx, "no-such-user"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown id: expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestGetRewards(t *testing.T) {
+	svc, _ := newService(googleProfile())
+	ctx := context.Background()
+
+	session := signUp(t, svc, "Fish Lover")
+
+	summary, err := svc.GetRewards(ctx, session.User.UserID)
+	if err != nil {
+		t.Fatalf("GetRewards: %v", err)
+	}
+	if summary.TotalAwardsEarned != 3 {
+		t.Fatalf("expected 3 total catches (2 Goldfish + 1 Badge), got %d", summary.TotalAwardsEarned)
+	}
+	if summary.TotalScore != 70 { // 10 + 10 + 50
+		t.Fatalf("expected total score 70, got %d", summary.TotalScore)
+	}
+	if len(summary.Items) != 2 {
+		t.Fatalf("expected 2 distinct items, got %+v", summary.Items)
+	}
+	goldfish := summary.Items[0]
+	if goldfish.ItemName != "Goldfish" || goldfish.Count != 2 || goldfish.Rarity != "COMMON" || goldfish.ScoreValue != 10 {
+		t.Fatalf("expected Goldfish grouped with count 2, got %+v", goldfish)
+	}
+	badge := summary.Items[1]
+	if badge.ItemName != "Night Owl Badge" || badge.Count != 1 {
+		t.Fatalf("expected Night Owl Badge with count 1, got %+v", badge)
+	}
+}
+
+func TestGetRewards_RejectsMissingOrUnknownUser(t *testing.T) {
+	svc, _ := newService(googleProfile())
+	ctx := context.Background()
+
+	if _, err := svc.GetRewards(ctx, ""); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("empty id: expected ErrInvalid, got %v", err)
+	}
+	if _, err := svc.GetRewards(ctx, "no-such-user"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown id: expected ErrNotFound, got %v", err)
 	}
 }

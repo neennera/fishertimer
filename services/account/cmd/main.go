@@ -41,9 +41,10 @@ func main() {
 
 	tokens := token.New(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTExpiry)
 	timerClient := client.NewTimerClient(cfg.TimerServiceURL)
+	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
 
 	// 2. Application usecase.
-	uc := usecase.New(repo, provider, tokens, timerClient)
+	uc := usecase.New(repo, provider, tokens, timerClient, rewardClient)
 
 	// 3. Driving adapter (HTTP).
 	h := handler.New(uc, handler.Options{

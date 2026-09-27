@@ -2,13 +2,14 @@ package usecase
 
 import (
 	"context"
+
 	"github.com/neennera/fishertimer/services/reward/internal/domain"
 )
 
 type Usecase interface {
-	GrantReward(ctx context.Context, userID, species, rarity string) (*domain.FishReward, error)
-	AwardReward(ctx context.Context, userID, reason string) (*domain.FishReward, error)
-	GetUserInventory(ctx context.Context, userID string) ([]domain.FishReward, error)
+	AwardReward(ctx context.Context, userID, reason string) (*domain.UnlockedReward, error)
+
+	GetUserInventory(ctx context.Context, userID string) ([]domain.UnlockedReward, error)
 }
 
 type service struct {
@@ -19,21 +20,15 @@ func New(repo domain.Repository) Usecase {
 	return &service{repo: repo}
 }
 
-func (s *service) GrantReward(ctx context.Context, userID, species, rarity string) (*domain.FishReward, error) {
-	r := &domain.FishReward{ID: "fish_test", UserID: userID, Species: species, Rarity: rarity}
-	return r, s.repo.Award(ctx, r)
-}
-
-func (s *service) AwardReward(ctx context.Context, userID, reason string) (*domain.FishReward, error) {
-	r := &domain.FishReward{
-		ID:      "fish_reward_" + userID,
-		UserID:  userID,
-		Species: "Golden Carp",
-		Rarity:  "RARE",
+func (s *service) AwardReward(ctx context.Context, userID, reason string) (*domain.UnlockedReward, error) {
+	r := &domain.UnlockedReward{
+		UserID:   userID,
+		ItemName: "Golden Carp",
+		Category: domain.CategoryFish,
 	}
 	return r, s.repo.Award(ctx, r)
 }
 
-func (s *service) GetUserInventory(ctx context.Context, userID string) ([]domain.FishReward, error) {
+func (s *service) GetUserInventory(ctx context.Context, userID string) ([]domain.UnlockedReward, error) {
 	return s.repo.ListByUser(ctx, userID)
 }

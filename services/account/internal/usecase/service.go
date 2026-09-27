@@ -47,17 +47,22 @@ type Usecase interface {
 	// GetTimerStatistics pulls a user's Pomodoro timer stats (sessions joined,
 	// cycles completed, total focus time) from the Study Timer service by id.
 	GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error)
+
+	// GetRewards pulls everything a user has unlocked from the Reward
+	// service by id and groups it into totals plus per-item counts.
+	GetRewards(ctx context.Context, userID string) (*domain.RewardsSummary, error)
 }
 
 type service struct {
-	repo        domain.Repository
-	provider    domain.OAuthProvider
-	tokens      domain.TokenService
-	timerClient domain.TimerClient
+	repo         domain.Repository
+	provider     domain.OAuthProvider
+	tokens       domain.TokenService
+	timerClient  domain.TimerClient
+	rewardClient domain.RewardClient
 }
 
-func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService, timerClient domain.TimerClient) Usecase {
-	return &service{repo: repo, provider: provider, tokens: tokens, timerClient: timerClient}
+func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService, timerClient domain.TimerClient, rewardClient domain.RewardClient) Usecase {
+	return &service{repo: repo, provider: provider, tokens: tokens, timerClient: timerClient, rewardClient: rewardClient}
 }
 
 func (s *service) SignInURL(state string) string {
@@ -206,6 +211,50 @@ func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domai
 		return nil, err
 	}
 	return s.timerClient.GetStatistics(ctx, userID)
+}
+
+func (s *service) GetRewards(ctx context.Context, userID string) (*domain.RewardsSummary, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domain.ErrInvalid
+	}
+	// Confirm the account exists before asking the reward service, so a
+	// made-up id can't be used to probe reward's data.
+	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
+		return nil, err
+	}
+	catches, err := s.rewardClient.GetRewards(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return summarizeRewards(catches), nil
+}
+
+// summarizeRewards groups the Reward service's flat per-catch list into
+// totals plus one entry per distinct item (identified by ItemID), preserving
+// first-catch order.
+func summarizeRewards(catches []domain.UnlockedReward) *domain.RewardsSummary {
+	summary := &domain.RewardsSummary{Items: []domain.RewardSummaryItem{}}
+	byItem := make(map[string]int) // ItemID -> index into summary.Items
+
+	for _, c := range catches {
+		summary.TotalAwardsEarned++
+		summary.TotalScore += c.ScoreValue
+
+		if i, ok := byItem[c.ItemID]; ok {
+			summary.Items[i].Count++
+			continue
+		}
+		byItem[c.ItemID] = len(summary.Items)
+		summary.Items = append(summary.Items, domain.RewardSummaryItem{
+			ItemName:   c.ItemName,
+			Rarity:     c.Rarity,
+			AssetURL:   c.AssetURL,
+			ItemType:   c.Category,
+			ScoreValue: c.ScoreValue,
+			Count:      1,
+		})
+	}
+	return summary
 }
 
 // validDisplayName trims the name and checks it fits users.display_name.

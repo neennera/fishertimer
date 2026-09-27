@@ -35,6 +35,9 @@ type Config struct {
 
 	// Study Timer service collaborator, for GET /api/v1/account/statistics.
 	TimerServiceURL string
+
+	// Reward service collaborator, for GET /api/v1/account/rewards.
+	RewardServiceURL string
 }
 
 // OAuthConfigured reports whether real Google credentials are present. Without
@@ -135,7 +138,8 @@ func Load() *Config {
 		FrontendURL:  frontendURL,
 		CookieSecure: env == "production",
 
-		TimerServiceURL: getenv("TIMER_SERVICE_URL", "http://localhost:8084"),
+		TimerServiceURL:  getenv("TIMER_SERVICE_URL", "http://localhost:8084"),
+		RewardServiceURL: getenv("REWARD_SERVICE_URL", "http://localhost:8085"),
 	}
 }
 
