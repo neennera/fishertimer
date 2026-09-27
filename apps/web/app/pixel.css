@@ -1116,26 +1116,17 @@
 
   .pixel-header__avatar {
     margin-left: auto;
-    flex: none;
+  }
+  .pixel-header__avatar-face {
     display: grid;
     place-items: center;
-    width: calc(var(--px) * 10);
-    height: calc(var(--px) * 10);
-    background: var(--color-lake);
-    color: var(--color-cream);
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+    overflow: hidden;
     clip-path: var(--pixclip);
     font-family: var(--font-numeric);
     font-size: calc(var(--px) * 5);
     line-height: 1;
-    overflow: hidden;
-  }
-  .pixel-header__avatar:hover {
-    background: var(--color-lake-dp);
-  }
-  /* Inset: the corner clip-path would cut off an outline outside the box. */
-  .pixel-header__avatar:focus-visible {
-    outline: var(--px) solid var(--color-cream);
-    outline-offset: calc(var(--px) * -1);
   }
   .pixel-header__avatar-img {
     width: 100%;

@@ -58,23 +58,25 @@ export function Header({
       {user && initials && (
         <Link
           href="/account"
-          className="pixel-header__avatar"
+          className="pixel-btn pixel-btn--ghost pixel-btn--icon pixel-header__avatar"
           title={`${user.displayName} — your account`}
           aria-label="Your account"
         >
-          {avatarUrl ? (
-            // A remote Google photo — see the profile panel's avatar.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt=""
-              className="pixel-header__avatar-img"
-              referrerPolicy="no-referrer"
-              onError={() => setFailedAvatar(avatarUrl)}
-            />
-          ) : (
-            initials
-          )}
+          <span className="pixel-header__avatar-face">
+            {avatarUrl ? (
+              // A remote Google photo — see the profile panel's avatar.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt=""
+                className="pixel-header__avatar-img"
+                referrerPolicy="no-referrer"
+                onError={() => setFailedAvatar(avatarUrl)}
+              />
+            ) : (
+              initials
+            )}
+          </span>
         </Link>
       )}
 

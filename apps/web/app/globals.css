@@ -15,6 +15,11 @@ body {
   overflow-x: clip;
 }
 
+/* Pages don't shift sideways when a scrollbar appears. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
