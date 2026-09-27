@@ -609,6 +609,73 @@
     z-index: 10;
   }
 
+  /* A bubble (useBubbles): grows in, rises (__rise) with a slight sway
+     (__sway), and fades out after a few seconds or at the surface, without
+     scaling up, so it never passes the top of the water. Drawn at --px, like
+     the fish, and translucent. */
+  .pixel-tank-bubble {
+    position: absolute;
+    z-index: 9;
+    left: calc(var(--px) * var(--bubble-left));
+    bottom: calc(var(--px) * var(--bubble-bottom));
+    width: calc(var(--px) * var(--bubble-size));
+    height: calc(var(--px) * var(--bubble-size));
+    pointer-events: none;
+  }
+  .pixel-tank-bubble--big {
+    --bubble-size: 8;
+    --bubble-src: url(/sprites/items/big_bubble.png);
+  }
+  .pixel-tank-bubble--small {
+    --bubble-size: 6;
+    --bubble-src: url(/sprites/items/small_bubble.png);
+  }
+  .pixel-tank-bubble__rise,
+  .pixel-tank-bubble__sway,
+  .pixel-tank-bubble__sprite {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .pixel-tank-bubble__rise {
+    animation: pixel-bubble-rise var(--bubble-rise-s) linear var(--bubble-in-s) both;
+  }
+  .pixel-tank-bubble__sway {
+    animation: pixel-bubble-sway var(--bubble-sway-s) ease-in-out var(--bubble-in-s) infinite alternate;
+  }
+  .pixel-tank-bubble__sprite {
+    background: var(--bubble-src) center / 100% 100% no-repeat;
+    image-rendering: pixelated;
+    opacity: 0.6;
+    animation:
+      pixel-bubble-in var(--bubble-in-s) steps(3) both,
+      pixel-bubble-pop var(--bubble-pop-s) steps(4) var(--bubble-pop-at) forwards;
+  }
+  @keyframes pixel-bubble-rise {
+    to {
+      transform: translateY(calc(var(--px) * var(--bubble-rise) * -1));
+    }
+  }
+  @keyframes pixel-bubble-sway {
+    from {
+      transform: translateX(calc(var(--px) * -1));
+    }
+    to {
+      transform: translateX(var(--px));
+    }
+  }
+  @keyframes pixel-bubble-in {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+  @keyframes pixel-bubble-pop {
+    to {
+      opacity: 0;
+    }
+  }
+
   /* Moved by useFishSwim once [data-live]. Otherwise (no JS, reduced motion)
      it rests at --fish-rest-x/-y, using the same bounds as useFishSwim so
      nothing jumps when swimming starts. */

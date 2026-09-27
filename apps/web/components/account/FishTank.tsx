@@ -5,6 +5,7 @@ import type { RewardItem, UserReward } from "@fishertimer/shared-types";
 import { cx } from "../../lib/cx";
 import { fishSprite } from "../../lib/fish-sprites";
 import { FISHTANK_LAYERS } from "../../lib/scenes/fishtank";
+import { BUBBLE_IN_S, BUBBLE_POP_S, useBubbles } from "./useBubbles";
 import { useFishSwim, type SwimStart } from "./useFishSwim";
 
 export interface FishTankProps {
@@ -105,11 +106,13 @@ export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
   const starts = useMemo(() => swimmers.map((_, index) => restSpot(index)), [swimmers]);
   const waterRef = useRef<HTMLDivElement>(null);
   useFishSwim(waterRef, starts);
+  const { bubbles, remove: removeBubble, onTankClick } = useBubbles(waterRef);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="pixel-tank" aria-hidden="true">
-        <div ref={waterRef} className="pixel-tank__water">
+        {/* Clicks feed the bubble easter egg (useBubbles). */}
+        <div ref={waterRef} className="pixel-tank__water" onClick={onTankClick}>
           {FISHTANK_LAYERS.map((layer) => (
             <div
               key={layer.src}
@@ -138,6 +141,37 @@ export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
               </span>
             );
           })}
+          {bubbles.map((bubble) => (
+            <span
+              key={bubble.id}
+              className={cx("pixel-tank-bubble", `pixel-tank-bubble--${bubble.size}`)}
+              style={
+                {
+                  "--bubble-left": bubble.left,
+                  "--bubble-bottom": bubble.bottom,
+                  "--bubble-rise": bubble.rise,
+                  "--bubble-in-s": `${BUBBLE_IN_S}s`,
+                  "--bubble-rise-s": `${bubble.riseSeconds}s`,
+                  "--bubble-sway-s": `${bubble.swaySeconds}s`,
+                  "--bubble-pop-at": `${bubble.fadeAt}s`,
+                  "--bubble-pop-s": `${BUBBLE_POP_S}s`,
+                } as CSSProperties
+              }
+            >
+              <span className="pixel-tank-bubble__rise">
+                <span className="pixel-tank-bubble__sway">
+                  <span
+                    className="pixel-tank-bubble__sprite"
+                    onAnimationEnd={(event) => {
+                      if (event.animationName === "pixel-bubble-pop") {
+                        removeBubble(bubble.id);
+                      }
+                    }}
+                  />
+                </span>
+              </span>
+            </span>
+          ))}
         </div>
       </div>
 
