@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
+	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/study-timer/config"
 	"github.com/neennera/fishertimer/services/study-timer/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/study-timer/internal/adapter/handler"
@@ -27,8 +32,15 @@ func main() {
 	// 2. Inject into Application Usecase
 	uc := usecase.New(repo, rewardClient)
 
-	// 3. Inject into Driving Adapter (HTTP Handler)
+	// 3. Inject into Driving Adapters (HTTP and gRPC share the same usecase)
 	h := handler.New(uc)
+
+	grpcServer := grpc.NewServer()
+	timerv1.RegisterStudyTimerServiceServer(grpcServer, handler.NewGRPC(uc))
+	if cfg.Env != "production" {
+		// Lets tools such as grpcurl discover the RPCs without the .proto file.
+		reflection.Register(grpcServer)
+	}
 
 	// 4. Setup Router & Server
 	mux := http.NewServeMux()
@@ -48,11 +60,23 @@ func main() {
 		}
 	}()
 
+	grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
+	if err != nil {
+		log.Fatalf("grpc listen error: %s\n", err)
+	}
+	go func() {
+		log.Printf("study-timer gRPC listening on port %d", cfg.GRPCPort)
+		if err := grpcServer.Serve(grpcListener); err != nil {
+			log.Fatalf("grpc serve error: %s\n", err)
+		}
+	}()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Printf("Shutting down study-timer service...")
+	grpcServer.GracefulStop()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
