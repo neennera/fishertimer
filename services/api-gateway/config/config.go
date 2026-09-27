@@ -12,7 +12,7 @@ type Config struct {
 	Port                  int
 	Env                   string
 	AccountServiceURL     string
-	TimerServiceURL       string
+	TimerGRPCTarget       string
 	LeaderboardServiceURL string
 	SessionServiceURL     string
 	RewardServiceURL      string
@@ -78,9 +78,10 @@ func Load() *Config {
 		accountURL = "http://localhost:8082"
 	}
 
-	timerURL := os.Getenv("TIMER_SERVICE_URL")
-	if timerURL == "" {
-		timerURL = "http://localhost:8084"
+	// The gateway talks to Study Timer over gRPC, not HTTP.
+	timerTarget := os.Getenv("TIMER_GRPC_TARGET")
+	if timerTarget == "" {
+		timerTarget = "localhost:50051"
 	}
 
 	leaderboardURL := os.Getenv("LEADERBOARD_SERVICE_URL")
@@ -107,7 +108,7 @@ func Load() *Config {
 		Port:                  port,
 		Env:                   env,
 		AccountServiceURL:     accountURL,
-		TimerServiceURL:       timerURL,
+		TimerGRPCTarget:       timerTarget,
 		LeaderboardServiceURL: leaderboardURL,
 		SessionServiceURL:     sessionURL,
 		RewardServiceURL:      rewardURL,

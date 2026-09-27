@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Port             int
+	GRPCPort         int
 	Env              string
 	DatabaseURL      string
 	RewardServiceURL string
@@ -23,6 +24,13 @@ func Load() *Config {
 			port = val
 		}
 	}
+	grpcPort := 50051
+	if p := os.Getenv("TIMER_GRPC_PORT"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil {
+			grpcPort = val
+		}
+	}
+
 	env := os.Getenv("ENV")
 	if env == "" {
 		env = "development"
@@ -43,6 +51,7 @@ func Load() *Config {
 
 	return &Config{
 		Port:             port,
+		GRPCPort:         grpcPort,
 		Env:              env,
 		DatabaseURL:      dbURL,
 		RewardServiceURL: rewardURL,

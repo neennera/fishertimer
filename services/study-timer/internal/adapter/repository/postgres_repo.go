@@ -10,15 +10,14 @@ import (
 )
 
 // PostgresRepository persists timer state in timer_db (timer_settings,
-// timer_sessions, timer_cycles) - see
-// database/schemas/001_create_timer_tables.sql.
+// timer_sessions, timer_cycles) - see database/schemas/.
 //
 // The schema's timer_sessions.status enum (FOCUS/SHORT_BREAK/LONG_BREAK/
 // PAUSED/COMPLETED/STOPPED) captures the *current running phase* while a
-// timer is active, collapsing to PAUSED/STOPPED/COMPLETED otherwise. Reads
-// reconstruct domain.TimerState.Phase from that column when the timer is
-// running, or from the most recently completed cycle's phase_type (its
-// opposite - CompleteCycle always flips phase) when it is not.
+// timer is active, collapsing to PAUSED/STOPPED/COMPLETED otherwise. The
+// live progress the domain derives remaining time from (phase,
+// running_since, elapsed_ms) is stored alongside it, so a reload restores
+// the timer exactly.
 type PostgresRepository struct {
 	db *sql.DB
 }
@@ -28,14 +27,7 @@ func NewPostgres(db *sql.DB) *PostgresRepository {
 }
 
 func (r *PostgresRepository) GetTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t := &domain.TimerState{
-		SessionID:   sessionID,
-		UserID:      userID,
-		Status:      "STOPPED",
-		Phase:       domain.PhaseWork,
-		WorkMinutes: 25,
-		RestMinutes: 5,
-	}
+	t := domain.NewTimer(sessionID, userID)
 
 	if err := r.db.QueryRowContext(ctx, `
 		SELECT focus_duration / 60, short_break_duration / 60
@@ -44,12 +36,13 @@ func (r *PostgresRepository) GetTimer(ctx context.Context, sessionID, userID str
 		return nil, err
 	}
 
-	var status string
-	var startedAt, completedAt sql.NullTime
+	var status, phase string
+	var startedAt, completedAt, runningSince sql.NullTime
+	var elapsedMs int64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT status, started_at, completed_at
+		SELECT status, phase, running_since, elapsed_ms, started_at, completed_at
 		FROM timer_sessions WHERE timer_session_id = $1 AND user_id = $2`, sessionID, userID,
-	).Scan(&status, &startedAt, &completedAt)
+	).Scan(&status, &phase, &runningSince, &elapsedMs, &startedAt, &completedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, nil
 	}
@@ -71,36 +64,18 @@ func (r *PostgresRepository) GetTimer(ctx context.Context, sessionID, userID str
 	}
 
 	switch status {
-	case "FOCUS":
-		t.Status, t.Phase = "RUNNING", domain.PhaseWork
-	case "SHORT_BREAK", "LONG_BREAK":
-		t.Status, t.Phase = "RUNNING", domain.PhaseRest
+	case "FOCUS", "SHORT_BREAK", "LONG_BREAK":
+		t.Status = domain.StatusRunning
 	default: // PAUSED, STOPPED, COMPLETED
-		t.Status = status
-		t.Phase = r.lastCompletedPhaseOpposite(ctx, sessionID)
+		t.Status = domain.TimerStatus(status)
 	}
+	t.Phase = domain.TimerPhase(phase)
+	if runningSince.Valid {
+		t.RunningSince = runningSince.Time
+	}
+	t.Elapsed = time.Duration(elapsedMs) * time.Millisecond
 
 	return t, nil
-}
-
-// lastCompletedPhaseOpposite looks at the most recently completed cycle to
-// figure out which phase is live once a timer is no longer actively running
-// (paused, stopped or completed) - CompleteCycle always flips to the other
-// phase, so the live phase is the opposite of the last one recorded.
-func (r *PostgresRepository) lastCompletedPhaseOpposite(ctx context.Context, sessionID string) domain.TimerPhase {
-	var phaseType string
-	err := r.db.QueryRowContext(ctx, `
-		SELECT phase_type FROM timer_cycles
-		WHERE timer_session_id = $1 AND is_completed
-		ORDER BY ended_at DESC LIMIT 1`, sessionID,
-	).Scan(&phaseType)
-	if err != nil {
-		return domain.PhaseWork
-	}
-	if phaseType == "FOCUS" {
-		return domain.PhaseRest
-	}
-	return domain.PhaseWork
 }
 
 func (r *PostgresRepository) SaveTimer(ctx context.Context, t *domain.TimerState) error {
@@ -122,8 +97,8 @@ func (r *PostgresRepository) SaveTimer(ctx context.Context, t *domain.TimerState
 		return err
 	}
 
-	dbStatus := t.Status
-	if t.Status == "RUNNING" {
+	dbStatus := string(t.Status)
+	if t.Status == domain.StatusRunning {
 		if t.Phase == domain.PhaseWork {
 			dbStatus = "FOCUS"
 		} else {
@@ -132,17 +107,25 @@ func (r *PostgresRepository) SaveTimer(ctx context.Context, t *domain.TimerState
 	}
 
 	var completedAt any
-	if t.Status == "STOPPED" || t.Status == "COMPLETED" {
+	if t.Status == domain.StatusStopped {
 		completedAt = t.LastUpdated
 	}
 
+	var runningSince any
+	if t.Status == domain.StatusRunning {
+		runningSince = t.RunningSince
+	}
+
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO timer_sessions (timer_session_id, user_id, status, started_at, completed_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO timer_sessions (timer_session_id, user_id, status, phase, running_since, elapsed_ms, started_at, completed_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (timer_session_id) DO UPDATE
 		SET status = EXCLUDED.status,
+		    phase = EXCLUDED.phase,
+		    running_since = EXCLUDED.running_since,
+		    elapsed_ms = EXCLUDED.elapsed_ms,
 		    completed_at = EXCLUDED.completed_at`,
-		t.SessionID, t.UserID, dbStatus, t.LastUpdated, completedAt,
+		t.SessionID, t.UserID, dbStatus, string(t.Phase), runningSince, t.Elapsed.Milliseconds(), t.LastUpdated, completedAt,
 	); err != nil {
 		return err
 	}
@@ -214,7 +197,6 @@ func (r *PostgresRepository) GetHistory(ctx context.Context, userID string) (*do
 
 	return h, nil
 }
-
 
 func (r *PostgresRepository) dailyFocusLast30Days(ctx context.Context, userID string) ([]domain.DailyFocus, error) {
 	rows, err := r.db.QueryContext(ctx, `

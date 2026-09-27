@@ -19,10 +19,10 @@ graph TD
         Gateway["API Gateway (Go Clean Architecture)<br/>services/api-gateway (Port 8000)"]
     end
 
-    subgraph Backend Microservices [Go 1.22+ Clean Architecture]
+    subgraph Backend Microservices [Go 1.25+ Clean Architecture]
         Account["Account Service (Auth & Profiles)<br/>Port: 8082"]
         Session["Study Session Service (gRPC / HTTP)<br/>Port: 8083"]
-        Timer["Study Timer Service (gRPC / HTTP)<br/>Port: 8084"]
+        Timer["Study Timer Service (gRPC / HTTP)<br/>gRPC: 50051 · HTTP: 8084"]
         Reward["Reward Service<br/>Port: 8085"]
         Leaderboard["Leaderboard Service<br/>Port: 8086"]
         Admin["Admin Moderation Service<br/>Port: 8087"]
@@ -40,7 +40,7 @@ graph TD
     %% Client routing via API Gateway
     ClientWeb -->|REST API| Gateway
     Gateway -->|REST API| Account
-    Gateway -->|gRPC / REST| Timer
+    Gateway -->|gRPC :50051| Timer
     Gateway -->|REST API| Leaderboard
     Gateway -->|gRPC / REST| Session
     Gateway -->|REST API| Reward
@@ -75,10 +75,10 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Web Client** | 3000 | `apps/web` | HTTP / WS | - | Responsive student UI, live timer render. |
 | **Admin Web** | 3000 | `apps/web/admin` | HTTP / WS | - | Admin moderation portal, direct connection to Admin Service. |
-| **API Gateway** | 8000 | `services/api-gateway` | HTTP / REST / gRPC Proxy | - | Client reverse proxy routing to Account, Timer, Leaderboard, Session, Reward. Verifies the account service's session JWT and forwards `X-User-Id` / `X-User-Role` / `X-Display-Name` to downstream services (passthrough only — does not itself reject unauthenticated requests). |
+| **API Gateway** | 8000 | `services/api-gateway` | HTTP / REST in; HTTP proxy + gRPC client out | - | Client entry point. Reverse-proxies Account, Leaderboard, Session and Reward over HTTP; translates `/api/timer/*` REST into Study Timer gRPC calls. Verifies the account service's session JWT and forwards `X-User-Id` / `X-User-Role` / `X-Display-Name` to downstream services (passthrough only — does not itself reject unauthenticated requests). |
 | **Account** | 8082 | `services/account` | HTTP / REST | Account DB (`account_db`) | Google OAuth (SignIn, SignUp, SignOut), user profiles, personal stats dashboard aggregation. |
 | **Study Session** | 8083 | `services/study-session` | gRPC / HTTP / WS | Session DB (`session_db`) | Room lifecycles (create/join/leave/end), roster limits, active participant listings for admin. |
-| **Study Timer** | 8084 | `services/study-timer` | gRPC / HTTP | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. |
+| **Study Timer** | 50051 (gRPC), 8084 (HTTP) | `services/study-timer` | gRPC / HTTP | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. |
 | **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB (`reward_db`) | Gamified fish drops, rarity table buffed by session participants, user inventory. |
 | **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
 | **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. |
@@ -99,6 +99,8 @@ As defined in `docs/phase1/microservice.md`:
 | Leaderboard   | Reward.ViewRewards()        | REST     | Fetches earned rewards for leaderboard ranking |
 | Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
 | Admin         | StudySession.EndSession()   | gRPC     | Command to close/end active study session room |
+| API Gateway   | StudyTimer.{Start,Get,Pause,| gRPC     | Browser REST /api/timer/* translated to gRPC   |
+|               |   Resume,Reset}Timer()      |          | (TIMER_GRPC_TARGET, default localhost:50051)   |
 +---------------+-----------------------------+----------+------------------------------------------------+
 ```
 
@@ -122,8 +124,9 @@ services/<service-name>/
 │   │   ├── service.go
 │   │   └── service_test.go
 │   └── adapter/                 # INFRASTRUCTURE: Technical implementations (driving & driven)
-│       ├── handler/             # HTTP / REST handlers, parameter binding, status codes
-│       │   └── http_handler.go
+│       ├── handler/             # Driving adapters: HTTP / REST and gRPC handlers over the same usecase
+│       │   ├── http_handler.go
+│       │   └── grpc_handler.go  # (services that expose gRPC, e.g. study-timer)
 │       └── repository/          # Database access (Supabase, Mongo, in-memory mocks)
 │           └── memory_repo.go
 ```
@@ -140,6 +143,7 @@ Domain data structures shared across services and the web client are maintained 
 - Standard Protobuf definitions for Go inter-service contracts:
   - `proto/studysession/v1/session.proto` (Study Session gRPC contracts)
   - `proto/studytimer/v1/timer.proto` (Study Timer gRPC contracts)
+  - `proto/` is its own Go module (`github.com/neennera/fishertimer/proto`) in `go.work`. Generated `*.pb.go` files are committed; regenerate with `pnpm proto:gen` after editing a `.proto`. Consumers require it with `replace ... => ../../proto` so they also build with `GOWORK=off`.
 
 ---
 

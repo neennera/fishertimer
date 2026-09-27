@@ -4,11 +4,20 @@ package fishertimer.studytimer.v1;
 
 option go_package = "github.com/neennera/fishertimer/proto/studytimer/v1;timerv1";
 
+// StudyTimerService runs one independent timer per participant per room
+// (UC-05). Every RPC that changes the timer returns its full state, so the
+// caller never has to issue a follow-up GetTimer.
 service StudyTimerService {
+  // Starts a new work cycle, or restarts one from the top.
   rpc StartTimer(StartTimerRequest) returns (TimerStateResponse);
+  // Reads the timer's current state and remaining time.
+  rpc GetTimer(GetTimerRequest) returns (TimerStateResponse);
+  // Freezes the remaining time of a running timer.
   rpc PauseTimer(PauseTimerRequest) returns (TimerStateResponse);
+  // Continues a paused timer from where it was frozen.
   rpc ResumeTimer(ResumeTimerRequest) returns (TimerStateResponse);
   rpc StopTimer(StopTimerRequest) returns (TimerStateResponse);
+  // Discards the timer and returns it to its initial, stopped state.
   rpc ResetTimer(ResetTimerRequest) returns (TimerStateResponse);
   rpc CompleteCycle(CompleteCycleRequest) returns (TimerStateResponse);
   rpc SkipRest(SkipRestRequest) returns (TimerStateResponse);
@@ -16,7 +25,25 @@ service StudyTimerService {
   rpc TimerStatistics(TimerStatisticsRequest) returns (TimerStatisticsResponse);
 }
 
+enum TimerStatus {
+  TIMER_STATUS_UNSPECIFIED = 0;
+  TIMER_STATUS_STOPPED = 1;
+  TIMER_STATUS_RUNNING = 2;
+  TIMER_STATUS_PAUSED = 3;
+}
+
+enum TimerPhase {
+  TIMER_PHASE_UNSPECIFIED = 0;
+  TIMER_PHASE_WORK = 1;
+  TIMER_PHASE_REST = 2;
+}
+
 message StartTimerRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message GetTimerRequest {
   string session_id = 1;
   string user_id = 2;
 }
@@ -65,12 +92,18 @@ message TimerStatisticsRequest {
 message TimerStateResponse {
   string session_id = 1;
   string user_id = 2;
-  string status = 3;
-  string phase = 4;
+  TimerStatus status = 3;
+  TimerPhase phase = 4;
   int32 work_minutes = 5;
   int32 rest_minutes = 6;
   int32 current_cycle = 7;
+  // RFC 3339 timestamp of the last state change.
   string last_updated = 8;
+  // Length of the current phase, in seconds.
+  int32 duration_seconds = 9;
+  // Time left in the current phase, computed by the server at response time.
+  // Clients count down locally from this value and re-sync with GetTimer.
+  int32 remaining_seconds = 10;
 }
 
 message TimerStatisticsResponse {

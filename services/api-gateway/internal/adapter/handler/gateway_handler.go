@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/config"
 	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/middleware"
 )
@@ -15,17 +16,19 @@ import (
 type GatewayHandler struct {
 	cfg          *config.Config
 	accountProxy *httputil.ReverseProxy
-	timerProxy   *httputil.ReverseProxy
+	timer        *TimerHandler
 	boardProxy   *httputil.ReverseProxy
 	sessionProxy *httputil.ReverseProxy
 	rewardProxy  *httputil.ReverseProxy
 }
 
-func New(cfg *config.Config) *GatewayHandler {
+// New builds the gateway. Most services are reverse-proxied over HTTP; Study
+// Timer is reached over gRPC through timerClient.
+func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient) *GatewayHandler {
 	return &GatewayHandler{
 		cfg:          cfg,
 		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account"),
-		timerProxy:   createReverseProxy(cfg.TimerServiceURL, "/api/v1/study-timer"),
+		timer:        NewTimerHandler(timerClient),
 		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard"),
 		sessionProxy: createReverseProxy(cfg.SessionServiceURL, "/api/v1/study-session"),
 		rewardProxy:  createReverseProxy(cfg.RewardServiceURL, "/api/v1/reward"),
@@ -133,7 +136,7 @@ func (h *GatewayHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GatewayHandler) handleTimer(w http.ResponseWriter, r *http.Request) {
-	h.timerProxy.ServeHTTP(w, r)
+	h.timer.ServeHTTP(w, r)
 }
 
 func (h *GatewayHandler) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
