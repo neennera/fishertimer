@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Changed
+- **[docs]**: Synced architecture docs with the gRPC timer: `docs/ARCHITECTURE.md` (Gateway -> Timer edge is gRPC :50051, timer ports 50051/8084, gateway role, new Gateway -> StudyTimer row in the communication matrix, `grpc_handler.go` in the layer template, `proto` module and `pnpm proto:gen`), root `README.md` and skill 0 (Go 1.25+), and the study-timer / api-gateway READMEs (RPC table, REST-to-gRPC mapping, grpcurl and curl examples).
 - **[api-gateway]**: `/api/timer/*` now reaches Study Timer over **gRPC** instead of reverse-proxying HTTP, matching the microservice design (Gateway -> gRPC -> Study Timer). `TimerHandler` translates `GET /api/timer/state` and `POST /api/timer/{start,pause,resume,reset}` (JSON `{session_id, user_id}`) into `GetTimer` / `StartTimer` / `PauseTimer` / `ResumeTimer` / `ResetTimer`, returns the same snake_case JSON shape as the Timer's HTTP API with short enum names (`RUNNING`, `WORK`), and maps gRPC codes to HTTP (400 / 409 / 404 / 503 / 504 / 502). Server-side failures are logged and return a generic message so internal addresses never reach the browser. Config `TimerServiceURL` (`TIMER_SERVICE_URL`) is replaced by `TimerGRPCTarget` (`TIMER_GRPC_TARGET`, default `localhost:50051`); `TIMER_GRPC_PORT` and `TIMER_GRPC_TARGET` are listed in `turbo.json` `globalEnv`.
 
 ### Added

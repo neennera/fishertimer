@@ -31,10 +31,10 @@ graph TD
         Gateway["Go API Gateway<br/><code>services/api-gateway</code>"]
     end
 
-    subgraph Backend Microservices ["Go 1.22+ Clean Architecture (services/*)"]
+    subgraph Backend Microservices ["Go 1.25+ Clean Architecture (services/*)"]
         Account["Account Service (Auth & Profiles)<br/>Port: 8082"]
         Session["Study Session Service (gRPC / HTTP)<br/>Port: 8083"]
-        Timer["Study Timer Service (gRPC / HTTP)<br/>Port: 8084"]
+        Timer["Study Timer Service (gRPC / HTTP)<br/>gRPC: 50051 · HTTP: 8084"]
         Reward["Reward Service<br/>Port: 8085"]
         Leaderboard["Leaderboard Service<br/>Port: 8086"]
         Admin["Admin Moderation Service<br/>Port: 8087"]
@@ -52,7 +52,7 @@ graph TD
     %% Client Routing
     ClientWeb -->|REST API| Gateway
     Gateway -->|/api/account/*| Account
-    Gateway -->|/api/timer/* (gRPC / REST)| Timer
+    Gateway -->|/api/timer/* over gRPC| Timer
     Gateway -->|/api/leaderboard/*| Leaderboard
     Gateway -->|/api/session/* (gRPC / REST)| Session
     Gateway -->|/api/reward/*| Reward
@@ -82,7 +82,7 @@ graph TD
 
 - **ADR-001 (Frontend):** Next.js 16 (React 19) with App Router, server-side rendering, and built-in reverse proxy gateway.
 - **ADR-002 (UI Framework):** TailwindCSS with shared component design system in `@repo/ui`.
-- **ADR-003 (Backend):** Go (Golang) 1.22+ for high-concurrency timer synchronization and Hexagonal / Clean Architecture.
+- **ADR-003 (Backend):** Go (Golang) 1.25+ for high-concurrency timer synchronization and Hexagonal / Clean Architecture.
 - **ADR-004 (Database):** Polyglot persistence: PostgreSQL (Supabase) for relational integrity & real-time presence; MongoDB for nested gamification rewards.
 - **ADR-005 (Authentication):** Google OAuth 2.0 with stateless signed JWT verification across services.
 - **ADR-006 (Deployment):** Docker containerization on Render with local development via `docker-compose.yml`.
@@ -94,7 +94,7 @@ graph TD
 ### Prerequisites
 - **Node.js** `>= 22.x`
 - **pnpm** `>= 9.x`
-- **Go** `>= 1.22`
+- **Go** `>= 1.25` (required by gRPC)
 - **Docker & Docker Compose**
 
 ### 1. Clone & Setup Environment
@@ -137,7 +137,7 @@ Client requests route through the Go API Gateway (8000), while Admin requests co
 | **API Gateway** | `8000` | `/api/*` | `services/api-gateway` | - |
 | **Account** | `8082` | `/api/account/*` | `services/account` | Account DB (`account_db`) |
 | **Study Session** | `8083` | `/api/session/*` (gRPC / HTTP) | `services/study-session` | Session DB (`session_db`) |
-| **Study Timer** | `8084` | `/api/timer/*` (gRPC / HTTP) | `services/study-timer` | Timer DB (`timer_db`) |
+| **Study Timer** | `8084` (HTTP), `50051` (gRPC) | `/api/timer/*` (gateway calls it over gRPC) | `services/study-timer` | Timer DB (`timer_db`) |
 | **Reward** | `8085` | `/api/reward/*` | `services/reward` | Reward DB (`reward_db`) |
 | **Leaderboard** | `8086` | `/api/leaderboard/*` | `services/leaderboard` | Redis Cache (In-Memory) |
 | **Admin** | `8087` | Direct (`/api/v1/admin/*`) | `services/admin` | Admin DB (`admin_db`) |
@@ -164,6 +164,10 @@ pnpm db:up       # Start local PostgreSQL & MongoDB
 pnpm db:logs     # Follow container logs
 pnpm db:down     # Stop database containers
 pnpm db:reset    # Wipe volumes and re-apply schemas & seeds
+
+# Regenerate Go code after editing proto/**/*.proto (needs protoc,
+# protoc-gen-go and protoc-gen-go-grpc)
+pnpm proto:gen
 ```
 
 ---
