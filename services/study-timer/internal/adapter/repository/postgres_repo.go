@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/neennera/fishertimer/services/study-timer/internal/domain"
 )
@@ -205,5 +206,50 @@ func (r *PostgresRepository) GetHistory(ctx context.Context, userID string) (*do
 		h.LastActive = lastCycleAt.Time
 	}
 
+	daily, err := r.dailyFocusLast30Days(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	h.DailyFocusMinutes = daily
+
 	return h, nil
+}
+
+
+func (r *PostgresRepository) dailyFocusLast30Days(ctx context.Context, userID string) ([]domain.DailyFocus, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT tc.ended_at::date AS day, SUM(tc.duration) / 60
+		FROM timer_cycles tc
+		JOIN timer_sessions ts ON ts.timer_session_id = tc.timer_session_id
+		WHERE ts.user_id = $1
+		  AND tc.is_completed
+		  AND tc.phase_type = 'FOCUS'
+		  AND tc.ended_at >= CURRENT_DATE - INTERVAL '29 days'
+		GROUP BY day`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	minutesByDay := make(map[string]int)
+	for rows.Next() {
+		var day time.Time
+		var minutes int
+		if err := rows.Scan(&day, &minutes); err != nil {
+			return nil, err
+		}
+		minutesByDay[day.Format("2006-01-02")] = minutes
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	daily := make([]domain.DailyFocus, 30)
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	for i := range 30 {
+		date := today.AddDate(0, 0, -(29 - i)).Format("2006-01-02")
+		daily[i] = domain.DailyFocus{Date: date, FocusMinutes: minutesByDay[date]}
+	}
+	return daily, nil
 }

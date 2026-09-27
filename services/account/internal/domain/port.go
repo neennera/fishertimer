@@ -20,12 +20,19 @@ type OAuthProvider interface {
 // TimerStatistics mirrors the study-timer service's TimerHistory - what a
 // user has done with the Pomodoro timer, pulled by user_id.
 type TimerStatistics struct {
-	UserID            string    `json:"user_id"`
-	SessionsJoined    int       `json:"sessions_joined"`
-	CyclesCompleted   int       `json:"cycles_completed"`
-	TotalFocusMinutes int       `json:"total_focus_minutes"`
-	LastActive        time.Time `json:"last_active"`
+	UserID            string       `json:"user_id"`
+	SessionsJoined    int          `json:"sessions_joined"`
+	CyclesCompleted   int          `json:"cycles_completed"`
+	TotalFocusMinutes int          `json:"total_focus_minutes"`
+	LastActive        time.Time    `json:"last_active"`
+	DailyFocusMinutes []DailyFocus `json:"daily_focus_minutes"`
 }
+
+type DailyFocus struct {
+	Date         string `json:"date"` 
+	FocusMinutes int    `json:"focus_minutes"`
+}
+
 
 // TimerClient is the driven port for the Study Timer service collaborator.
 // Implemented by internal/adapter/client.
