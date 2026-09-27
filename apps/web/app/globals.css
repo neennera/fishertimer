@@ -29,9 +29,13 @@ body {
   box-sizing: border-box;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* In the base layer: unlayered, it would beat every link class
+   (.pixel-link, Tailwind's underline), whatever their specificity. */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 /* Anything that animates must be able to stop. */

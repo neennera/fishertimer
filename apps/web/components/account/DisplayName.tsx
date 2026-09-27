@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Check } from "pixelarticons/react/Check";
 import { Close } from "pixelarticons/react/Close";
 import { Loader } from "pixelarticons/react/Loader";
@@ -10,10 +18,32 @@ import { PixelButton } from "../ui/PixelButton";
 import { updateDisplayName, type SessionUser } from "../../lib/auth";
 import { validateDisplayName } from "../../lib/validate-display-name";
 
-export interface DisplayNameProps {
-  name: string;
-  email: string;
-  onSaved: (user: SessionUser) => void;
+export type DisplayNameProps =
+  | {
+      name: string;
+      editable?: false;
+      /** Adds the bottom line (as in edit mode) with this at its end, so the
+       * name and the action sit where they do on /account. */
+      aside?: ReactNode;
+    }
+  | {
+      name: string;
+      editable: true;
+      email: string;
+      onSaved: (user: SessionUser) => void;
+      /** Shown at the end of the e-mail line. */
+      aside?: ReactNode;
+    };
+
+// The line under the name: the e-mail (or other detail) with an action at
+// its end. The reserved error line above it keeps both modes the same height.
+function BottomLine({ detail, aside }: { detail?: ReactNode; aside?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
+      <p className="min-w-0 text-bark break-words">{detail}</p>
+      {aside}
+    </div>
+  );
 }
 
 // Same type classes in both modes, so the text doesn't move when it becomes
@@ -21,11 +51,13 @@ export interface DisplayNameProps {
 const NAME_TYPE = "font-display text-3xl leading-none";
 
 /**
- * The display name with in-place editing (UC-07, 04a–04f states): the pencil
- * turns the name itself into an input, with check / close in the pencil's
- * place. Errors show between the name and the e-mail.
+ * The display name, read-only or (for the owner) with in-place editing
+ * (UC-07, 04a–04f states): the pencil turns the name itself into an input,
+ * with check / close in the pencil's place. Errors show between the name and
+ * the e-mail.
  */
-export function DisplayName({ name, email, onSaved }: DisplayNameProps) {
+export function DisplayName(props: DisplayNameProps) {
+  const { name } = props;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
@@ -80,7 +112,9 @@ export function DisplayName({ name, email, onSaved }: DisplayNameProps) {
     try {
       const result = await updateDisplayName(draft);
       if (result.ok) {
-        onSaved(result.user);
+        if (props.editable) {
+          props.onSaved(result.user);
+        }
         stopEditing();
       } else {
         setSaveError(result.error);
@@ -96,6 +130,26 @@ export function DisplayName({ name, email, onSaved }: DisplayNameProps) {
     if (event.key === "Escape" && !saving) {
       stopEditing();
     }
+  }
+
+  const nameText = (
+    <p className={cx("pixel-name-row__text", NAME_TYPE)} title={name}>
+      {name}
+    </p>
+  );
+
+  if (!props.editable) {
+    return (
+      <>
+        <div className="pixel-name-row">{nameText}</div>
+        {props.aside && (
+          <>
+            <p className="pixel-inline-error" aria-hidden="true" />
+            <BottomLine aside={props.aside} />
+          </>
+        )}
+      </>
+    );
   }
 
   return (
@@ -146,9 +200,7 @@ export function DisplayName({ name, email, onSaved }: DisplayNameProps) {
         </form>
       ) : (
         <div className="pixel-name-row">
-          <p className={cx("pixel-name-row__text", NAME_TYPE)} title={name}>
-            {name}
-          </p>
+          {nameText}
           <PixelButton
             ref={pencilRef}
             variant="ghost"
@@ -165,7 +217,7 @@ export function DisplayName({ name, email, onSaved }: DisplayNameProps) {
       <p id={errorId} className="pixel-inline-error" role={editing && shownError ? "alert" : undefined}>
         {editing ? shownError : null}
       </p>
-      <p className="text-sm text-bark break-words">{email}</p>
+      <BottomLine detail={props.email} aside={props.aside} />
     </>
   );
 }

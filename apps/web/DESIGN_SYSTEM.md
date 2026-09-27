@@ -110,7 +110,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 | --- | --- |
 | `.pixel-header` | Top bar. Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` |
 | `.pixel-panel` | Panel background with an edge and a bottom band |
-| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller icon key for an inline action beside text), `--busy` (spins its icon while an action is in flight) or `--block` |
+| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller key: with `--icon` a small icon key beside text, without it a small text key such as a link-like action), `--busy` (spins its icon while an action is in flight) or `--block` |
 | `.pixel-label` | Uppercase field label |
 | `.pixel-input` | Text field. Set `aria-invalid="true"` for the error state |
 | `.pixel-error` | Message under a field |
@@ -130,6 +130,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-inline-field` | Wrapper for an inline input: draws a 1-art-pixel underline that steps in on open, turns `--color-lake-dp` on focus, and `--color-rust` with `--invalid` |
 | `.pixel-inline-input` | Borderless, transparent input sized to its content (8ch–31ch). Give it the same type classes as the text it replaces |
 | `.pixel-inline-error` | Error line for an inline edit, placed between the text and what follows. Always mounted with its space reserved (two lines on phones), so a message never shifts the page; fades in |
+| `.pixel-panel--profile` / `--stats` / `--rooms` / `--tank` | Profile-page panels: minimum heights (md and up, from `--panel-min-*` tokens) so the loading skeleton and the loaded page are the same size |
 | `.pixel-wood` | Page backdrop of tiled wood planks (`public/sprites/scene/wood.png`, 32x32) at `--wood-scale` × `--px` (6 screen pixels per art pixel), under a 35% ink tint, with two soft amber lamp glows (wide ovals with an eased fade, screen-blended so they brighten the wood) and darkened corners. It is a layer fixed to the viewport, so it stays still while the page scrolls. Used on `/account`; text stays on panels |
 | `.pixel-placeholder` | Sub-panel (`--color-tile` fill) holding the place of content not built yet |
 | `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__fallback` for the pixelarticons glyph shown when there is no photo or it fails to load |

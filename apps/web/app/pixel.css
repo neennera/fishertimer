@@ -294,6 +294,15 @@
     width: calc(var(--px) * 6);
     height: calc(var(--px) * 6);
   }
+  /* Small text key, e.g. a link-like action at the end of a line. */
+  .pixel-btn--sm:not(.pixel-btn--icon),
+  .pixel-btn--sm:not(.pixel-btn--icon):disabled:active {
+    font-size: calc(var(--px) * 5);
+    padding: var(--px) calc(var(--px) * 3) calc(var(--px) * 2);
+  }
+  .pixel-btn--sm:not(.pixel-btn--icon):active {
+    padding: calc(var(--px) * 2) calc(var(--px) * 3) var(--px);
+  }
   /* Swaps its icon for a stepped spinner while an action is in flight. */
   .pixel-btn--busy svg {
     animation: pixel-spin 0.8s steps(8) infinite;
@@ -863,6 +872,23 @@
       var(--color-oak);
     background-blend-mode: screen, screen, multiply, normal, normal, normal;
     image-rendering: pixelated;
+  }
+
+  /* --- Profile page panels --------------------------------------------------
+     Locked minimum heights (md and up) so loading and loaded match. */
+  @media (min-width: 768px) {
+    .pixel-panel--profile {
+      min-height: var(--panel-min-profile);
+    }
+    .pixel-panel--stats {
+      min-height: var(--panel-min-stats);
+    }
+    .pixel-panel--rooms {
+      min-height: var(--panel-min-rooms);
+    }
+    .pixel-panel--tank {
+      min-height: var(--panel-min-tank);
+    }
   }
 
   /* --- Placeholder -----------------------------------------------------------

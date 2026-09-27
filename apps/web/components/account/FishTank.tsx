@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import type { RewardItem, UserReward } from "@fishertimer/shared-types";
 import { cx } from "../../lib/cx";
 import { fishSprite } from "../../lib/fish-sprites";
@@ -11,6 +11,7 @@ export interface FishTankProps {
   catalog: RewardItem[];
   /** Several rows for one species = its count. */
   rewards: UserReward[];
+  emptyMessage: ReactNode;
 }
 
 interface CaughtSpecies {
@@ -98,7 +99,7 @@ function FishArt({ itemId, still = false }: { itemId: string; still?: boolean })
   );
 }
 
-export function FishTank({ catalog, rewards }: FishTankProps) {
+export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
   const species = useMemo(() => caughtSpecies(catalog, rewards), [catalog, rewards]);
   const swimmers = useMemo(() => tankFish(species), [species]);
   const starts = useMemo(() => swimmers.map((_, index) => restSpot(index)), [swimmers]);
@@ -141,9 +142,7 @@ export function FishTank({ catalog, rewards }: FishTankProps) {
       </div>
 
       {species.length === 0 ? (
-        <p className="text-center text-sm text-bark">
-          No fish yet. Finish a focus session to catch one.
-        </p>
+        <p className="text-center text-sm text-bark">{emptyMessage}</p>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           {species.map(({ item, count }) => (
