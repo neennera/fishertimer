@@ -6,15 +6,16 @@
 // Google can pass through other ?error= values too; readAuthError() shows
 // those with the login_failed copy.
 //
-// account_creation_failed is the frontend's own code, not the backend's: the
-// signup POST failing (500) sends /welcome back to
-// /signin?auth_error=account_creation_failed, keeping 01d on the sign-in
-// screen as in the wireframes.
+// account_creation_failed and signup_expired are the frontend's own codes,
+// not the backend's: the signup POST failing (500) or finding the ft_signup
+// ticket gone (401) sends /welcome back to /signin with one of them, keeping
+// 01d on the sign-in screen as in the wireframes.
 export type AuthErrorCode =
   | 'access_denied'
   | 'invalid_state'
   | 'login_failed'
-  | 'account_creation_failed';
+  | 'account_creation_failed'
+  | 'signup_expired';
 
 // Copy for each error state (01b/01c/01d). Shared by auth.ts, its mock and
 // /signin. Lives in its own module, not lib/auth.ts, so
@@ -25,4 +26,5 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   invalid_state: 'Your sign-in link expired. Please try again.',
   login_failed: 'Something went wrong connecting to Google. Please try again.',
   account_creation_failed: "Couldn't create your account. Please try again.",
+  signup_expired: 'Your sign-up has expired. Please sign in with Google again.',
 };

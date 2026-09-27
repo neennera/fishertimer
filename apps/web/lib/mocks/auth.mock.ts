@@ -1,6 +1,6 @@
-// Canned auth responses used while NEXT_PUBLIC_USE_MOCKS is on, shaped exactly
-// like the account service's real responses (snake_case users, GET /me's
-// status union). Covers the 7 states shown by the sign-in and first-time
+// Canned auth responses used while NEXT_PUBLIC_USE_MOCKS is on, shaped like
+// the account service's real ones (snake_case users; GET /me is a user or
+// signed out, never a pending sign-up). Covers the 7 states shown by the sign-in and first-time
 // setup wireframes:
 //   01a Sign In (Default)
 //   01b Sign In (Error: Consent Denied)
@@ -45,23 +45,24 @@ export const MOCK_USER: SessionUser = {
   updated_at: '2026-09-01T00:00:00Z',
 };
 
-// The e-mail GET /me reports for a verified Google identity with no account
-// yet. The real needs_signup response carries only the e-mail — no Google
-// display name — so 02a/02b/02c all start from an empty name field.
-export const MOCK_SIGNUP_EMAIL = 'new-angler@example.com';
+// The e-mail on an account created by the mock signup POST (the real one
+// comes from the Google identity in the ft_signup cookie).
+export const MOCK_NEW_ACCOUNT_EMAIL = 'new-angler@example.com';
 
 // What the mock "Google round trip" does for each scenario: which of the two
 // paths passed to signInWithGoogle() the backend would redirect to, with
-// which ?auth_error=, leaving which GET /me state behind.
+// which ?auth_error=, leaving which GET /me state behind. A new e-mail goes
+// to `signup` still signed out: the pending sign-up is only in the (mock)
+// ft_signup cookie.
 export interface MockSignInOutcome {
   redirectTo: 'next' | 'signup';
   authError?: AuthErrorCode;
   session: Session;
 }
 
-const NEEDS_SIGNUP: MockSignInOutcome = {
+const NEW_ACCOUNT: MockSignInOutcome = {
   redirectTo: 'signup',
-  session: { status: 'needs_signup', email: MOCK_SIGNUP_EMAIL },
+  session: { status: 'signed_out' },
 };
 
 export const MOCK_SIGN_IN_OUTCOMES: Record<MockAuthScenario, MockSignInOutcome> = {
@@ -82,11 +83,11 @@ export const MOCK_SIGN_IN_OUTCOMES: Record<MockAuthScenario, MockSignInOutcome> 
     session: { status: 'signed_out' },
   },
   // 01d — sign-in succeeds; the signup POST is what fails (MOCK_SIGNUP_FAILS)
-  'signin-account-creation-failed': NEEDS_SIGNUP,
+  'signin-account-creation-failed': NEW_ACCOUNT,
   // 02a, 02b, 02c
-  'setup-default': NEEDS_SIGNUP,
-  'setup-name-empty': NEEDS_SIGNUP,
-  'setup-name-too-long': NEEDS_SIGNUP,
+  'setup-default': NEW_ACCOUNT,
+  'setup-name-empty': NEW_ACCOUNT,
+  'setup-name-too-long': NEW_ACCOUNT,
 };
 
 // Scenarios whose POST /signup answers 500 "could not create account".

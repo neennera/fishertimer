@@ -9,8 +9,13 @@
 //   GET  /api/auth/google/login?next=&signup=  browser navigation to Google
 //   GET  /api/auth/google/callback             Google -> backend -> redirect
 //                                              to next/signup (+?auth_error=)
-//   GET  /api/auth/me                          {status, user?|email?}, always 200
-//   POST /api/auth/signup {display_name}       201 + user, sets ft_session
+//   GET  /api/auth/me                          200 + the user, or 401 when not
+//                                              signed in. A pending sign-up
+//                                              lives only in the ft_signup
+//                                              cookie; /me doesn't report it.
+//   POST /api/auth/signup {display_name}       201 + user, sets ft_session;
+//                                              400 bad name, 401 ticket gone,
+//                                              500 couldn't create
 //   POST /api/auth/signout                     clears ft_session / ft_signup
 // Not yet on the backend: updating the display name (updateDisplayName() is
 // mock-only).
@@ -21,6 +26,7 @@ import { AUTH_ERROR_MESSAGES, type AuthErrorCode } from './auth-error-messages';
 import { ClientApiError, clientApiFetch } from './client-api';
 import {
   MOCK_EDIT_NAME_FAILS_SCENARIO,
+  MOCK_NEW_ACCOUNT_EMAIL,
   MOCK_SCENARIO_PARAM,
   MOCK_SIGN_IN_OUTCOMES,
   MOCK_SIGNUP_FAILS,
@@ -62,11 +68,8 @@ export interface SessionUser {
   updated_at: string;
 }
 
-// GET /me's response, exactly.
-export type Session =
-  | { status: 'signed_in'; user: SessionUser }
-  | { status: 'needs_signup'; email: string }
-  | { status: 'signed_out' };
+// GET /me: 200 -> signed_in, anything else -> signed_out.
+export type Session = { status: 'signed_in'; user: SessionUser } | { status: 'signed_out' };
 
 export type SessionStatus = Session['status'];
 
@@ -80,13 +83,11 @@ export type CompleteFirstTimeSetupResult =
   | { ok: true; user: SessionUser }
   | {
       ok: false;
-      // invalid: name rejected (400) · expired: ft_signup ticket gone (401)
-      // account_creation_failed: anything else from the server (01d)
-      code: 'invalid' | 'expired' | 'account_creation_failed';
+      // invalid: name rejected (400) · signup_expired: ft_signup ticket gone
+      // (401) · account_creation_failed: anything else from the server (01d)
+      code: 'invalid' | 'signup_expired' | 'account_creation_failed';
       error: string;
     };
-
-const SIGN_UP_EXPIRED_MESSAGE = 'Your sign-up has expired. Please sign in with Google again.';
 
 export type UpdateDisplayNameResult =
   | { ok: true; user: SessionUser }
@@ -98,6 +99,8 @@ const SAVE_FAILED_MESSAGE = "Couldn't save your changes. Please try again.";
 // and signOut(). Signing in is a full-page navigation, so it never goes stale
 // across that.
 let cachedSession: Session | null = null;
+// The /me request in flight, shared by concurrent callers.
+let pendingSession: Promise<Session> | null = null;
 
 function currentMockScenario(): MockAuthScenario | null {
   const value = new URLSearchParams(window.location.search).get(MOCK_SCENARIO_PARAM);
@@ -122,8 +125,12 @@ export async function signInWithGoogle({
   const outcome = MOCK_SIGN_IN_OUTCOMES[scenario];
   await mockDelay(undefined);
 
+  // Keep state for a signed-in user, and for a new e-mail (the mock
+  // ft_signup ticket, remembering the scenario for the signup POST).
   writeMockAuthState(
-    outcome.session.status === 'signed_out' ? null : { scenario, session: outcome.session }
+    outcome.session.status === 'signed_in' || outcome.redirectTo === 'signup'
+      ? { scenario, session: outcome.session }
+      : null
   );
   const path = outcome.redirectTo === 'next' ? next : signup;
   window.location.assign(
@@ -147,35 +154,36 @@ export function readAuthError(params: URLSearchParams): AuthError | null {
 
 export async function getSession(): Promise<Session> {
   if (USE_MOCKS) {
-    const state = readMockAuthState();
-    if (state) {
-      return mockDelay(state.session);
-    }
-    // No mock "cookie" yet: /welcome?mockScenario=setup-* is still directly
-    // reachable, as if the user had just come back from Google.
-    const scenario = currentMockScenario();
-    const session: Session =
-      scenario && MOCK_SIGN_IN_OUTCOMES[scenario].redirectTo === 'signup'
-        ? MOCK_SIGN_IN_OUTCOMES[scenario].session
-        : { status: 'signed_out' };
-    return mockDelay(session);
+    return mockDelay<Session>(readMockAuthState()?.session ?? { status: 'signed_out' });
   }
 
   if (cachedSession) {
     return cachedSession;
   }
+  pendingSession ??= fetchSession().finally(() => {
+    pendingSession = null;
+  });
+  return pendingSession;
+}
 
+async function fetchSession(): Promise<Session> {
   try {
-    cachedSession = await clientApiFetch<Session>('auth', 'me');
+    const user = await clientApiFetch<SessionUser>('auth', 'me');
+    cachedSession = { status: 'signed_in', user };
     return cachedSession;
-  } catch {
-    // /me always answers 200, so this is the gateway being unreachable.
+  } catch (err) {
+    if (err instanceof ClientApiError && err.status === 401) {
+      cachedSession = { status: 'signed_out' };
+      return cachedSession;
+    }
+    // Network error or 5xx: signed out for now, but ask again next time.
     return { status: 'signed_out' };
   }
 }
 
-// Creates the account for the pending Google identity (needs_signup) and signs
-// the user in. Network failures throw; server answers come back as results.
+// Creates the account for the Google identity in the ft_signup cookie and
+// signs the user in. Network failures throw; server answers come back as
+// results.
 export async function completeFirstTimeSetup(
   displayName: string
 ): Promise<CompleteFirstTimeSetupResult> {
@@ -202,7 +210,11 @@ export async function completeFirstTimeSetup(
         return { ok: false, code: 'invalid', error: err.message };
       }
       if (err.status === 401) {
-        return { ok: false, code: 'expired', error: SIGN_UP_EXPIRED_MESSAGE };
+        return {
+          ok: false,
+          code: 'signup_expired',
+          error: AUTH_ERROR_MESSAGES.signup_expired,
+        };
       }
       return {
         ok: false,
@@ -212,12 +224,15 @@ export async function completeFirstTimeSetup(
     }
   }
 
-  const state = readMockAuthState();
-  const scenario = state?.scenario ?? currentMockScenario();
-  const pending = state?.session ?? (await getSession());
-
-  if (pending.status !== 'needs_signup' || !scenario) {
-    return mockDelay<CompleteFirstTimeSetupResult>({ ok: false, code: 'expired', error: SIGN_UP_EXPIRED_MESSAGE });
+  // The mock ft_signup ticket: a sign-up scenario from the mock sign-in, or
+  // from a direct /welcome?mockScenario=setup-* link.
+  const scenario = readMockAuthState()?.scenario ?? currentMockScenario();
+  if (!scenario || MOCK_SIGN_IN_OUTCOMES[scenario].redirectTo !== 'signup') {
+    return mockDelay<CompleteFirstTimeSetupResult>({
+      ok: false,
+      code: 'signup_expired',
+      error: AUTH_ERROR_MESSAGES.signup_expired,
+    });
   }
 
   if (MOCK_SIGNUP_FAILS.has(scenario)) {
@@ -231,7 +246,7 @@ export async function completeFirstTimeSetup(
   const user: SessionUser = {
     ...MOCK_USER,
     user_id: 'mock-user-new',
-    email: pending.email,
+    email: MOCK_NEW_ACCOUNT_EMAIL,
     display_name: trimmed,
   };
   writeMockAuthState({ scenario: 'signin-default', session: { status: 'signed_in', user } });

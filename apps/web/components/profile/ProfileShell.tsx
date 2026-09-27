@@ -7,7 +7,7 @@ import { getSession, signOut, type SessionUser } from "../../lib/auth";
 
 /**
  * The signed-in viewer, for pages that need one: redirects to /signin when
- * signed out (or /welcome mid-sign-up). `user` is null while loading.
+ * signed out. `user` is null while loading.
  */
 export function useSignedInUser() {
   const router = useRouter();
@@ -22,8 +22,6 @@ export function useSignedInUser() {
       }
       if (session.status === "signed_in") {
         setUser(session.user);
-      } else if (session.status === "needs_signup") {
-        router.replace("/welcome");
       } else {
         router.replace("/signin");
       }

@@ -12,8 +12,6 @@ import { validateDisplayName } from "../../../lib/validate-display-name";
 
 function WelcomeForm() {
   const router = useRouter();
-  // The pending Google e-mail from GET /me's needs_signup; null while loading.
-  const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -21,35 +19,17 @@ function WelcomeForm() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
+  // GET /me can't say whether a sign-up is pending (that is only in the
+  // ft_signup cookie), so the form always shows; the signup POST finds out.
+  // Someone already signed in has nothing to set up. In mock mode,
+  // /welcome?mockScenario=setup-* reaches each 02 state directly.
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      // In mock mode, /welcome?mockScenario=setup-default/setup-name-empty/
-      // setup-name-too-long reaches this page directly for each state, the
-      // same way /signin's ?auth_error= links work.
-      const session = await getSession();
-
-      if (cancelled) {
-        return;
+    void getSession().then((session) => {
+      if (!cancelled && session.status === "signed_in") {
+        router.replace("/account");
       }
-
-      if (session.status === "signed_in") {
-        router.replace("/");
-        return;
-      }
-      if (session.status === "signed_out") {
-        router.replace("/signin");
-        return;
-      }
-
-      // GET /me only carries the e-mail for a pending sign-up, so the name
-      // starts empty.
-      setEmail(session.email);
-    }
-
-    void load();
-
+    });
     return () => {
       cancelled = true;
     };
@@ -75,12 +55,13 @@ function WelcomeForm() {
     try {
       const result = await completeFirstTimeSetup(name);
       if (result.ok) {
-        router.push("/");
-      } else if (result.code === "account_creation_failed") {
-        // 01d lives on the sign-in screen in the wireframes.
-        router.replace(`/signin?${AUTH_ERROR_PARAM}=account_creation_failed`);
-      } else {
+        router.push("/account");
+      } else if (result.code === "invalid") {
         setSubmitError(result.error);
+      } else {
+        // account_creation_failed (01d) or signup_expired: both are shown on
+        // the sign-in screen, where they can start again.
+        router.replace(`/signin?${AUTH_ERROR_PARAM}=${result.code}`);
       }
     } catch {
       setSubmitError("Something went wrong. Please try again.");
@@ -89,8 +70,6 @@ function WelcomeForm() {
     }
   }
 
-  // Panel renders immediately; only the session-dependent fields (name,
-  // email) show a skeleton while they load.
   return (
     <PixelPanel className="w-full max-w-sm text-center">
       <h1 className="font-display text-3xl leading-none">Welcome to Fisher Timer</h1>
@@ -98,35 +77,18 @@ function WelcomeForm() {
         Let&rsquo;s set up your profile before you start
       </p>
 
-      <form className="mt-6 text-left" onSubmit={handleSubmit} aria-busy={!email}>
-        {email ? (
-          <PixelInput
-            label="Display name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            aria-invalid={displayedError ? "true" : undefined}
-            maxLength={100}
-          />
-        ) : (
-          <div>
-            <span className="pixel-label">Display name</span>
-            <div className="pixel-input pixel-skeleton" aria-hidden="true" />
-          </div>
-        )}
+      <form className="mt-6 text-left" onSubmit={handleSubmit}>
+        <PixelInput
+          label="Display name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          aria-invalid={displayedError ? "true" : undefined}
+          maxLength={100}
+        />
 
         <p className="pixel-field-error" role={displayedError || submitError ? "alert" : undefined}>
           {displayedError ?? submitError ?? " "}
         </p>
-
-        {email ? (
-          <p className="text-sm text-bark">
-            Signed in as <span className="font-bold text-amber-dk">{email}</span>
-          </p>
-        ) : (
-          <p className="mt-4 text-sm text-bark" aria-hidden="true">
-            <span className="pixel-skeleton pixel-skeleton--text" />
-          </p>
-        )}
 
         <PixelCheckbox
           className="mt-4"
@@ -145,7 +107,7 @@ function WelcomeForm() {
           block
           type="submit"
           className="mt-4"
-          disabled={submitting || !email || !consentChecked}
+          disabled={submitting || !consentChecked}
         >
           {submitting ? "Saving…" : "Continue"}
         </PixelButton>
