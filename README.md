@@ -54,18 +54,18 @@ graph TD
     Gateway -->|/api/account/*| Account
     Gateway -->|/api/timer/* over gRPC| Timer
     Gateway -->|/api/leaderboard/*| Leaderboard
-    Gateway -->|/api/session/* (gRPC / REST)| Session
+    Gateway -->|"/api/session/* (gRPC / REST)"| Session
     Gateway -->|/api/reward/*| Reward
 
     %% Admin Routing
     AdminWeb -->|Direct REST API| Admin
 
     %% Inter-service calls
-    Admin -.->|LeaveSession() / EndSession()| Session
-    Account -.->|TimerStatistics()| Timer
-    Account -.->|ViewRewards()| Reward
-    Timer -.->|AwardReward() on CompleteCycle| Reward
-    Leaderboard -.->|ViewRewards()| Reward
+    Admin -.->|"LeaveSession() / EndSession()"| Session
+    Account -.->|"TimerStatistics()"| Timer
+    Account -.->|"ViewRewards()"| Reward
+    Timer -.->|"AwardReward() on CompleteCycle"| Reward
+    Leaderboard -.->|"ViewRewards()"| Reward
 
     %% Databases & Cache
     Account --> AccountDB
