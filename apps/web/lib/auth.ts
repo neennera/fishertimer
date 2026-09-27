@@ -17,8 +17,11 @@
 //                                              400 bad name, 401 ticket gone,
 //                                              500 couldn't create
 //   POST /api/auth/signout                     clears ft_session / ft_signup
-// Not yet on the backend: updating the display name (updateDisplayName() is
-// mock-only).
+//   PATCH /api/auth/update-profile {display_name}
+//                                              200 + user (refreshes
+//                                              ft_session); 400 bad name,
+//                                              401 not signed in, 500 other
+// Profile, statistics and rewards reads are in lib/profile.ts.
 // The session itself lives in HttpOnly cookies, so this file never sees a token.
 
 import type { UserRole } from '@fishertimer/shared-types';
@@ -31,6 +34,7 @@ import {
   MOCK_SIGN_IN_OUTCOMES,
   MOCK_SIGNUP_FAILS,
   MOCK_USER,
+  MOCK_USER_IDS,
   isMockAuthScenario,
   mockDelay,
   readMockAuthState,
@@ -91,7 +95,8 @@ export type CompleteFirstTimeSetupResult =
 
 export type UpdateDisplayNameResult =
   | { ok: true; user: SessionUser }
-  | { ok: false; code: 'invalid' | 'save_failed'; error: string };
+  // signed_out: the session is gone (401); the page sends them to /signin.
+  | { ok: false; code: 'invalid' | 'signed_out' | 'save_failed'; error: string };
 
 const SAVE_FAILED_MESSAGE = "Couldn't save your changes. Please try again.";
 
@@ -245,7 +250,7 @@ export async function completeFirstTimeSetup(
 
   const user: SessionUser = {
     ...MOCK_USER,
-    user_id: 'mock-user-new',
+    user_id: MOCK_USER_IDS.justSignedUp,
     email: MOCK_NEW_ACCOUNT_EMAIL,
     display_name: trimmed,
   };
@@ -253,9 +258,6 @@ export async function completeFirstTimeSetup(
   return mockDelay<CompleteFirstTimeSetupResult>({ ok: true, user });
 }
 
-// MOCK ONLY: the account service has no update endpoint yet, so with mocks
-// off this always fails. Wire the real call here once it exists (and update
-// cachedSession, as completeFirstTimeSetup() does).
 export async function updateDisplayName(displayName: string): Promise<UpdateDisplayNameResult> {
   const invalid = validateDisplayName(displayName);
   if (invalid) {
@@ -263,7 +265,23 @@ export async function updateDisplayName(displayName: string): Promise<UpdateDisp
   }
 
   if (!USE_MOCKS) {
-    return { ok: false, code: 'save_failed', error: SAVE_FAILED_MESSAGE };
+    try {
+      const user = await clientApiFetch<SessionUser>('auth', 'update-profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ display_name: displayName.trim() }),
+      });
+      cachedSession = { status: 'signed_in', user };
+      return { ok: true, user };
+    } catch (err) {
+      if (err instanceof ClientApiError && err.status === 400) {
+        return { ok: false, code: 'invalid', error: err.message };
+      }
+      if (err instanceof ClientApiError && err.status === 401) {
+        cachedSession = null;
+        return { ok: false, code: 'signed_out', error: 'Sign in required.' };
+      }
+      return { ok: false, code: 'save_failed', error: SAVE_FAILED_MESSAGE };
+    }
   }
 
   // 04f: /account?mockScenario=edit-name-save-failed

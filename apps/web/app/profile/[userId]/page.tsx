@@ -6,55 +6,84 @@ import { useParams } from "next/navigation";
 import { ProfileSections } from "../../../components/profile/ProfileSections";
 import { ProfileShell, useSignedInUser } from "../../../components/profile/ProfileShell";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
-import { getPublicProfile, ownProfileData, type ProfileData } from "../../../lib/profile";
+import {
+  getPublicProfile,
+  isUserId,
+  loadPanels,
+  type PanelData,
+  type PublicProfile,
+} from "../../../lib/profile";
+import type { RewardsSummary, TimerStatistics } from "../../../lib/profile-types";
+
+const LOADING = { status: "loading" } as const;
+
+interface Loaded {
+  userId: string;
+  /** null = no such user; "error" = the profile itself couldn't load. */
+  profile: PublicProfile | null | "error";
+  stats: PanelData<TimerStatistics>;
+  rewards: PanelData<RewardsSummary>;
+}
+
+function Notice({ title, children }: { title: string; children: string }) {
+  return (
+    <PixelPanel as="section" className="text-center">
+      <h2 className="font-display text-3xl leading-none">{title}</h2>
+      <p className="mt-3 text-sm text-bark">{children}</p>
+      <p className="mt-4 text-sm">
+        <Link href="/account" className="pixel-link">
+          Back to your account
+        </Link>
+      </p>
+    </PixelPanel>
+  );
+}
 
 export default function PublicProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const { user, signingOut, handleSignOut } = useSignedInUser();
-  // Keyed by userId, so moving to another profile never shows the last one.
-  const [fetched, setFetched] = useState<{ userId: string; data: ProfileData | null } | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
 
-  const isOwn = user !== null && user.user_id === userId;
-
+  // All three in parallel, alongside /me.
   useEffect(() => {
-    if (!user || user.user_id === userId) {
-      return;
-    }
     let cancelled = false;
-    void getPublicProfile(userId).then((data) => {
-      if (!cancelled) {
-        setFetched({ userId, data });
+    void Promise.allSettled([
+      getPublicProfile(userId),
+      isUserId(userId) ? loadPanels(userId) : Promise.resolve(null),
+    ]).then(([profile, panels]) => {
+      if (cancelled) {
+        return;
       }
+      const both = panels.status === "fulfilled" ? panels.value : null;
+      setLoaded({
+        userId,
+        profile: profile.status === "fulfilled" ? profile.value : "error",
+        stats: both?.stats ?? { status: "unavailable" },
+        rewards: both?.rewards ?? { status: "unavailable" },
+      });
     });
     return () => {
       cancelled = true;
     };
-  }, [user, userId]);
+  }, [userId]);
 
-  // undefined = still loading, null = no such user. Your own profile comes
-  // from the session, the same data /account shows.
-  const data: ProfileData | null | undefined = isOwn
-    ? ownProfileData(user)
-    : fetched?.userId === userId
-      ? fetched.data
-      : undefined;
+  const current = loaded?.userId === userId ? loaded : null;
+  const isOwn = user !== null && user.user_id === userId;
 
   return (
     <ProfileShell title="Profile" viewer={user} signingOut={signingOut} onSignOut={handleSignOut}>
-      {data === null ? (
-        <PixelPanel as="section" className="text-center">
-          <h2 className="font-display text-3xl leading-none">Fisher not found</h2>
-          <p className="mt-3 text-sm text-bark">
-            This profile doesn&rsquo;t exist, or it has moved.
-          </p>
-          <p className="mt-4 text-sm">
-            <Link href="/account" className="pixel-link">
-              Back to your account
-            </Link>
-          </p>
-        </PixelPanel>
+      {current?.profile === null ? (
+        <Notice title="Fisher not found">This profile doesn&rsquo;t exist, or it has moved.</Notice>
+      ) : current?.profile === "error" ? (
+        <Notice title="Couldn&rsquo;t load profile">Please try again in a moment.</Notice>
       ) : (
-        <ProfileSections data={data ?? null} editable={false} ownPreview={isOwn} />
+        <ProfileSections
+          profile={current?.profile ?? null}
+          stats={current?.stats ?? LOADING}
+          rewards={current?.rewards ?? LOADING}
+          editable={false}
+          ownPreview={isOwn}
+        />
       )}
     </ProfileShell>
   );

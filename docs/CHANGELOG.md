@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: `/account` and `/profile/[userId]` use the real account service (`profile`, `statistics`, `rewards`, `PATCH update-profile`). Each panel loads and fails on its own; stats add "Last active"; the fish tank shows only fish.
 - **[web]**: Follow the account service's new `GET /me` (`prem/account`, `bed051e`): it returns the user or 401, with no pending sign-up state. `/welcome` now always shows the form (no e-mail) and sends expired sign-ups back to `/signin`.
 - **[web]**: The header stays pinned to the top of the page while scrolling, and its avatar shows the user's picture (initials if there is none or it fails to load) and links to `/account`.
 - **[web]**: The `/account` display-name editor now edits the name in place: the name itself becomes an underlined input in the same font and position, with small check / close icon buttons in the pencil's spot, so nothing shifts: the error line between the name and the e-mail is always reserved. The underline colour, the check / close keys, the error and the saving dim fade in over about 120ms (off under reduced motion). This intentionally departs from wireframe 04b's large input and Cancel / Save buttons; all six 04a–04f states, the validator and the mock `updateDisplayName()` are unchanged. New `.pixel-name-row`, `.pixel-inline-field`, `.pixel-inline-input`, `.pixel-inline-error` classes and a `.pixel-btn--busy` modifier.

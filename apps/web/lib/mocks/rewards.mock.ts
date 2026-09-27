@@ -1,57 +1,54 @@
-// MOCK ONLY: no rewards endpoint yet. Shapes follow shared-types; the real
-// wire format may differ (snake_case, `_id`).
-//
-// SCHEMA CONFLICT: counts come from several rows per species, but
-// schema.dbml's user_rewards is unique on (user_id, item_id).
+// Mock GET /api/auth/rewards?id= in the wire shape. Missing user -> 404.
 
-import type { RewardItem, UserReward } from '@fishertimer/shared-types';
+import type { RewardSummaryItem, RewardsSummary } from '../profile-types';
+import { MOCK_USER_IDS } from './auth.mock';
 
-function mockFish(id: string, itemName: string, description?: string): RewardItem {
+// ?mockScenario=rewards-unavailable -> 502.
+export const MOCK_REWARDS_UNAVAILABLE = 'rewards-unavailable';
+
+function item(
+  name: string,
+  count: number,
+  asset_url: string,
+  type: RewardSummaryItem['type'] = 'FISH',
+  rarity: RewardSummaryItem['rarity'] = 'COMMON',
+  score_value = 10,
+): RewardSummaryItem {
+  return { name, rarity, asset_url, type, score_value, count };
+}
+
+function summary(items: RewardSummaryItem[]): RewardsSummary {
   return {
-    id,
-    itemName,
-    description,
-    itemType: 'FISH_SPECIES',
-    cost: 0,
-    createdAt: '2026-09-01T00:00:00Z',
+    total_awards_earned: items.reduce((sum, i) => sum + i.count, 0),
+    total_score: items.reduce((sum, i) => sum + i.count * i.score_value, 0),
+    items,
   };
 }
 
-export const MOCK_FISH_CATALOG: RewardItem[] = [
-  mockFish('fish-clownfish', 'Clownfish', 'Caught after a steady focus session.'),
-  mockFish('fish-blue-tang', 'Blue Tang', 'Shows up in group sessions.'),
-  mockFish('fish-goldfish', 'Goldfish', 'A common first catch.'),
-  mockFish('fish-pufferfish', 'Pufferfish', 'Puffs up after a long streak.'),
-  mockFish('fish-angelfish', 'Angelfish', 'A rare catch for deep focus.'),
-  // Not caught.
-  mockFish('fish-anchovy', 'Anchovy'),
-  mockFish('fish-bass', 'Bass'),
-  mockFish('fish-catfish', 'Catfish'),
-  mockFish('fish-rainbow-trout', 'Rainbow Trout'),
-];
-
-function mockCatch(n: number, itemId: string, unlockedAt: string): UserReward {
-  return { id: `reward-${n}`, userId: 'mock-user-1', itemId, unlockedAt };
-}
-
-export const MOCK_USER_REWARDS: UserReward[] = [
-  mockCatch(1, 'fish-clownfish', '2026-09-02T09:15:00Z'),
-  mockCatch(2, 'fish-goldfish', '2026-09-03T18:20:00Z'),
-  mockCatch(3, 'fish-clownfish', '2026-09-06T14:40:00Z'),
-  mockCatch(4, 'fish-blue-tang', '2026-09-08T19:05:00Z'),
-  mockCatch(5, 'fish-goldfish', '2026-09-10T07:55:00Z'),
-  mockCatch(6, 'fish-clownfish', '2026-09-11T08:30:00Z'),
-  mockCatch(7, 'fish-pufferfish', '2026-09-13T20:10:00Z'),
-  mockCatch(8, 'fish-angelfish', '2026-09-14T21:50:00Z'),
-  mockCatch(9, 'fish-blue-tang', '2026-09-17T10:20:00Z'),
-  mockCatch(10, 'fish-goldfish', '2026-09-18T16:00:00Z'),
-  mockCatch(11, 'fish-clownfish', '2026-09-20T16:45:00Z'),
-  mockCatch(12, 'fish-pufferfish', '2026-09-22T07:10:00Z'),
-  mockCatch(13, 'fish-clownfish', '2026-09-24T13:35:00Z'),
-  // 18 in all: over the tank's 15-fish limit.
-  mockCatch(14, 'fish-goldfish', '2026-09-24T18:05:00Z'),
-  mockCatch(15, 'fish-blue-tang', '2026-09-24T20:30:00Z'),
-  mockCatch(16, 'fish-clownfish', '2026-09-25T08:10:00Z'),
-  mockCatch(17, 'fish-goldfish', '2026-09-25T09:45:00Z'),
-  mockCatch(18, 'fish-clownfish', '2026-09-25T11:20:00Z'),
-];
+export const MOCK_REWARDS: Record<string, RewardsSummary> = {
+  [MOCK_USER_IDS.signedIn]: summary([
+    item('Clownfish', 7, '/sprites/fish/Clownfish.png'),
+    // No asset_url: matched by name.
+    item('Blue Tang', 3, '', 'FISH', 'UNCOMMON', 25),
+    item('Goldfish', 5, '/sprites/fish/Goldfish.png'),
+    item('Pufferfish', 2, '/sprites/fish/Pufferfish.png', 'FISH', 'RARE', 50),
+    item('Angelfish', 1, '/sprites/fish/Angelfish.png', 'FISH', 'EPIC', 100),
+    // Unknown sprite: placeholder.
+    item('Golden Betta', 1, 'https://assets.example/fish/golden-betta.png', 'FISH', 'LEGENDARY', 250),
+    // Not fish: in rewards earned, not in the tank.
+    item('Night Owl Badge', 2, '/sprites/items/night-owl.png', 'DECORATION', 'RARE', 50),
+    item('Bamboo Rod', 1, '/sprites/items/bamboo-rod.png', 'ROD', 'UNCOMMON', 25),
+  ]),
+  [MOCK_USER_IDS.mira]: summary([
+    item('Angelfish', 3, '/sprites/fish/Angelfish.png', 'FISH', 'EPIC', 100),
+    item('Pufferfish', 4, '/sprites/fish/Pufferfish.png', 'FISH', 'RARE', 50),
+    item('Blue Tang', 2, '/sprites/fish/Surgeonfish.png', 'FISH', 'UNCOMMON', 25),
+    item('Bass', 1, '/sprites/fish/Bass.png'),
+  ]),
+  [MOCK_USER_IDS.tan]: summary([
+    item('Goldfish', 2, '/sprites/fish/Goldfish.png'),
+    item('Catfish', 1, '/sprites/fish/Catfish.png'),
+  ]),
+  // No fish at all: the empty tank.
+  [MOCK_USER_IDS.newAngler]: summary([]),
+};

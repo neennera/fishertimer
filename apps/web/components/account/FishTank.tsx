@@ -1,23 +1,25 @@
 "use client";
 
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
-import type { RewardItem, UserReward } from "@fishertimer/shared-types";
 import { cx } from "../../lib/cx";
-import { fishSprite } from "../../lib/fish-sprites";
+import { fishSprite, type FishSprite } from "../../lib/fish-sprites";
+import type { RewardSummaryItem } from "../../lib/profile-types";
 import { FISHTANK_LAYERS } from "../../lib/scenes/fishtank";
 import { BUBBLE_IN_S, BUBBLE_POP_S, useBubbles } from "./useBubbles";
 import { useFishSwim, type SwimStart } from "./useFishSwim";
 
 export interface FishTankProps {
-  catalog: RewardItem[];
-  /** Several rows for one species = its count. */
-  rewards: UserReward[];
+  /** Only FISH items go in the tank. */
+  items: RewardSummaryItem[];
   emptyMessage: ReactNode;
 }
 
 interface CaughtSpecies {
-  item: RewardItem;
+  // Rewards have no item id, so the list position is the key.
+  key: string;
+  name: string;
   count: number;
+  sprite: FishSprite;
 }
 
 // Phones show only the first 8 (pixel.css).
@@ -41,13 +43,13 @@ function restSpot(index: number): SwimStart {
 
 // One fish per catch, taken one per species per round, so every species
 // shows before any repeats.
-function tankFish(species: CaughtSpecies[]): { key: string; itemId: string }[] {
-  const fish: { key: string; itemId: string }[] = [];
+function tankFish(species: CaughtSpecies[]): { key: string; sprite: FishSprite }[] {
+  const fish: { key: string; sprite: FishSprite }[] = [];
   for (let round = 0; fish.length < MAX_TANK_FISH; round++) {
     const before = fish.length;
-    for (const { item, count } of species) {
+    for (const { key, count, sprite } of species) {
       if (round < count && fish.length < MAX_TANK_FISH) {
-        fish.push({ key: `${item.id}-${round}`, itemId: item.id });
+        fish.push({ key: `${key}-${round}`, sprite });
       }
     }
     if (fish.length === before) {
@@ -57,23 +59,22 @@ function tankFish(species: CaughtSpecies[]): { key: string; itemId: string }[] {
   return fish;
 }
 
-function caughtSpecies(catalog: RewardItem[], rewards: UserReward[]): CaughtSpecies[] {
-  const counts = new Map<string, number>();
-  for (const reward of rewards) {
-    counts.set(reward.itemId, (counts.get(reward.itemId) ?? 0) + 1);
-  }
-
-  return catalog
-    .filter((item) => item.itemType === "FISH_SPECIES" && counts.has(item.id))
-    .map((item) => ({ item, count: counts.get(item.id)! }));
+function caughtSpecies(items: RewardSummaryItem[]): CaughtSpecies[] {
+  return items
+    .filter((item) => item.type === "FISH" && item.count > 0)
+    .map((item, index) => ({
+      key: `${index}-${item.name}`,
+      name: item.name,
+      count: item.count,
+      sprite: fishSprite(item),
+    }));
 }
 
-export function countFishCaught(catalog: RewardItem[], rewards: UserReward[]) {
-  return caughtSpecies(catalog, rewards).reduce((sum, { count }) => sum + count, 0);
+export function countFishCaught(items: RewardSummaryItem[]) {
+  return caughtSpecies(items).reduce((sum, { count }) => sum + count, 0);
 }
 
-function FishArt({ itemId, still = false }: { itemId: string; still?: boolean }) {
-  const sprite = fishSprite(itemId);
+function FishArt({ sprite, still = false }: { sprite: FishSprite; still?: boolean }) {
   const strip = sprite.src !== undefined && (sprite.frames ?? 1) > 1;
   const style = (
     sprite.src
@@ -100,8 +101,8 @@ function FishArt({ itemId, still = false }: { itemId: string; still?: boolean })
   );
 }
 
-export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
-  const species = useMemo(() => caughtSpecies(catalog, rewards), [catalog, rewards]);
+export function FishTank({ items, emptyMessage }: FishTankProps) {
+  const species = useMemo(() => caughtSpecies(items), [items]);
   const swimmers = useMemo(() => tankFish(species), [species]);
   const starts = useMemo(() => swimmers.map((_, index) => restSpot(index)), [swimmers]);
   const waterRef = useRef<HTMLDivElement>(null);
@@ -126,7 +127,7 @@ export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
               }
             />
           ))}
-          {swimmers.map(({ key, itemId }, index) => {
+          {swimmers.map(({ key, sprite }, index) => {
             const start = starts[index]!;
             const style = {
               "--fish-rest-x": start.restX,
@@ -136,7 +137,7 @@ export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
             return (
               <span key={key} className="pixel-fish" style={style} data-fish="">
                 <span className="pixel-fish__turn">
-                  <FishArt itemId={itemId} />
+                  <FishArt sprite={sprite} />
                 </span>
               </span>
             );
@@ -179,11 +180,11 @@ export function FishTank({ catalog, rewards, emptyMessage }: FishTankProps) {
         <p className="text-center text-sm text-bark">{emptyMessage}</p>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {species.map(({ item, count }) => (
-            <li key={item.id} className="pixel-tile pixel-fish-card">
-              <FishArt itemId={item.id} still />
+          {species.map(({ key, name, count, sprite }) => (
+            <li key={key} className="pixel-tile pixel-fish-card">
+              <FishArt sprite={sprite} still />
               <span className="pixel-fish-card__text">
-                <span className="pixel-fish-card__name">{item.itemName}</span>
+                <span className="pixel-fish-card__name">{name}</span>
                 <span className="pixel-fish-card__count">×{count}</span>
               </span>
             </li>

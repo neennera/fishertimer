@@ -35,8 +35,17 @@ export const MOCK_EDIT_NAME_FAILS_SCENARIO = 'edit-name-save-failed';
 
 export const MOCK_SIGN_IN_DELAY_MS = 400;
 
+// UUIDs, like real ids, so they pass the same checks.
+export const MOCK_USER_IDS = {
+  signedIn: '0f8e2a10-0000-4000-8000-000000000001',
+  mira: '0f8e2a10-0000-4000-8000-000000000002',
+  tan: '0f8e2a10-0000-4000-8000-000000000003',
+  newAngler: '0f8e2a10-0000-4000-8000-000000000004',
+  justSignedUp: '0f8e2a10-0000-4000-8000-000000000005',
+} as const;
+
 export const MOCK_USER: SessionUser = {
-  user_id: 'mock-user-1',
+  user_id: MOCK_USER_IDS.signedIn,
   email: 'angler@example.com',
   display_name: 'Chayut A.',
   avatar_url: '',

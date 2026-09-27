@@ -1,56 +1,24 @@
-// MOCK ONLY: other users' public profiles, for /profile/[userId]. See
-// lib/profile.ts for where the real data will come from.
+// Mock GET /api/auth/profile?id=: the full user, as the endpoint sends it.
 
-import type { UserReward } from '@fishertimer/shared-types';
-import type { ProfileData } from '../profile';
+import type { SessionUser } from '../auth';
+import { MOCK_USER_IDS } from './auth.mock';
 
-function catches(userId: string, counts: Record<string, number>): UserReward[] {
-  return Object.entries(counts).flatMap(([itemId, count]) =>
-    Array.from({ length: count }, (_, i) => ({
-      id: `${userId}-${itemId}-${i}`,
-      userId,
-      itemId,
-      unlockedAt: `2026-09-${String(10 + i).padStart(2, '0')}T12:00:00Z`,
-    })),
-  );
+function user(user_id: string, display_name: string, avatar_url: string, created_at: string): SessionUser {
+  return {
+    user_id,
+    email: `${display_name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`,
+    display_name,
+    avatar_url,
+    role: 'CUSTOMER',
+    created_at,
+    updated_at: created_at,
+  };
 }
 
-export const MOCK_PUBLIC_PROFILES: Record<string, Omit<ProfileData, 'fishCatalog'>> = {
-  'mock-user-2': {
-    profile: {
-      user_id: 'mock-user-2',
-      display_name: 'Mira L.',
-      avatar_url: '/sprites/fish/Pufferfish.png',
-      created_at: '2026-09-03T00:00:00Z',
-    },
-    stats: { total_sessions: 31, total_focus_minutes: 1545, rewards_earned: 12 },
-    fishRewards: catches('mock-user-2', {
-      'fish-angelfish': 3,
-      'fish-pufferfish': 4,
-      'fish-blue-tang': 2,
-      'fish-bass': 1,
-    }),
-  },
+export const MOCK_PROFILES: Record<string, SessionUser> = {
+  [MOCK_USER_IDS.mira]: user(MOCK_USER_IDS.mira, 'Mira L.', '/sprites/fish/Pufferfish.png', '2026-09-03T00:00:00Z'),
   // Empty avatar_url: exercises the avatar fallback.
-  'mock-user-3': {
-    profile: {
-      user_id: 'mock-user-3',
-      display_name: 'Tan R.',
-      avatar_url: '',
-      created_at: '2026-09-12T00:00:00Z',
-    },
-    stats: { total_sessions: 9, total_focus_minutes: 215, rewards_earned: 3 },
-    fishRewards: catches('mock-user-3', { 'fish-goldfish': 2, 'fish-catfish': 1 }),
-  },
+  [MOCK_USER_IDS.tan]: user(MOCK_USER_IDS.tan, 'Tan R.', '', '2026-09-12T00:00:00Z'),
   // Zero stats and no fish: exercises the empty states.
-  'mock-user-4': {
-    profile: {
-      user_id: 'mock-user-4',
-      display_name: 'New Angler',
-      avatar_url: '',
-      created_at: '2026-09-26T00:00:00Z',
-    },
-    stats: { total_sessions: 0, total_focus_minutes: 0, rewards_earned: 0 },
-    fishRewards: [],
-  },
+  [MOCK_USER_IDS.newAngler]: user(MOCK_USER_IDS.newAngler, 'New Angler', '', '2026-09-26T00:00:00Z'),
 };

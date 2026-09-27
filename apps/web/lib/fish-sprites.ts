@@ -1,5 +1,5 @@
-// Art per catalog item id; schema.dbml's reward_items has no image column.
-// Sprites: 16x16, facing right, or a 48x16 strip of 3 swim frames.
+// Sprite for a caught fish: by asset_url file name, then by name, else the
+// placeholder. Sprites are 16x16 facing right, or a 48x16 strip of 3 frames.
 
 export type FishPlaceholderColor = 'rust' | 'sky-fill' | 'amber' | 'sage' | 'cream';
 
@@ -10,21 +10,39 @@ export interface FishSprite {
   placeholder: FishPlaceholderColor;
 }
 
-const FISH_SPRITES: Record<string, FishSprite> = {
-  'fish-clownfish': { src: '/sprites/fish/Clownfish.png', placeholder: 'rust' },
+const KNOWN: { file: string; names: string[]; placeholder: FishPlaceholderColor }[] = [
+  { file: 'Clownfish.png', names: ['clownfish'], placeholder: 'rust' },
   // A blue tang is a surgeonfish; the sprite pack names it by family.
-  'fish-blue-tang': { src: '/sprites/fish/Surgeonfish.png', placeholder: 'sky-fill' },
-  'fish-goldfish': { src: '/sprites/fish/Goldfish.png', placeholder: 'amber' },
-  'fish-pufferfish': { src: '/sprites/fish/Pufferfish.png', placeholder: 'amber' },
-  'fish-angelfish': { src: '/sprites/fish/Angelfish.png', placeholder: 'cream' },
-  'fish-anchovy': { src: '/sprites/fish/Anchovy.png', placeholder: 'sky-fill' },
-  'fish-bass': { src: '/sprites/fish/Bass.png', placeholder: 'sage' },
-  'fish-catfish': { src: '/sprites/fish/Catfish.png', placeholder: 'sage' },
-  'fish-rainbow-trout': { src: '/sprites/fish/Rainbow Trout.png', placeholder: 'sage' },
-};
+  { file: 'Surgeonfish.png', names: ['surgeonfish', 'blue tang'], placeholder: 'sky-fill' },
+  { file: 'Goldfish.png', names: ['goldfish'], placeholder: 'amber' },
+  { file: 'Pufferfish.png', names: ['pufferfish'], placeholder: 'amber' },
+  { file: 'Angelfish.png', names: ['angelfish'], placeholder: 'cream' },
+  { file: 'Anchovy.png', names: ['anchovy'], placeholder: 'sky-fill' },
+  { file: 'Bass.png', names: ['bass'], placeholder: 'sage' },
+  { file: 'Catfish.png', names: ['catfish'], placeholder: 'sage' },
+  { file: 'Rainbow Trout.png', names: ['rainbow trout'], placeholder: 'sage' },
+];
 
-const UNKNOWN_FISH: FishSprite = { placeholder: 'sage' };
+const PLACEHOLDER_COLORS: FishPlaceholderColor[] = ['rust', 'sky-fill', 'amber', 'sage', 'cream'];
 
-export function fishSprite(itemId: string): FishSprite {
-  return FISH_SPRITES[itemId] ?? UNKNOWN_FISH;
+function fileName(url: string): string {
+  const last = url.split(/[?#]/)[0]!.split('/').pop() ?? '';
+  try {
+    return decodeURIComponent(last).toLowerCase();
+  } catch {
+    return last.toLowerCase();
+  }
+}
+
+export function fishSprite({ name, asset_url }: { name: string; asset_url: string }): FishSprite {
+  const file = fileName(asset_url);
+  const key = name.trim().toLowerCase();
+  const known =
+    (file && KNOWN.find((k) => k.file.toLowerCase() === file)) || KNOWN.find((k) => k.names.includes(key));
+  if (known) {
+    return { src: `/sprites/fish/${known.file}`, placeholder: known.placeholder };
+  }
+  // Colour from the name, so it's stable.
+  const hash = [...key].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  return { placeholder: PLACEHOLDER_COLORS[hash % PLACEHOLDER_COLORS.length]! };
 }

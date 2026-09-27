@@ -8,8 +8,8 @@ import { countFishCaught, FishTank } from "../account/FishTank";
 import { PixelPanel } from "../ui/PixelPanel";
 import { StatTile } from "../ui/StatTile";
 import type { SessionUser } from "../../lib/auth";
-import type { MockAccountStats } from "../../lib/mocks/account-stats.mock";
-import type { ProfileData, PublicProfile } from "../../lib/profile";
+import type { PanelData, PublicProfile } from "../../lib/profile";
+import type { RewardsSummary, TimerStatistics } from "../../lib/profile-types";
 
 // 1120 -> "18h 40m"; under an hour, just "40m".
 function formatFocusMinutes(totalMinutes: number) {
@@ -20,6 +20,19 @@ function formatFocusMinutes(totalMinutes: number) {
 
 function formatCount(count: number) {
   return count.toLocaleString("en-US");
+}
+
+// "26 Sept" this year, "Dec 2025" before; the zero timestamp means never.
+function formatLastActive(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime()) || date.getUTCFullYear() <= 1) {
+    return "Never";
+  }
+  const thisYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(
+    "en-GB",
+    thisYear ? { day: "numeric", month: "short" } : { month: "short", year: "numeric" },
+  );
 }
 
 function Avatar({ src }: { src: string }) {
@@ -51,6 +64,7 @@ function Avatar({ src }: { src: string }) {
 export interface OwnerControls {
   email: string;
   onNameSaved: (user: SessionUser) => void;
+  onSignedOut: () => void;
 }
 
 // Fixed width, so the two swap in the exact same box.
@@ -107,6 +121,7 @@ export function ProfilePanel({
               name={profile.display_name}
               email={owner.email}
               onSaved={owner.onNameSaved}
+              onSignedOut={owner.onSignedOut}
               aside={
                 <Link
                   href={`/profile/${encodeURIComponent(profile.user_id)}`}
@@ -134,16 +149,47 @@ export function ProfilePanel({
   );
 }
 
-export function StatsPanel({ stats }: { stats: MockAccountStats | null }) {
+// A span, so it can sit inside the fish tank's message <p>.
+function Unavailable({ what }: { what: string }) {
+  return (
+    <span className="pixel-placeholder min-h-0 text-sm" role="status">
+      Couldn&rsquo;t load {what} right now.
+    </span>
+  );
+}
+
+export function StatsPanel({
+  stats,
+  rewards,
+}: {
+  stats: PanelData<TimerStatistics>;
+  rewards: PanelData<RewardsSummary>;
+}) {
+  if (stats.status === "unavailable") {
+    return (
+      <PixelPanel as="section" aria-label="Statistics" className="pixel-panel--stats">
+        <Unavailable what="statistics" />
+      </PixelPanel>
+    );
+  }
+  const s = stats.status === "ok" ? stats.data : null;
+  // Counts every reward type, so it can exceed the fish total.
+  const earned =
+    rewards.status === "ok"
+      ? formatCount(rewards.data.total_awards_earned)
+      : rewards.status === "unavailable"
+        ? "—"
+        : null;
   const tiles: [string, string | null][] = [
-    ["Sessions joined", stats && formatCount(stats.total_sessions)],
-    ["Total focus time", stats && formatFocusMinutes(stats.total_focus_minutes)],
-    ["Rewards earned", stats && formatCount(stats.rewards_earned)],
+    ["Sessions joined", s && formatCount(s.sessions_joined)],
+    ["Total focus time", s && formatFocusMinutes(s.total_focus_minutes)],
+    ["Rewards earned", s && earned],
+    ["Last active", s && formatLastActive(s.last_active)],
   ];
 
   return (
     <PixelPanel as="section" aria-label="Statistics" className="pixel-panel--stats">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
         {tiles.map(([caption, value]) =>
           value === null ? (
             // Same structure as StatTile, so it is the same size; the value
@@ -167,14 +213,20 @@ export function RoomTypePanel() {
       <h2 id="sessions-by-room-type" className="font-display text-2xl leading-none">
         Sessions by room type
       </h2>
-      {/* MOCK-ONLY placeholder: needs study-session (group) and study-timer
-          (solo) data, and schema.dbml has no room-type column yet. */}
+      {/* No endpoint yet: empty in both modes, never made-up numbers. */}
       <div className="pixel-placeholder mt-6 text-sm">Coming soon</div>
     </PixelPanel>
   );
 }
 
-export function FishTankPanel({ data, editable }: { data: ProfileData | null; editable: boolean }) {
+export function FishTankPanel({
+  rewards,
+  editable,
+}: {
+  rewards: PanelData<RewardsSummary>;
+  editable: boolean;
+}) {
+  const items = rewards.status === "ok" ? rewards.data.items : [];
   return (
     <PixelPanel as="section" aria-labelledby="fish-tank" className="pixel-panel--tank">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -182,22 +234,21 @@ export function FishTankPanel({ data, editable }: { data: ProfileData | null; ed
           Fish Tank
         </h2>
         <p className="text-sm text-bark">
-          {data ? (
-            `${countFishCaught(data.fishCatalog, data.fishRewards)} fish caught in total`
-          ) : (
+          {rewards.status === "ok" ? (
+            `${countFishCaught(items)} fish caught in total`
+          ) : rewards.status === "loading" ? (
             <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text w-32" />
-          )}
+          ) : null}
         </p>
       </div>
       <div className="mt-6">
-        {/* While loading: the empty tank, with a placeholder where the
-            message or cards will be. */}
         <FishTank
-          catalog={data?.fishCatalog ?? []}
-          rewards={data?.fishRewards ?? []}
+          items={items}
           emptyMessage={
-            !data ? (
+            rewards.status === "loading" ? (
               <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text w-1/2" />
+            ) : rewards.status === "unavailable" ? (
+              <Unavailable what="fish" />
             ) : editable ? (
               "No fish yet. Finish a focus session to catch one."
             ) : (
@@ -212,32 +263,31 @@ export function FishTankPanel({ data, editable }: { data: ProfileData | null; ed
 
 /**
  * The profile as /account (editable) and /profile/[userId] (public) show it.
- * The public view never receives an e-mail: `owner` is only passed on
+ * Only public fields reach it: `owner` (with the e-mail) is only passed on
  * /account.
  */
 export function ProfileSections({
-  data,
+  profile,
+  stats,
+  rewards,
   editable,
   owner,
   ownPreview,
 }: {
   /** null while loading. */
-  data: ProfileData | null;
+  profile: PublicProfile | null;
+  stats: PanelData<TimerStatistics>;
+  rewards: PanelData<RewardsSummary>;
   editable: boolean;
   owner?: OwnerControls;
   ownPreview?: boolean;
 }) {
   return (
     <>
-      <ProfilePanel
-        profile={data?.profile ?? null}
-        editable={editable}
-        owner={owner}
-        ownPreview={ownPreview}
-      />
-      <StatsPanel stats={data?.stats ?? null} />
+      <ProfilePanel profile={profile} editable={editable} owner={owner} ownPreview={ownPreview} />
+      <StatsPanel stats={stats} rewards={rewards} />
       <RoomTypePanel />
-      <FishTankPanel data={data} editable={editable} />
+      <FishTankPanel rewards={rewards} editable={editable} />
     </>
   );
 }

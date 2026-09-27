@@ -31,6 +31,8 @@ export type DisplayNameProps =
       editable: true;
       email: string;
       onSaved: (user: SessionUser) => void;
+      /** The session ended while saving (401). */
+      onSignedOut: () => void;
       /** Shown at the end of the e-mail line. */
       aside?: ReactNode;
     };
@@ -116,6 +118,10 @@ export function DisplayName(props: DisplayNameProps) {
           props.onSaved(result.user);
         }
         stopEditing();
+      } else if (result.code === "signed_out") {
+        if (props.editable) {
+          props.onSignedOut();
+        }
       } else {
         setSaveError(result.error);
       }
