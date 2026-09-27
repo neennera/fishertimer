@@ -12,12 +12,15 @@
 //   GET  /api/auth/me                          {status, user?|email?}, always 200
 //   POST /api/auth/signup {display_name}       201 + user, sets ft_session
 //   POST /api/auth/signout                     clears ft_session / ft_signup
+// Not yet on the backend: updating the display name (updateDisplayName() is
+// mock-only).
 // The session itself lives in HttpOnly cookies, so this file never sees a token.
 
 import type { UserRole } from '@fishertimer/shared-types';
 import { AUTH_ERROR_MESSAGES, type AuthErrorCode } from './auth-error-messages';
 import { ClientApiError, clientApiFetch } from './client-api';
 import {
+  MOCK_EDIT_NAME_FAILS_SCENARIO,
   MOCK_SCENARIO_PARAM,
   MOCK_SIGN_IN_OUTCOMES,
   MOCK_SIGNUP_FAILS,
@@ -84,6 +87,12 @@ export type CompleteFirstTimeSetupResult =
     };
 
 const SIGN_UP_EXPIRED_MESSAGE = 'Your sign-up has expired. Please sign in with Google again.';
+
+export type UpdateDisplayNameResult =
+  | { ok: true; user: SessionUser }
+  | { ok: false; code: 'invalid' | 'save_failed'; error: string };
+
+const SAVE_FAILED_MESSAGE = "Couldn't save your changes. Please try again.";
 
 // Real mode only: GET /me's last answer, updated by completeFirstTimeSetup()
 // and signOut(). Signing in is a full-page navigation, so it never goes stale
@@ -227,6 +236,39 @@ export async function completeFirstTimeSetup(
   };
   writeMockAuthState({ scenario: 'signin-default', session: { status: 'signed_in', user } });
   return mockDelay<CompleteFirstTimeSetupResult>({ ok: true, user });
+}
+
+// MOCK ONLY: the account service has no update endpoint yet, so with mocks
+// off this always fails. Wire the real call here once it exists (and update
+// cachedSession, as completeFirstTimeSetup() does).
+export async function updateDisplayName(displayName: string): Promise<UpdateDisplayNameResult> {
+  const invalid = validateDisplayName(displayName);
+  if (invalid) {
+    return { ok: false, code: 'invalid', error: invalid };
+  }
+
+  if (!USE_MOCKS) {
+    return { ok: false, code: 'save_failed', error: SAVE_FAILED_MESSAGE };
+  }
+
+  // 04f: /account?mockScenario=edit-name-save-failed
+  const scenario = new URLSearchParams(window.location.search).get(MOCK_SCENARIO_PARAM);
+  const state = readMockAuthState();
+  if (scenario === MOCK_EDIT_NAME_FAILS_SCENARIO || state?.session.status !== 'signed_in') {
+    return mockDelay<UpdateDisplayNameResult>({
+      ok: false,
+      code: 'save_failed',
+      error: SAVE_FAILED_MESSAGE,
+    });
+  }
+
+  const user: SessionUser = {
+    ...state.session.user,
+    display_name: displayName.trim(),
+    updated_at: new Date().toISOString(),
+  };
+  writeMockAuthState({ ...state, session: { status: 'signed_in', user } });
+  return mockDelay<UpdateDisplayNameResult>({ ok: true, user });
 }
 
 export async function signOut(): Promise<void> {

@@ -9,6 +9,8 @@
 //   02a First-Time Setup (Default)
 //   02b First-Time Setup (Error: Name Empty)
 //   02c First-Time Setup (Error: Name Too Long)
+// plus 04f Edit Display Name (Error: Save Failed), via
+// /account?mockScenario=edit-name-save-failed.
 
 import type { AuthErrorCode } from '../auth-error-messages';
 import type { Session, SessionUser } from '../auth';
@@ -27,6 +29,9 @@ export type MockAuthScenario =
   | 'setup-default'
   | 'setup-name-empty'
   | 'setup-name-too-long';
+
+// Not a sign-in scenario: makes the mock updateDisplayName() fail.
+export const MOCK_EDIT_NAME_FAILS_SCENARIO = 'edit-name-save-failed';
 
 export const MOCK_SIGN_IN_DELAY_MS = 400;
 

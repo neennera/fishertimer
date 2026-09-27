@@ -110,7 +110,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 | --- | --- |
 | `.pixel-header` | Top bar. Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` |
 | `.pixel-panel` | Panel background with an edge and a bottom band |
-| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller icon key for an inline action beside text) or `--block` |
+| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller icon key for an inline action beside text), `--busy` (spins its icon while an action is in flight) or `--block` |
 | `.pixel-label` | Uppercase field label |
 | `.pixel-input` | Text field. Set `aria-invalid="true"` for the error state |
 | `.pixel-error` | Message under a field |
@@ -126,6 +126,10 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-fish` | One fish in a tank. `components/account/useFishSwim.ts` moves, scales and fades it once the tank's `__water` has `data-live`, and turns and tilts `__turn`; until then, or under reduced motion, it rests at `--fish-rest-x` / `--fish-rest-y` (0–1 of the space it can swim in), facing right. On phones only the first 8 show |
 | `.pixel-fish-art` | A 16x16 fish picture. `--placeholder` draws a pixel fish shape in `--fish-color` with an ink outline; `--sprite` shows the 16x16 sprite, plus `--strip` for a 3-frame strip. `data-frame` on `__body` picks the tail pose (0 straight, 1 up, 2 down); without it, frame 0 |
 | `.pixel-fish-card` | Collection-list card (on `.pixel-tile`): the sprite, then `__text` with `__name` and `__count` |
+| `.pixel-name-row` | Fixed-height row for text that can be edited in place, so switching to the input never moves anything. `__text` truncates the shown text |
+| `.pixel-inline-field` | Wrapper for an inline input: draws a 1-art-pixel underline that steps in on open, turns `--color-lake-dp` on focus, and `--color-rust` with `--invalid` |
+| `.pixel-inline-input` | Borderless, transparent input sized to its content (8ch–31ch). Give it the same type classes as the text it replaces |
+| `.pixel-inline-error` | Error line for an inline edit, placed between the text and what follows. Always mounted with its space reserved (two lines on phones), so a message never shifts the page; fades in |
 | `.pixel-wood` | Page backdrop of tiled wood planks (`public/sprites/scene/wood.png`, 32x32) at `--wood-scale` × `--px` (6 screen pixels per art pixel), under a 35% ink tint, with two soft amber lamp glows (wide ovals with an eased fade, screen-blended so they brighten the wood) and darkened corners. It is a layer fixed to the viewport, so it stays still while the page scrolls. Used on `/account`; text stays on panels |
 | `.pixel-placeholder` | Sub-panel (`--color-tile` fill) holding the place of content not built yet |
 | `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__fallback` for the pixelarticons glyph shown when there is no photo or it fails to load |

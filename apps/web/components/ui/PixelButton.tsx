@@ -1,10 +1,9 @@
-import { ButtonHTMLAttributes } from "react";
+import { ComponentPropsWithRef } from "react";
 import { cx } from "../../lib/cx";
 
 type Variant = "primary" | "ghost" | "danger";
 
-export interface PixelButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface PixelButtonProps extends ComponentPropsWithRef<"button"> {
   variant?: Variant;
   /** Fill the width of its container — used for the sign-in and Continue buttons. */
   block?: boolean;

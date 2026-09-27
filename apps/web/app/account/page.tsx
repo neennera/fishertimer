@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "pixelarticons/react/Pencil";
 import { User } from "pixelarticons/react/User";
+import { DisplayName } from "../../components/account/DisplayName";
 import { countFishCaught, FishTank } from "../../components/account/FishTank";
 import { Header } from "../../components/Header";
-import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelPanel } from "../../components/ui/PixelPanel";
 import { StatTile } from "../../components/ui/StatTile";
 import { getSession, signOut, type SessionUser } from "../../lib/auth";
@@ -14,10 +13,6 @@ import { getSession, signOut, type SessionUser } from "../../lib/auth";
 import { MOCK_ACCOUNT_STATS } from "../../lib/mocks/account-stats.mock";
 // MOCK ONLY — no rewards endpoint on the backend yet.
 import { MOCK_FISH_CATALOG, MOCK_USER_REWARDS } from "../../lib/mocks/rewards.mock";
-
-// Placeholder: Stage 6 (UC-07 Edit Display Name, wireframes 04a–04f) builds
-// this route. Until then the link 404s.
-const EDIT_DISPLAY_NAME_HREF = "/account/edit";
 
 // 1120 -> "18h 40m"; under an hour, just "40m".
 function formatFocusMinutes(totalMinutes: number) {
@@ -115,33 +110,18 @@ export default function AccountPage() {
 
             <div className="min-w-0 flex-1">
               {user ? (
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 font-display text-3xl leading-none break-words">
-                    {user.display_name}
-                  </p>
-                  <PixelButton
-                    variant="ghost"
-                    icon
-                    small
-                    onClick={() => router.push(EDIT_DISPLAY_NAME_HREF)}
-                    aria-label="Edit display name"
-                    title="Edit display name"
-                  >
-                    <Pencil aria-hidden="true" />
-                  </PixelButton>
-                </div>
+                <DisplayName name={user.display_name} email={user.email} onSaved={setUser} />
               ) : (
-                <p className="font-display text-3xl leading-none">
-                  <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text" />
-                </p>
+                <>
+                  <div className="pixel-name-row" aria-hidden="true">
+                    <span className="pixel-skeleton pixel-skeleton--text h-3/4" />
+                  </div>
+                  <p className="pixel-inline-error" aria-hidden="true" />
+                  <p className="text-sm" aria-hidden="true">
+                    <span className="pixel-skeleton pixel-skeleton--text" />
+                  </p>
+                </>
               )}
-              <p className="mt-2 text-sm text-bark break-words">
-                {user ? (
-                  user.email
-                ) : (
-                  <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text" />
-                )}
-              </p>
             </div>
           </div>
         </PixelPanel>

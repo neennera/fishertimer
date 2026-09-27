@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: The `/account` display-name editor now edits the name in place: the name itself becomes an underlined input in the same font and position, with small check / close icon buttons in the pencil's spot, so nothing shifts: the error line between the name and the e-mail is always reserved. The underline colour, the check / close keys, the error and the saving dim fade in over about 120ms (off under reduced motion). This intentionally departs from wireframe 04b's large input and Cancel / Save buttons; all six 04a–04f states, the validator and the mock `updateDisplayName()` are unchanged. New `.pixel-name-row`, `.pixel-inline-field`, `.pixel-inline-input`, `.pixel-inline-error` classes and a `.pixel-btn--busy` modifier.
 - **[architecture]**: Updated microservice specifications and system topology in `docs/phase1/microservice.md`, `docs/ARCHITECTURE.md`, and `README.md`:
   - **Study Session -> Study Timer**: Moved `AwardReward` collaborator call trigger from Study Session (`EndSession`) to Study Timer (`CompleteCycle`).
   - **Leaderboard**: Removed standalone `leaderboard_db`; replaced with Redis Cache and configured Leaderboard to read user reward records from Reward Service `ViewRewards()`.
@@ -90,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Configured Next.js API Gateway reverse proxy rewrites in `apps/web/next.config.js` to proxy `/api/*` to backend microservices, eliminating CORS.
 - **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
 - **[web]**: Added `/account` (UC-07, wireframe 03a). Redirects to `/signin` when signed out and to `/welcome` when sign-up is pending; sign-out is the header's button.
-  - Profile panel: avatar (falls back to an icon), display name and e-mail. The pencil button links to `/account/edit`, which 404s until Stage 6. New `.pixel-avatar` class and `PixelButton` `small` prop.
+  - Profile panel: avatar (falls back to an icon), display name and e-mail. New `.pixel-avatar` class and `PixelButton` `small` prop.
+  - Edit display name in place (UC-07, wireframes 04a–04f): the pencil swaps the name for an input with Cancel / Save, using the shared `validateDisplayName()`. Saving updates the name and header without a reload. New `updateDisplayName()` in `lib/auth.ts` is **mock-only** (no backend endpoint yet; with mocks off it always fails). `/account?mockScenario=edit-name-save-failed` shows the save-failed state. `PixelButton` now accepts a `ref`.
   - Stat tiles, **mock-only** (`lib/mocks/account-stats.mock.ts`), using `main`'s account-service field names (`total_sessions`, `total_focus_minutes`, `rewards_earned`).
   - "Sessions by room type": placeholder only. It needs study-session and study-timer data, and `schema.dbml` has no room-type column yet.
   - Fish Tank, **mock-only** (`lib/mocks/rewards.mock.ts`): up to 15 caught fish swim in an aquarium (`components/account/FishTank.tsx`, `useFishSwim.ts`), with a card per species showing its count and the total in the panel header. Motion is off under `prefers-reduced-motion`. Sprites are mapped in `lib/fish-sprites.ts`; the background layers are in `lib/scenes/fishtank.ts`.
