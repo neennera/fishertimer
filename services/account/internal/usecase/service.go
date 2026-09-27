@@ -34,16 +34,35 @@ type Usecase interface {
 
 	// Authenticate verifies a session token and returns the live user record.
 	Authenticate(ctx context.Context, token string) (*domain.UserAccount, error)
+
+	// UpdateProfile renames the signed-in user and re-issues the session
+	// token, since TokenClaims carries display_name for the gateway to forward
+	// without a DB lookup.
+	UpdateProfile(ctx context.Context, token, displayName string) (*domain.Session, error)
+
+	// GetProfile looks up a user by id, for callers that already know which
+	// account they want (e.g. another service resolving a user_id from a JWT).
+	GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error)
+
+	// GetTimerStatistics pulls a user's Pomodoro timer stats (sessions joined,
+	// cycles completed, total focus time) from the Study Timer service by id.
+	GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error)
+
+	// GetRewards pulls everything a user has unlocked from the Reward
+	// service by id and groups it into totals plus per-item counts.
+	GetRewards(ctx context.Context, userID string) (*domain.RewardsSummary, error)
 }
 
 type service struct {
-	repo     domain.Repository
-	provider domain.OAuthProvider
-	tokens   domain.TokenService
+	repo         domain.Repository
+	provider     domain.OAuthProvider
+	tokens       domain.TokenService
+	timerClient  domain.TimerClient
+	rewardClient domain.RewardClient
 }
 
-func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService) Usecase {
-	return &service{repo: repo, provider: provider, tokens: tokens}
+func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService, timerClient domain.TimerClient, rewardClient domain.RewardClient) Usecase {
+	return &service{repo: repo, provider: provider, tokens: tokens, timerClient: timerClient, rewardClient: rewardClient}
 }
 
 func (s *service) SignInURL(state string) string {
@@ -152,6 +171,90 @@ func (s *service) Authenticate(ctx context.Context, token string) (*domain.UserA
 		return nil, err
 	}
 	return s.repo.GetUserByID(ctx, claims.UserID)
+}
+
+func (s *service) UpdateProfile(ctx context.Context, token, displayName string) (*domain.Session, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, domain.ErrUnauthorized
+	}
+	claims, err := s.tokens.Verify(token)
+	if err != nil {
+		return nil, err
+	}
+
+	name, err := validDisplayName(displayName)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.repo.UpdateProfile(ctx, claims.UserID, name)
+	if err != nil {
+		return nil, err
+	}
+	return s.newSession(user)
+}
+
+func (s *service) GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domain.ErrInvalid
+	}
+	return s.repo.GetUserByID(ctx, userID)
+}
+
+func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domain.ErrInvalid
+	}
+	// Confirm the account exists before asking the timer service, so a
+	// made-up id can't be used to probe study-timer's data.
+	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
+		return nil, err
+	}
+	return s.timerClient.GetStatistics(ctx, userID)
+}
+
+func (s *service) GetRewards(ctx context.Context, userID string) (*domain.RewardsSummary, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domain.ErrInvalid
+	}
+	// Confirm the account exists before asking the reward service, so a
+	// made-up id can't be used to probe reward's data.
+	if _, err := s.repo.GetUserByID(ctx, userID); err != nil {
+		return nil, err
+	}
+	catches, err := s.rewardClient.GetRewards(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return summarizeRewards(catches), nil
+}
+
+// summarizeRewards groups the Reward service's flat per-catch list into
+// totals plus one entry per distinct item (identified by ItemID), preserving
+// first-catch order.
+func summarizeRewards(catches []domain.UnlockedReward) *domain.RewardsSummary {
+	summary := &domain.RewardsSummary{Items: []domain.RewardSummaryItem{}}
+	byItem := make(map[string]int) // ItemID -> index into summary.Items
+
+	for _, c := range catches {
+		summary.TotalAwardsEarned++
+		summary.TotalScore += c.ScoreValue
+
+		if i, ok := byItem[c.ItemID]; ok {
+			summary.Items[i].Count++
+			continue
+		}
+		byItem[c.ItemID] = len(summary.Items)
+		summary.Items = append(summary.Items, domain.RewardSummaryItem{
+			ItemName:   c.ItemName,
+			Rarity:     c.Rarity,
+			AssetURL:   c.AssetURL,
+			ItemType:   c.Category,
+			ScoreValue: c.ScoreValue,
+			Count:      1,
+		})
+	}
+	return summary
 }
 
 // validDisplayName trims the name and checks it fits users.display_name.

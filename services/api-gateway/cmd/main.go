@@ -12,6 +12,7 @@ import (
 
 	"github.com/neennera/fishertimer/services/api-gateway/config"
 	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/handler"
+	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/middleware"
 )
 
 func main() {
@@ -24,9 +25,15 @@ func main() {
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
+	// Verifies the account service's session JWT (cookie or bearer header)
+	// and forwards trusted X-User-* headers downstream. It never rejects a
+	// request itself - enforcing that a route requires a session is left to
+	// each downstream service.
+	verifier := middleware.NewVerifier(cfg.JWTSecret, cfg.JWTIssuer)
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
-		Handler:      mux,
+		Handler:      verifier.Identity(mux),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}

@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
 	"github.com/neennera/fishertimer/services/reward/config"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/repository"
@@ -20,7 +23,9 @@ func main() {
 	cfg := config.Load()
 
 	// 1. Instantiate Driven Adapter (Repository)
-	repo := repository.NewInMemory()
+	mongoClient := mustConnectMongo(cfg)
+	defer mongoClient.Disconnect(context.Background())
+	repo := repository.NewMongo(mongoClient.Database("reward_db"))
 
 	// 2. Inject into Application Usecase
 	uc := usecase.New(repo)
@@ -57,4 +62,24 @@ func main() {
 		log.Fatalf("forced shutdown: %s\n", err)
 	}
 	log.Printf("reward exited cleanly")
+}
+
+// mustConnectMongo opens reward_db and refuses to start without it: the
+// catalog and every unlocked item live there, so running on no store at all
+// would mean ViewRewards has nothing real to read.
+func mustConnectMongo(cfg *config.Config) *mongo.Client {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(options.Client().ApplyURI(cfg.MongoDBURI))
+	if err != nil {
+		log.Fatalf("reward: cannot connect to reward_db: %v", err)
+	}
+	if err := client.Ping(ctx, nil); err != nil {
+		log.Fatalf("reward: reward_db unreachable (%v). Start it with `pnpm db:up` "+
+			"or fix REWARD_MONGODB_URI", err)
+	}
+
+	log.Printf("reward: connected to reward_db")
+	return client
 }

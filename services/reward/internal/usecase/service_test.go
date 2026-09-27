@@ -2,19 +2,19 @@ package usecase_test
 
 import (
 	"context"
-	"testing"
 	"github.com/neennera/fishertimer/services/reward/internal/domain"
 	"github.com/neennera/fishertimer/services/reward/internal/usecase"
+	"testing"
 )
 
 type mockRepository struct{}
 
-func (repo *mockRepository) Award(ctx context.Context, r *domain.FishReward) error {
+func (repo *mockRepository) Award(ctx context.Context, r *domain.UnlockedReward) error {
 	return nil
 }
 
-func (repo *mockRepository) ListByUser(ctx context.Context, userID string) ([]domain.FishReward, error) {
-	return []domain.FishReward{{ID: "fish_1", UserID: userID, Species: "Golden Salmon", Rarity: "RARE"}}, nil
+func (repo *mockRepository) ListByUser(ctx context.Context, userID string) ([]domain.UnlockedReward, error) {
+	return []domain.UnlockedReward{{ItemID: "fish_1", UserID: userID, ItemName: "Golden Salmon", Category: domain.CategoryFish}}, nil
 }
 
 func TestUsecase_Success(t *testing.T) {

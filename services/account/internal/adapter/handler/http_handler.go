@@ -35,14 +35,6 @@ const (
 	DefaultSignUpPath = "/signup"
 )
 
-// The three states GET /me reports. The frontend decides what to show - and
-// where to send the user - from this one value.
-const (
-	StatusSignedIn    = "signed_in"
-	StatusNeedsSignUp = "needs_signup"
-	StatusSignedOut   = "signed_out"
-)
-
 // Options carries the transport-level settings main.go derives from config.
 type Options struct {
 	FrontendURL     string
@@ -77,8 +69,10 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/account/signup", h.SignUp)
 	mux.HandleFunc("/api/v1/account/signout", h.SignOut)
 
-	// mux.HandleFunc("/api/v1/account/profile", h.Profile)
-	// mux.HandleFunc("/api/v1/account/statistics", h.Statistics)
+	mux.HandleFunc("/api/v1/account/update-profile", h.UpdateProfile)
+	mux.HandleFunc("/api/v1/account/profile", h.Profile)
+	mux.HandleFunc("/api/v1/account/statistics", h.Statistics)
+	mux.HandleFunc("/api/v1/account/rewards", h.Rewards)
 }
 
 func (h *HTTPHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
@@ -150,31 +144,20 @@ func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Known e-mail: signed in.
 	h.clearCookie(w, SignUpCookie)
 	h.setCookie(w, SessionCookie, result.Session.Token, h.opts.SessionMaxAge)
+	log.Printf("account: issued session token for %s: %s", result.Session.User.Email, result.Session.Token)
 	h.redirectTo(w, r, nextPath, "")
 }
 
-// Me answers "who is this browser?" in one call, always 200:
+// Me returns the signed-in user, the same shape as Profile.
 //
-//	{"status":"signed_in","user":{…}}       - has a valid session
-//	{"status":"needs_signup","email":"…"}   - Google verified this e-mail and
-//	                                          it has no account yet
-//	{"status":"signed_out"}                 - neither
-//
-// The e-mail comes from the signed ft_signup cookie, never from the request,
-// so this cannot be used to probe whether somebody else's address is
-// registered.
+//	GET -> 200 + the user, or 401 if there is no valid session
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
-	if user, err := h.uc.Authenticate(r.Context(), bearerOrCookie(r)); err == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"status": StatusSignedIn, "user": user})
+	user, err := h.uc.Authenticate(r.Context(), bearerOrCookie(r))
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "sign in required"})
 		return
 	}
-
-	if ticket, err := h.uc.PendingSignUp(cookieValue(r, SignUpCookie)); err == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"status": StatusNeedsSignUp, "email": ticket.Email})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"status": StatusSignedOut})
+	writeJSON(w, http.StatusOK, user)
 }
 
 // SignUp creates the account for the identity held in the ft_signup cookie and
@@ -213,7 +196,124 @@ func (h *HTTPHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	h.clearCookie(w, SignUpCookie)
 	h.setCookie(w, SessionCookie, session.Token, h.opts.SessionMaxAge)
+	log.Printf("account: issued session token for %s: %s", session.User.Email, session.Token)
 	writeJSON(w, http.StatusCreated, session.User)
+}
+
+
+//	PATCH {"display_name": "..."} -> 200 + the updated user, refreshes ft_session
+func (h *HTTPHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	var req struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		return
+	}
+
+	session, err := h.uc.UpdateProfile(r.Context(), bearerOrCookie(r), req.DisplayName)
+	switch {
+	case errors.Is(err, domain.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": fmt.Sprintf("display_name is required (max %d characters)", domain.MaxDisplayNameLength),
+		})
+		return
+	case errors.Is(err, domain.ErrUnauthorized):
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "sign in required"})
+		return
+	case errors.Is(err, domain.ErrNotFound):
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "sign in required"})
+		return
+	case err != nil:
+		log.Printf("account: update display name failed: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "could not update display name"})
+		return
+	}
+
+	h.setCookie(w, SessionCookie, session.Token, h.opts.SessionMaxAge)
+	writeJSON(w, http.StatusOK, session.User)
+}
+
+
+func (h *HTTPHandler) Profile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	userID := r.URL.Query().Get("id")
+	user, err := h.uc.GetProfile(r.Context(), userID)
+	switch {
+	case errors.Is(err, domain.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id is required"})
+		return
+	case errors.Is(err, domain.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "user not found"})
+		return
+	case err != nil:
+		log.Printf("account: get profile failed: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "could not fetch profile"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user)
+}
+
+func (h *HTTPHandler) Statistics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	userID := r.URL.Query().Get("id")
+	stats, err := h.uc.GetTimerStatistics(r.Context(), userID)
+	switch {
+	case errors.Is(err, domain.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id is required"})
+		return
+	case errors.Is(err, domain.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "user not found"})
+		return
+	case err != nil:
+		log.Printf("account: get timer statistics failed: %v", err)
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "could not fetch timer statistics"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stats)
+}
+
+// Rewards pulls everything a user has unlocked from the Reward service by id
+// and groups it into totals plus one entry per distinct item.
+//
+//	GET ?id=<user_id> -> 200 + {total_awards_earned, total_score, items: [{name, rarity, asset_url, type, score_value, count}, ...]}
+func (h *HTTPHandler) Rewards(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	userID := r.URL.Query().Get("id")
+	rewards, err := h.uc.GetRewards(r.Context(), userID)
+	switch {
+	case errors.Is(err, domain.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id is required"})
+		return
+	case errors.Is(err, domain.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "user not found"})
+		return
+	case err != nil:
+		log.Printf("account: get rewards failed: %v", err)
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "could not fetch rewards"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, rewards)
 }
 
 func (h *HTTPHandler) SignOut(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/neennera/fishertimer/services/api-gateway/config"
+	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/middleware"
 )
 
 type GatewayHandler struct {
@@ -58,6 +59,7 @@ func createReverseProxy(targetURL, prefix string) *httputil.ReverseProxy {
 func (h *GatewayHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", h.withCORS(h.Health))
 	mux.HandleFunc("/api/v1/gateway/status", h.withCORS(h.Status))
+	mux.HandleFunc("/api/v1/gateway/whoami", h.withCORS(h.Whoami))
 
 	// Microservices proxy routes for Client
 	mux.HandleFunc("/api/account/", h.withCORS(h.handleAccount))
@@ -107,6 +109,22 @@ func (h *GatewayHandler) Status(w http.ResponseWriter, r *http.Request) {
 			"/api/reward/*",
 		},
 		"ready": true,
+	})
+}
+
+// Whoami echoes the identity headers middleware.Verifier.Identity attached to
+// this request, purely so the header-forwarding contract can be exercised
+// end-to-end from the browser without waiting on a downstream service to
+// start reading them.
+func (h *GatewayHandler) Whoami(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get(middleware.HeaderUserID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"authenticated":  userID != "",
+		"x_user_id":      userID,
+		"x_user_role":    r.Header.Get(middleware.HeaderUserRole),
+		"x_display_name": r.Header.Get(middleware.HeaderDisplayName),
 	})
 }
 

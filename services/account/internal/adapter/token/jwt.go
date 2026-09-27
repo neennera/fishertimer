@@ -1,5 +1,6 @@
 // Package token implements the session token required by UC-06: a compact JWS
-// (JWT) signed with HMAC-SHA256, carrying user_id and role, valid for 7 days.
+// (JWT) signed with HMAC-SHA256, carrying user_id, role and display name,
+// valid for 7 days.
 // It also signs the short-lived sign-up ticket that carries a new user's
 // verified Google identity to the display-name form.
 // Only the standard library is used, so any service in the monorepo can verify
@@ -44,12 +45,14 @@ type header struct {
 }
 
 // payload is the wire format. `sub` holds the user_id (standard JWT subject)
-// and `role` is the authorisation claim other services read. `picture` is only
+// and `role` is the authorisation claim other services read. `name` is the
+// display name, forwarded by the gateway as X-Display-Name. `picture` is only
 // set on sign-up tickets, where it becomes the new row's avatar_url.
 type payload struct {
 	Sub     string `json:"sub,omitempty"`
 	Role    string `json:"role,omitempty"`
 	Email   string `json:"email"`
+	Name    string `json:"name,omitempty"`
 	Picture string `json:"picture,omitempty"`
 	Use     string `json:"use"`
 	Iss     string `json:"iss"`
@@ -81,6 +84,7 @@ func (s *JWTService) Issue(user *domain.UserAccount) (string, *domain.TokenClaim
 		Sub:   user.UserID,
 		Role:  user.Role,
 		Email: user.Email,
+		Name:  user.DisplayName,
 		Use:   useSession,
 		Iat:   issued.Unix(),
 		Exp:   expires.Unix(),
@@ -90,10 +94,11 @@ func (s *JWTService) Issue(user *domain.UserAccount) (string, *domain.TokenClaim
 	}
 
 	return token, &domain.TokenClaims{
-		UserID:    user.UserID,
-		Role:      user.Role,
-		Email:     user.Email,
-		ExpiresAt: expires,
+		UserID:      user.UserID,
+		Role:        user.Role,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		ExpiresAt:   expires,
 	}, nil
 }
 
@@ -105,10 +110,11 @@ func (s *JWTService) Verify(raw string) (*domain.TokenClaims, error) {
 	}
 
 	return &domain.TokenClaims{
-		UserID:    body.Sub,
-		Role:      body.Role,
-		Email:     body.Email,
-		ExpiresAt: time.Unix(body.Exp, 0).UTC(),
+		UserID:      body.Sub,
+		Role:        body.Role,
+		Email:       body.Email,
+		DisplayName: body.Name,
+		ExpiresAt:   time.Unix(body.Exp, 0).UTC(),
 	}, nil
 }
 
