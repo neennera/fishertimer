@@ -9,11 +9,15 @@ const DEMO_OWNER: TimerOwner = { sessionId: "demo", userId: "demo" };
 
 export default function TimerPage() {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
+      <div className="pixel-scene" aria-hidden="true" />
       <Header />
-      <main className="mx-auto w-full max-w-md px-4 py-12">
-        <TimerPanel owner={DEMO_OWNER} />
+      {/* Sits in the sky, above the horizon, so the scene frames the panel. */}
+      <main className="flex flex-1 items-start justify-center px-4 pt-[12vh] pb-12">
+        <div className="w-full max-w-md">
+          <TimerPanel owner={DEMO_OWNER} />
+        </div>
       </main>
-    </>
+    </div>
   );
 }
