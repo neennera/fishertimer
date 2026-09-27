@@ -55,6 +55,7 @@ Tokens are in the `@theme` block of `tokens.css`. Each one works as
 | `--color-bark` | Secondary text, edges |
 | `--color-cream` | Panel background |
 | `--color-cream-2` | Secondary buttons, dividers |
+| `--color-tile` | Sub-panel fill (a tile or box inside a panel): the warm tan of `cream-2` |
 | `--color-amber` | Primary buttons |
 | `--color-amber-dk` | Button hover and depth |
 | `--color-stone` / `-dk` / `-ink` | Disabled button cap, depth, label |
@@ -119,9 +120,14 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-modal` | `.pixel-panel` surface for a dialog. Pair with `.pixel-modal-overlay` (fixed, dimmed backdrop), `__title`, `__close` (red on hover), `__body` |
 | `.pixel-alert` | Status message. Add `--warn` |
 | `.pixel-badge` | Small tag |
-| `.pixel-tile` | Number and caption, with `__value` and `__caption` |
+| `.pixel-tile` | Sub-panel: a flat block filled with `--color-tile`. Number and caption via `__value` and `__caption` |
 | `.pixel-sprite` | Pixel image. Sets `image-rendering: pixelated` |
-| `.pixel-placeholder` | Inset cream-2 box holding the place of content not built yet |
+| `.pixel-tank` | Aquarium box: oak frame and `__water` (a size container, so contents can move in `cqw`; sets `--fish-size`, 16 art pixels, 11 on phones). `__layer` is one still background layer (`--layer-w` its native width, `--layer-offset` art pixels to shift it left); add `--front` to draw it over all but the nearest fish |
+| `.pixel-fish` | One fish in a tank. `components/account/useFishSwim.ts` moves, scales and fades it once the tank's `__water` has `data-live`, and turns and tilts `__turn`; until then, or under reduced motion, it rests at `--fish-rest-x` / `--fish-rest-y` (0–1 of the space it can swim in), facing right. On phones only the first 8 show |
+| `.pixel-fish-art` | A 16x16 fish picture. `--placeholder` draws a pixel fish shape in `--fish-color` with an ink outline; `--sprite` shows the 16x16 sprite, plus `--strip` for a 3-frame strip. `data-frame` on `__body` picks the tail pose (0 straight, 1 up, 2 down); without it, frame 0 |
+| `.pixel-fish-card` | Collection-list card (on `.pixel-tile`): the sprite, then `__text` with `__name` and `__count` |
+| `.pixel-wood` | Page backdrop of tiled wood planks (`public/sprites/scene/wood.png`, 32x32) at `--wood-scale` × `--px` (6 screen pixels per art pixel), under a 35% ink tint, with two soft amber lamp glows (wide ovals with an eased fade, screen-blended so they brighten the wood) and darkened corners. It is a layer fixed to the viewport, so it stays still while the page scrolls. Used on `/account`; text stays on panels |
+| `.pixel-placeholder` | Sub-panel (`--color-tile` fill) holding the place of content not built yet |
 | `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__fallback` for the pixelarticons glyph shown when there is no photo or it fails to load |
 
 React components in `components/ui/`: `PixelPanel`, `PixelButton`,
@@ -180,6 +186,22 @@ public/sprites/ui/      panel and button art
 public/sprites/scene/   background scenes
 public/sprites/items/   small images
 ```
+
+**Fish sprites** (the account page's fish tank): side view facing right,
+16x16, in `public/sprites/fish/`. A sprite may instead be a strip of three swim
+frames side by side (48x16, set `frames: 3`), which beats its tail while
+swimming. Frame 0 is also the collection-list icon. Register each one in
+`lib/fish-sprites.ts`; a species without art draws a placeholder shape.
+
+**Fish tank background**: layers in `public/sprites/scene/parallax-fishtank/`,
+listed back to front in `lib/scenes/fishtank.ts`. They draw at `--tank-px`
+(2 screen pixels per art pixel, 1 on phones) rather than `--px`, because this
+art is finer-grained than the UI sprites and would make the tank too tall.
+
+Tank fish are the one exception to the whole-pixel rule above: to swim
+naturally they glide between pixels, tilt, and shrink toward the back of the
+tank, which softens their edges slightly. The collection-list icons stay at
+whole pixels.
 
 **Replacing CSS surfaces with images.** Edit `pixel.css` only. No component or
 page changes.

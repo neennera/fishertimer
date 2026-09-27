@@ -16,6 +16,8 @@
   --color-bark: #6b4b35; /* secondary text, panel edges */
   --color-cream: #fbf0dc; /* panel surface */
   --color-cream-2: #f2e2c2; /* secondary buttons, dividers */
+  /* Sub-panel fill. */
+  --color-tile: var(--color-cream-2);
   --color-amber: #e08a47; /* primary action */
   --color-amber-dk: #c4652e; /* hover, button thickness */
   --color-stone: #c2c0bc; /* disabled button cap */
@@ -75,6 +77,17 @@
   --scene-tile-w: 384;
   --scene-tile-h: 216;
 
+  /* Fish tank art is finer-grained than the UI sprites, so it has its own
+     scale; --px would make the tank 576px tall. 1px on phones (below). */
+  --tank-px: 2px;
+  --tank-tile-w: 256;
+  --tank-tile-h: 192;
+
+  /* Wood background: native size, and --px per pixel (at 1 it reads as
+     brick). */
+  --wood-tile: 32;
+  --wood-scale: 2;
+
   /* A one-pixel bevel: a single art pixel clipped off each corner.
      The same shape at every size, so there is no multi-step staircase that
      can drift out of alignment with the sprites. */
@@ -100,6 +113,13 @@
     --color-rule: #41342a;
     --color-surface: #2b2118;
     --color-surface-2: #372b20;
+  }
+}
+
+/* Below md. */
+@media (max-width: 767px) {
+  :root {
+    --tank-px: 1px;
   }
 }
 

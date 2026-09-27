@@ -505,15 +505,13 @@
   }
 
   /* --- Stat tile ---------------------------------------------------------- */
+  /* Sub-panel. */
   .pixel-tile {
-    background: var(--color-cream);
+    background: var(--color-tile);
     color: var(--color-ink);
     clip-path: var(--pixclip);
     text-align: center;
-    padding: calc(var(--px) * 5) calc(var(--px) * 3) calc(var(--px) * 6);
-    box-shadow:
-      inset 0 0 0 var(--px) rgb(107 75 53 / 0.17),
-      inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.12);
+    padding: calc(var(--px) * 5) calc(var(--px) * 3);
   }
   .pixel-tile__value {
     font-family: var(--font-numeric);
@@ -564,6 +562,207 @@
     height: calc(var(--px) * 16);
   }
 
+  /* --- Fish tank ------------------------------------------------------------
+     Stacking: layers 0, fish 1–11 by depth (useFishSwim), --front layer 10. */
+  .pixel-tank {
+    padding: calc(var(--px) * 2);
+    background: var(--color-oak);
+    clip-path: var(--pixclip);
+  }
+  .pixel-tank__water {
+    position: relative;
+    container-type: inline-size;
+    height: calc(var(--tank-px) * var(--tank-tile-h));
+    overflow: hidden;
+    background: var(--color-lake-dp);
+    /* Art pixels; also read by useFishSwim. */
+    --fish-size: 16;
+  }
+  .pixel-tank__layer {
+    position: absolute;
+    inset: 0;
+    background-repeat: repeat-x;
+    background-position: calc(var(--tank-px) * var(--layer-offset) * -1) bottom;
+    background-size: calc(var(--tank-px) * var(--layer-w)) calc(var(--tank-px) * var(--tank-tile-h));
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+  .pixel-tank__layer--front {
+    z-index: 10;
+  }
+
+  /* Moved by useFishSwim once [data-live]. Otherwise (no JS, reduced motion)
+     it rests at --fish-rest-x/-y, using the same bounds as useFishSwim so
+     nothing jumps when swimming starts. */
+  .pixel-fish {
+    position: absolute;
+    /* At rest, in front of the rocks so none is hidden. */
+    z-index: 11;
+    top: calc(var(--px) * 2 + var(--fish-rest-y) * (84% - var(--px) * (var(--fish-size) + 2)));
+    left: 0;
+    transform: translateX(calc(var(--fish-rest-x) * (100cqw - var(--px) * (var(--fish-size) + 2))));
+    /* Without its own layer, the moving outline leaves ghosts in Chrome. */
+    will-change: transform, opacity;
+  }
+  .pixel-tank__water[data-live] .pixel-fish {
+    top: 0;
+  }
+  /* Phones: smaller fish, first 8 only (tankFish orders species first). */
+  @media (max-width: 767px) {
+    .pixel-tank__water {
+      --fish-size: 11;
+    }
+    .pixel-fish:nth-of-type(n + 9) {
+      display: none;
+    }
+  }
+  .pixel-fish__turn {
+    display: block;
+  }
+
+  /* data-frame on __body is the tail pose (0 straight, 1 up, 2 down). The
+     placeholder's outline filter is on the wrapper: on the clipped body it
+     would be clipped away. */
+  .pixel-fish-art {
+    --fish-art: calc(var(--px) * var(--fish-size, 16));
+    display: block;
+    flex: none;
+    width: var(--fish-art);
+    height: var(--fish-art);
+  }
+  .pixel-fish-art--placeholder {
+    filter: drop-shadow(var(--px) 0 0 var(--color-ink))
+      drop-shadow(calc(var(--px) * -1) 0 0 var(--color-ink))
+      drop-shadow(0 var(--px) 0 var(--color-ink))
+      drop-shadow(0 calc(var(--px) * -1) 0 var(--color-ink));
+  }
+  .pixel-fish-art__body {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  /* 16-unit grid; the poses differ only in the tail. */
+  .pixel-fish-art--placeholder .pixel-fish-art__body {
+    background: var(--fish-color);
+    clip-path: polygon(
+      0% 18.75%, 12.5% 18.75%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
+      43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
+      93.75% 31.25%, 93.75% 37.5%, 100% 37.5%, 100% 62.5%, 93.75% 62.5%,
+      93.75% 68.75%, 87.5% 68.75%, 87.5% 75%, 75% 75%, 75% 81.25%, 43.75% 81.25%,
+      43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
+      12.5% 81.25%, 0% 81.25%, 0% 62.5%, 6.25% 62.5%, 6.25% 37.5%, 0% 37.5%
+    );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body[data-frame="1"] {
+    clip-path: polygon(
+      0% 12.5%, 12.5% 12.5%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
+      43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
+      93.75% 31.25%, 93.75% 37.5%, 100% 37.5%, 100% 62.5%, 93.75% 62.5%,
+      93.75% 68.75%, 87.5% 68.75%, 87.5% 75%, 75% 75%, 75% 81.25%, 43.75% 81.25%,
+      43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
+      12.5% 75%, 0% 75%, 0% 56.25%, 6.25% 56.25%, 6.25% 31.25%, 0% 31.25%
+    );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body[data-frame="2"] {
+    clip-path: polygon(
+      0% 25%, 12.5% 25%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
+      43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
+      93.75% 31.25%, 93.75% 37.5%, 100% 37.5%, 100% 62.5%, 93.75% 62.5%,
+      93.75% 68.75%, 87.5% 68.75%, 87.5% 75%, 75% 75%, 75% 81.25%, 43.75% 81.25%,
+      43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
+      12.5% 87.5%, 0% 87.5%, 0% 68.75%, 6.25% 68.75%, 6.25% 43.75%, 0% 43.75%
+    );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body::after {
+    content: "";
+    position: absolute;
+    top: 37.5%;
+    left: 75%;
+    width: var(--px);
+    height: var(--px);
+    background: var(--color-ink);
+  }
+  .pixel-fish-art--sprite .pixel-fish-art__body {
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+  }
+  .pixel-fish-art--strip .pixel-fish-art__body {
+    background-size: calc(var(--fish-art) * 3) var(--fish-art);
+  }
+  .pixel-fish-art--strip .pixel-fish-art__body[data-frame="1"] {
+    background-position-x: calc(var(--fish-art) * -1);
+  }
+  .pixel-fish-art--strip .pixel-fish-art__body[data-frame="2"] {
+    background-position-x: calc(var(--fish-art) * -2);
+  }
+
+  .pixel-fish-card {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 4);
+    padding: calc(var(--px) * 3) calc(var(--px) * 4) calc(var(--px) * 3) calc(var(--px) * 3);
+    text-align: left;
+  }
+  .pixel-fish-card__text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: calc(var(--px) * 2);
+  }
+  .pixel-fish-card__name {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1;
+    overflow-wrap: break-word;
+  }
+  .pixel-fish-card__count {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 7);
+    line-height: 1;
+    color: var(--color-bark);
+  }
+
+  /* --- Wood background -------------------------------------------------------
+     A fixed layer rather than background-attachment: fixed, which iOS Safari
+     ignores. Layers: two lamp glows (screen-blended), vignette, tint, planks. */
+  .pixel-wood::before {
+    --wood-size: calc(var(--px) * var(--wood-scale) * var(--wood-tile));
+    --wood-shade: color-mix(in srgb, var(--color-ink) 35%, transparent);
+    --glow: var(--color-amber);
+    --vignette: color-mix(in srgb, var(--color-ink) 70%, transparent);
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse 55vmax 42vmax at 12% 16%,
+        color-mix(in srgb, var(--glow) 34%, transparent) 0%,
+        color-mix(in srgb, var(--glow) 26%, transparent) 15%,
+        color-mix(in srgb, var(--glow) 17%, transparent) 32%,
+        color-mix(in srgb, var(--glow) 9%, transparent) 52%,
+        color-mix(in srgb, var(--glow) 3%, transparent) 74%,
+        transparent 100%
+      ),
+      radial-gradient(
+        ellipse 45vmax 35vmax at 90% 74%,
+        color-mix(in srgb, var(--glow) 26%, transparent) 0%,
+        color-mix(in srgb, var(--glow) 19%, transparent) 15%,
+        color-mix(in srgb, var(--glow) 12%, transparent) 32%,
+        color-mix(in srgb, var(--glow) 6%, transparent) 52%,
+        color-mix(in srgb, var(--glow) 2%, transparent) 74%,
+        transparent 100%
+      ),
+      radial-gradient(ellipse at center, transparent 50%, var(--vignette) 110%),
+      linear-gradient(var(--wood-shade), var(--wood-shade)),
+      url(/sprites/scene/wood.png) 0 0 / var(--wood-size) var(--wood-size) repeat,
+      var(--color-oak);
+    background-blend-mode: screen, screen, multiply, normal, normal, normal;
+    image-rendering: pixelated;
+  }
+
   /* --- Placeholder -----------------------------------------------------------
      Inset box holding the spot for content that isn't built yet, so the page
      keeps its final shape. */
@@ -572,7 +771,7 @@
     place-items: center;
     min-height: calc(var(--px) * 40);
     padding: calc(var(--px) * 4);
-    background: var(--color-cream-2);
+    background: var(--color-tile);
     color: var(--color-bark);
     clip-path: var(--pixclip);
     text-align: center;

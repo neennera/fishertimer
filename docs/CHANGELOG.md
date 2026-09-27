@@ -89,10 +89,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[config]**: Created root `.env.example` defining central environment variables, database strings, and OAuth/JWT secrets.
 - **[web]**: Configured Next.js API Gateway reverse proxy rewrites in `apps/web/next.config.js` to proxy `/api/*` to backend microservices, eliminating CORS.
 - **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
-- **[web]**: Added `/account` (UC-07 account overview, wireframe 03a), without the fish tank (Stage 5b). Loads the user from `getSession()`; `signed_out` redirects to `/signin` and `needs_signup` to `/welcome`. Sign-out is the header's button, wired to the existing `signOut()`.
-  - Profile panel: the avatar, the display name with a small pencil button after it, and the e-mail. The avatar is an `<img>` of `avatar_url` that falls back to the pixelarticons `User` glyph when the URL is empty or fails to load (new `.pixel-avatar` class). The pencil button (pixelarticons `Pencil`) goes to the `/account/edit` placeholder, which 404s until Stage 6. `PixelButton` gains a `small` prop (`.pixel-btn--sm`) for it.
-  - `StatTile` row (sessions joined, total focus time, rewards earned), **mock-only** from the new `lib/mocks/account-stats.mock.ts` because the backend has no statistics endpoint yet. Fields follow `main`'s account-service skeleton (`total_sessions`, `total_focus_minutes`, `rewards_earned`) and are raw numbers. The page formats them when it renders ("18h 40m"), so a real response can replace the mock without changes.
-  - "Sessions by room type" panel, a placeholder only (new `.pixel-placeholder` class). The 03a breakdown needs study-session (group sessions) and study-timer (solo sessions), and `schema.dbml` has no room-type column yet.
+- **[web]**: Added `/account` (UC-07, wireframe 03a). Redirects to `/signin` when signed out and to `/welcome` when sign-up is pending; sign-out is the header's button.
+  - Profile panel: avatar (falls back to an icon), display name and e-mail. The pencil button links to `/account/edit`, which 404s until Stage 6. New `.pixel-avatar` class and `PixelButton` `small` prop.
+  - Stat tiles, **mock-only** (`lib/mocks/account-stats.mock.ts`), using `main`'s account-service field names (`total_sessions`, `total_focus_minutes`, `rewards_earned`).
+  - "Sessions by room type": placeholder only. It needs study-session and study-timer data, and `schema.dbml` has no room-type column yet.
+  - Fish Tank, **mock-only** (`lib/mocks/rewards.mock.ts`): up to 15 caught fish swim in an aquarium (`components/account/FishTank.tsx`, `useFishSwim.ts`), with a card per species showing its count and the total in the panel header. Motion is off under `prefers-reduced-motion`. Sprites are mapped in `lib/fish-sprites.ts`; the background layers are in `lib/scenes/fishtank.ts`.
+  - **Schema conflict:** per-species counts need several `user_rewards` rows for one item, but `schema.dbml` makes `(user_id, item_id)` unique.
+  - Wood-plank page background (`public/sprites/scene/wood.png`) with soft lamp lighting; it stays still while the page scrolls.
+- **[web]**: Tiles inside panels are now filled with a new `--color-tile` token (warm tan).
+- **[web]**: Added `apps/web/CREDITS.md` for third-party art.
 - **[web]**: Added `@fishertimer/shared-types` as an `apps/web` dependency and `'account'` to `client-api.ts`'s `ClientServiceName`, for future profile/statistics calls (`'auth'` stays as the existing gateway alias used by `lib/auth.ts`).
 
 ---

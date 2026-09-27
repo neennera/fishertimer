@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "pixelarticons/react/Pencil";
 import { User } from "pixelarticons/react/User";
+import { countFishCaught, FishTank } from "../../components/account/FishTank";
 import { Header } from "../../components/Header";
 import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelPanel } from "../../components/ui/PixelPanel";
@@ -11,6 +12,8 @@ import { StatTile } from "../../components/ui/StatTile";
 import { getSession, signOut, type SessionUser } from "../../lib/auth";
 // MOCK ONLY — no statistics endpoint on the backend yet.
 import { MOCK_ACCOUNT_STATS } from "../../lib/mocks/account-stats.mock";
+// MOCK ONLY — no rewards endpoint on the backend yet.
+import { MOCK_FISH_CATALOG, MOCK_USER_REWARDS } from "../../lib/mocks/rewards.mock";
 
 // Placeholder: Stage 6 (UC-07 Edit Display Name, wireframes 04a–04f) builds
 // this route. Until then the link 404s.
@@ -92,7 +95,7 @@ export default function AccountPage() {
   }
 
   return (
-    <>
+    <div className="pixel-wood min-h-screen">
       <Header
         user={user ? { displayName: user.display_name } : null}
         onSignOut={handleSignOut}
@@ -176,7 +179,21 @@ export default function AccountPage() {
             Coming soon
           </div>
         </PixelPanel>
+
+        <PixelPanel as="section" aria-labelledby="fish-tank">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 id="fish-tank" className="font-display text-2xl leading-none">
+              Fish Tank
+            </h2>
+            <p className="text-sm text-bark">
+              {countFishCaught(MOCK_FISH_CATALOG, MOCK_USER_REWARDS)} fish caught in total
+            </p>
+          </div>
+          <div className="mt-6">
+            <FishTank catalog={MOCK_FISH_CATALOG} rewards={MOCK_USER_REWARDS} />
+          </div>
+        </PixelPanel>
       </main>
-    </>
+    </div>
   );
 }
