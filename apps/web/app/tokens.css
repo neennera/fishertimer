@@ -92,8 +92,13 @@
      loading skeleton and the loaded page are the same size. */
   --panel-min-profile: 120px;
   --panel-min-stats: 120.53px;
-  --panel-min-rooms: 204px;
   --panel-min-tank: 524px;
+
+  /* Focus history chart. */
+  --chart-bar-max: 24px;
+  --chart-bar-gap: 2px;
+  --chart-stub: 2px;
+  --chart-grid: 1px;
 
   /* A one-pixel bevel: a single art pixel clipped off each corner.
      The same shape at every size, so there is no multi-step staircase that

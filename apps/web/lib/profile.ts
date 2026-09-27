@@ -6,6 +6,7 @@
 
 import type { SessionUser } from './auth';
 import { ClientApiError, clientApiFetch } from './client-api';
+import { lastDays } from './format';
 import { MOCK_STATISTICS, MOCK_STATS_UNAVAILABLE } from './mocks/account-stats.mock';
 import { MOCK_SCENARIO_PARAM, mockDelay, readMockAuthState } from './mocks/auth.mock';
 import { MOCK_PROFILES } from './mocks/profile.mock';
@@ -110,6 +111,7 @@ export const NO_STATISTICS = (userId: string): TimerStatistics => ({
   cycles_completed: 0,
   total_focus_minutes: 0,
   last_active: '0001-01-01T00:00:00Z',
+  daily_focus_minutes: lastDays(30).map((date) => ({ date, focus_minutes: 0 })),
 });
 
 export const NO_REWARDS: RewardsSummary = { total_awards_earned: 0, total_score: 0, items: [] };

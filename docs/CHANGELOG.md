@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: `/account` and `/profile/[userId]` show a Focus history chart (7D / 14D / 30D, from `statistics.daily_focus_minutes`) in place of the "Sessions by room type" placeholder. New `.pixel-chart` classes and `--chart-*` tokens.
 - **[web]**: With no profile picture, the profile avatar shows the user's initials, matching the header (was a generic icon).
 - **[web]**: The header avatar is a key like the sign-out button (same size and press, cream), and the page always reserves the scrollbar's space so the header doesn't shift between scrolling and non-scrolling pages.
 - **[web]**: The header shows a small "Sign in" button (to `/signin`) once the session is known to be signed out; the bar's height is unchanged.

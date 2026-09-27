@@ -6,22 +6,13 @@ import { DisplayName } from "../account/DisplayName";
 import { countFishCaught, FishTank } from "../account/FishTank";
 import { PixelPanel } from "../ui/PixelPanel";
 import { StatTile } from "../ui/StatTile";
+import { FocusHistoryChart } from "./FocusHistoryChart";
 import type { SessionUser } from "../../lib/auth";
 import { cx } from "../../lib/cx";
+import { formatCount, formatFocusMinutes } from "../../lib/format";
 import { initials } from "../../lib/initials";
 import type { PanelData, PublicProfile } from "../../lib/profile";
 import type { RewardsSummary, TimerStatistics } from "../../lib/profile-types";
-
-// 1120 -> "18h 40m"; under an hour, just "40m".
-function formatFocusMinutes(totalMinutes: number) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-}
-
-function formatCount(count: number) {
-  return count.toLocaleString("en-US");
-}
 
 // "26 Sept" this year, "Dec 2025" before; the zero timestamp means never.
 function formatLastActive(iso: string) {
@@ -210,14 +201,24 @@ export function StatsPanel({
   );
 }
 
-export function RoomTypePanel() {
+export function FocusHistoryPanel({ stats }: { stats: PanelData<TimerStatistics> }) {
   return (
-    <PixelPanel as="section" aria-labelledby="sessions-by-room-type" className="pixel-panel--rooms">
-      <h2 id="sessions-by-room-type" className="font-display text-2xl leading-none">
-        Sessions by room type
-      </h2>
-      {/* No endpoint yet: empty in both modes, never made-up numbers. */}
-      <div className="pixel-placeholder mt-6 text-sm">Coming soon</div>
+    <PixelPanel as="section" aria-labelledby="focus-history">
+      {stats.status === "unavailable" ? (
+        <>
+          <h2 id="focus-history" className="font-display text-2xl leading-none">
+            Focus history
+          </h2>
+          <div className="mt-6">
+            <Unavailable what="focus history" />
+          </div>
+        </>
+      ) : (
+        <FocusHistoryChart
+          titleId="focus-history"
+          days={stats.status === "ok" ? stats.data.daily_focus_minutes : null}
+        />
+      )}
     </PixelPanel>
   );
 }
@@ -289,7 +290,7 @@ export function ProfileSections({
     <>
       <ProfilePanel profile={profile} editable={editable} owner={owner} ownPreview={ownPreview} />
       <StatsPanel stats={stats} rewards={rewards} />
-      <RoomTypePanel />
+      <FocusHistoryPanel stats={stats} />
       <FishTankPanel rewards={rewards} editable={editable} />
     </>
   );
