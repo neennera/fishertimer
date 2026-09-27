@@ -60,6 +60,9 @@ export default function Home() {
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <PixelButton>Start Studying</PixelButton>
+            <Link href="/timer" className="underline underline-offset-4">
+              ⏱️ Try the study timer
+            </Link>
             <Link href="/admin" className="underline underline-offset-4">
               🛡️ Switch to Admin Portal
             </Link>
