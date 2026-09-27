@@ -134,7 +134,7 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-panel--profile` / `--stats` / `--rooms` / `--tank` | Profile-page panels: minimum heights (md and up, from `--panel-min-*` tokens) so the loading skeleton and the loaded page are the same size |
 | `.pixel-wood` | Page backdrop of tiled wood planks (`public/sprites/scene/wood.png`, 32x32) at `--wood-scale` × `--px` (6 screen pixels per art pixel), under a 35% ink tint, with two soft amber lamp glows (wide ovals with an eased fade, screen-blended so they brighten the wood) and darkened corners. It is a layer fixed to the viewport, so it stays still while the page scrolls. Used on `/account`; text stays on panels |
 | `.pixel-placeholder` | Sub-panel (`--color-tile` fill) holding the place of content not built yet |
-| `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__fallback` for the pixelarticons glyph shown when there is no photo or it fails to load |
+| `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__initials` when there is no photo or it fails to load (the same initials as the header) |
 
 React components in `components/ui/`: `PixelPanel`, `PixelButton`,
 `PixelInput`, `PixelCheckbox`, `PixelModal`, `PixelAlert`, `PixelBadge`,

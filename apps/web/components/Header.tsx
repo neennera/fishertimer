@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Logout } from "pixelarticons/react/Logout";
 import { cx } from "../lib/cx";
+import { initials as initialsOf } from "../lib/initials";
 import { PixelButton } from "./ui/PixelButton";
 
 export interface HeaderProps {
@@ -39,14 +40,7 @@ export function Header({
   const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const avatarUrl = user?.avatarUrl && failedAvatar !== user.avatarUrl ? user.avatarUrl : null;
 
-  const initials = user?.displayName
-    ? user.displayName
-        .split(" ")
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
-    : null;
+  const initials = user?.displayName ? initialsOf(user.displayName) : null;
 
   return (
     <header className={cx("pixel-header", className)}>

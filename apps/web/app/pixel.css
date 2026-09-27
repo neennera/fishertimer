@@ -556,8 +556,8 @@
   /* --- Avatar --------------------------------------------------------------
      Square profile picture with the panel bevel. The photo (Google's
      avatar_url) is not pixel art, so it is not .pixel-sprite. With no photo,
-     or one that fails to load, __fallback shows a pixelarticons glyph in the
-     same box, so nothing reflows between the two. */
+     or one that fails to load, __initials shows the user's initials (as the
+     header does) in the same box, so nothing reflows between the two. */
   .pixel-avatar {
     flex: none;
     display: grid;
@@ -575,9 +575,11 @@
     height: 100%;
     object-fit: cover;
   }
-  .pixel-avatar__fallback {
-    width: calc(var(--px) * 16);
-    height: calc(var(--px) * 16);
+  .pixel-avatar__initials {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 12);
+    line-height: 1;
+    color: var(--color-ink);
   }
 
   /* --- Fish tank ------------------------------------------------------------
@@ -891,6 +893,18 @@
     font-weight: 700;
     line-height: 1.4;
     color: var(--color-rust);
+  }
+  /* Your own public view: the name centres beside the avatar as on anyone
+     else's profile, with the button pinned where it sits on /account. */
+  @media (min-width: 640px) {
+    .pixel-profile-preview .pixel-inline-error {
+      display: none;
+    }
+    .pixel-profile-preview .pixel-name-bottom {
+      position: absolute;
+      right: calc(var(--px) * 6);
+      bottom: calc(var(--px) * 6);
+    }
   }
   .pixel-inline-error:not(:empty) {
     animation: pixel-fade-in 0.12s ease-out;

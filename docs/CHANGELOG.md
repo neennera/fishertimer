@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: With no profile picture, the profile avatar shows the user's initials, matching the header (was a generic icon).
 - **[web]**: The header avatar is a key like the sign-out button (same size and press, cream), and the page always reserves the scrollbar's space so the header doesn't shift between scrolling and non-scrolling pages.
 - **[web]**: The header shows a small "Sign in" button (to `/signin`) once the session is known to be signed out; the bar's height is unchanged.
 - **[web]**: `/account` and `/profile/[userId]` use the real account service (`profile`, `statistics`, `rewards`, `PATCH update-profile`). Each panel loads and fails on its own; stats add "Last active"; the fish tank shows only fish.

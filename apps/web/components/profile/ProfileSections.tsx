@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User } from "pixelarticons/react/User";
 import { DisplayName } from "../account/DisplayName";
 import { countFishCaught, FishTank } from "../account/FishTank";
 import { PixelPanel } from "../ui/PixelPanel";
 import { StatTile } from "../ui/StatTile";
 import type { SessionUser } from "../../lib/auth";
+import { cx } from "../../lib/cx";
+import { initials } from "../../lib/initials";
 import type { PanelData, PublicProfile } from "../../lib/profile";
 import type { RewardsSummary, TimerStatistics } from "../../lib/profile-types";
 
@@ -35,7 +36,7 @@ function formatLastActive(iso: string) {
   );
 }
 
-function Avatar({ src }: { src: string }) {
+function Avatar({ src, name }: { src: string; name: string }) {
   // Keyed by URL, so a new avatar_url gets a fresh attempt.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
@@ -54,7 +55,9 @@ function Avatar({ src }: { src: string }) {
           onError={() => setFailedSrc(src)}
         />
       ) : (
-        <User aria-hidden="true" className="pixel-avatar__fallback" />
+        <span aria-hidden="true" className="pixel-avatar__initials">
+          {initials(name)}
+        </span>
       )}
     </div>
   );
@@ -88,12 +91,12 @@ export function ProfilePanel({
     <PixelPanel as="section" aria-label="Profile" className="pixel-panel--profile">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         {profile ? (
-          <Avatar src={profile.avatar_url} />
+          <Avatar src={profile.avatar_url} name={profile.display_name} />
         ) : (
           <div aria-hidden="true" className="pixel-avatar pixel-skeleton" />
         )}
 
-        <div className="min-w-0 flex-1">
+        <div className={cx("min-w-0 flex-1", ownPreview && "pixel-profile-preview")}>
           {!profile ? (
             <>
               <div className="pixel-name-row" aria-hidden="true">

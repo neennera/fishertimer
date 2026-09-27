@@ -41,7 +41,7 @@ export type DisplayNameProps =
 // its end. The reserved error line above it keeps both modes the same height.
 function BottomLine({ detail, aside }: { detail?: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
+    <div className="pixel-name-bottom flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
       <p className="min-w-0 text-bark break-words">{detail}</p>
       {aside}
     </div>
