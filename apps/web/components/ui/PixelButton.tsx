@@ -1,13 +1,16 @@
-import { ButtonHTMLAttributes } from "react";
+import { ComponentPropsWithRef } from "react";
 import { cx } from "../../lib/cx";
 
-type Variant = "primary" | "ghost";
+type Variant = "primary" | "ghost" | "danger";
 
-export interface PixelButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface PixelButtonProps extends ComponentPropsWithRef<"button"> {
   variant?: Variant;
   /** Fill the width of its container — used for the sign-in and Continue buttons. */
   block?: boolean;
+  /** Square key holding a single pixelarticons icon. Pass an `aria-label`. */
+  icon?: boolean;
+  /** Smaller icon key, for an inline action beside text. Use with `icon`. */
+  small?: boolean;
 }
 
 /**
@@ -19,6 +22,8 @@ export interface PixelButtonProps
 export function PixelButton({
   variant = "primary",
   block = false,
+  icon = false,
+  small = false,
   className,
   type = "button",
   ...props
@@ -29,7 +34,10 @@ export function PixelButton({
       className={cx(
         "pixel-btn",
         variant === "ghost" && "pixel-btn--ghost",
+        variant === "danger" && "pixel-btn--danger",
         block && "pixel-btn--block",
+        icon && "pixel-btn--icon",
+        small && "pixel-btn--sm",
         className,
       )}
       {...props}

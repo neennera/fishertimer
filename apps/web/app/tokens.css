@@ -16,8 +16,13 @@
   --color-bark: #6b4b35; /* secondary text, panel edges */
   --color-cream: #fbf0dc; /* panel surface */
   --color-cream-2: #f2e2c2; /* secondary buttons, dividers */
+  /* Sub-panel fill. */
+  --color-tile: var(--color-cream-2);
   --color-amber: #e08a47; /* primary action */
   --color-amber-dk: #c4652e; /* hover, button thickness */
+  --color-stone: #c2c0bc; /* disabled button cap */
+  --color-stone-dk: #a19e99; /* disabled button thickness */
+  --color-stone-ink: #6f6c68; /* disabled button label */
 
   /* --- Scene colours: backgrounds, water, foliage ------------------------- */
   --color-oak: #8a6244; /* wood, tank frame */
@@ -27,7 +32,13 @@
   --color-lake: #4fa3b8; /* water, avatar, focus */
   --color-lake-dp: #2e6e85; /* deep water, focus outline */
   --color-sky: #f3c9a0; /* warm dusk sky, room wall */
-  --color-rust: #b4472f; /* errors, ban badge */
+  --color-rust: #b4472f; /* errors, ban badge, danger button */
+  --color-rust-dk: #8e3523; /* danger button hover and thickness */
+  --color-rust-dp: #6a2719; /* danger button hover thickness */
+  --color-sky-fill: #9fc9f1; /* sampled from Sky_sky.png's last opaque pixel
+    before it fades to transparent — extends the gradient where the art's own
+    alpha runs out. Not --color-sky above: that's the warm dusk tone used
+    elsewhere in the UI. */
 
   /* --- Page chrome: the only theme-aware tokens --------------------------- */
   --color-bg: #f6f0e6;
@@ -57,6 +68,38 @@
      ====================================================================== */
   --px: 3px;
 
+  /* Native size, in source pixels, of the tiling scene sprites in
+     public/sprites/scene/parallax-lake/ (384x216). Unitless so pixel.css can
+     multiply by --px, the same calc(var(--px) * n) idiom every other sprite
+     scale uses — the tiled scene layers' zoom is tied to the same global
+     grid as the rest of the UI. Only "tile"-fit ParallaxScene layers use
+     this; "cover"-fit layers (smooth painterly art, e.g. the sky) don't. */
+  --scene-tile-w: 384;
+  --scene-tile-h: 216;
+
+  /* Fish tank art is finer-grained than the UI sprites, so it has its own
+     scale; --px would make the tank 576px tall. 1px on phones (below). */
+  --tank-px: 2px;
+  --tank-tile-w: 256;
+  --tank-tile-h: 192;
+
+  /* Wood background: native size, and --px per pixel (at 1 it reads as
+     brick). */
+  --wood-tile: 32;
+  --wood-scale: 2;
+
+  /* Profile page panel heights at the 736px column (md and up), so the
+     loading skeleton and the loaded page are the same size. */
+  --panel-min-profile: 120px;
+  --panel-min-stats: 120.53px;
+  --panel-min-tank: 524px;
+
+  /* Focus history chart. */
+  --chart-bar-max: 24px;
+  --chart-bar-gap: 2px;
+  --chart-stub: 2px;
+  --chart-grid: 1px;
+
   /* A one-pixel bevel: a single art pixel clipped off each corner.
      The same shape at every size, so there is no multi-step staircase that
      can drift out of alignment with the sprites. */
@@ -82,6 +125,13 @@
     --color-rule: #41342a;
     --color-surface: #2b2118;
     --color-surface-2: #372b20;
+  }
+}
+
+/* Below md. */
+@media (max-width: 767px) {
+  :root {
+    --tank-px: 1px;
   }
 }
 

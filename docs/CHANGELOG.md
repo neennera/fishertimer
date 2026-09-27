@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **[web]**: `/account` and `/profile/[userId]` show a Focus history chart (7D / 14D / 30D, from `statistics.daily_focus_minutes`) in place of the "Sessions by room type" placeholder. New `.pixel-chart` classes and `--chart-*` tokens.
+- **[web]**: With no profile picture, the profile avatar shows the user's initials, matching the header (was a generic icon).
+- **[web]**: The header avatar is a key like the sign-out button (same size and press, cream), and the page always reserves the scrollbar's space so the header doesn't shift between scrolling and non-scrolling pages.
+- **[web]**: The header shows a small "Sign in" button (to `/signin`) once the session is known to be signed out; the bar's height is unchanged.
+- **[web]**: `/account` and `/profile/[userId]` use the real account service (`profile`, `statistics`, `rewards`, `PATCH update-profile`). Each panel loads and fails on its own; stats add "Last active"; the fish tank shows only fish.
+- **[web]**: Follow the account service's new `GET /me` (`prem/account`, `bed051e`): it returns the user or 401, with no pending sign-up state. `/welcome` now always shows the form (no e-mail) and sends expired sign-ups back to `/signin`.
+- **[web]**: The header stays pinned to the top of the page while scrolling, and its avatar shows the user's picture (initials if there is none or it fails to load) and links to `/account`.
+- **[web]**: The `/account` display-name editor now edits the name in place: the name itself becomes an underlined input in the same font and position, with small check / close icon buttons in the pencil's spot, so nothing shifts: the error line between the name and the e-mail is always reserved. The underline colour, the check / close keys, the error and the saving dim fade in over about 120ms (off under reduced motion). This intentionally departs from wireframe 04b's large input and Cancel / Save buttons; all six 04a–04f states, the validator and the mock `updateDisplayName()` are unchanged. New `.pixel-name-row`, `.pixel-inline-field`, `.pixel-inline-input`, `.pixel-inline-error` classes and a `.pixel-btn--busy` modifier.
 - **[architecture]**: Updated microservice specifications and system topology in `docs/phase1/microservice.md`, `docs/ARCHITECTURE.md`, and `README.md`:
   - **Study Session -> Study Timer**: Moved `AwardReward` collaborator call trigger from Study Session (`EndSession`) to Study Timer (`CompleteCycle`).
   - **Leaderboard**: Removed standalone `leaderboard_db`; replaced with Redis Cache and configured Leaderboard to read user reward records from Reward Service `ViewRewards()`.
@@ -30,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Added
+- **[reward]**: Seed `reward_items` with the 15 fish that have web sprites (`services/reward/database/schemas/002_seed_reward_items.js`, idempotent); new Koi, Octopus, Seahorse, Globefish and Ghostfish sprites, and the Dungeness crab, added to the web sprite map.
 - **[account]**: Implemented Google OAuth 2.0 sign-in (UC-06 SignIn / SignUp / SignOut) in the Account Service:
   - `GET /api/v1/account/google/login` (redirect to Google with an anti-CSRF `state` cookie), `GET /api/v1/account/google/callback` (code exchange, account match-or-create, session cookie), `GET /api/v1/account/me`, `POST /api/v1/account/signout`.
   - Accounts are matched by e-mail per UC-06; new accounts are created with `role = CUSTOMER`, and an existing `ADMIN` row keeps its role (E-4).
@@ -111,13 +120,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[config]**: Created root `.env.example` defining central environment variables, database strings, and OAuth/JWT secrets.
 - **[web]**: Configured Next.js API Gateway reverse proxy rewrites in `apps/web/next.config.js` to proxy `/api/*` to backend microservices, eliminating CORS.
 - **[web]**: Updated `apps/web/lib/api-client.ts` to fetch through the unified relative gateway route.
+- **[web]**: Added `/account` (UC-07, wireframe 03a). Redirects to `/signin` when signed out and to `/welcome` when sign-up is pending; sign-out is the header's button.
+  - Profile panel: avatar (falls back to an icon), display name and e-mail. New `.pixel-avatar` class and `PixelButton` `small` prop.
+  - Edit display name in place (UC-07, wireframes 04a–04f): the pencil swaps the name for an input with Cancel / Save, using the shared `validateDisplayName()`. Saving updates the name and header without a reload. New `updateDisplayName()` in `lib/auth.ts` is **mock-only** (no backend endpoint yet; with mocks off it always fails). `/account?mockScenario=edit-name-save-failed` shows the save-failed state. `PixelButton` now accepts a `ref`.
+  - Stat tiles, **mock-only** (`lib/mocks/account-stats.mock.ts`), using `main`'s account-service field names (`total_sessions`, `total_focus_minutes`, `rewards_earned`).
+  - "Sessions by room type": placeholder only. It needs study-session and study-timer data, and `schema.dbml` has no room-type column yet.
+  - Fish Tank, **mock-only** (`lib/mocks/rewards.mock.ts`): up to 15 caught fish swim in an aquarium (`components/account/FishTank.tsx`, `useFishSwim.ts`), with a card per species showing its count and the total in the panel header. Motion is off under `prefers-reduced-motion`. Sprites are mapped in `lib/fish-sprites.ts`; the background layers are in `lib/scenes/fishtank.ts`.
+  - **Schema conflict:** per-species counts need several `user_rewards` rows for one item, but `schema.dbml` makes `(user_id, item_id)` unique.
+  - Wood-plank page background (`public/sprites/scene/wood.png`) with soft lamp lighting; it stays still while the page scrolls.
+- **[web]**: Fish tank bubbles (`components/account/useBubbles.ts`, sprites `big_bubble.png` / `small_bubble.png` drawn by the team): every 10–30s a short stream of translucent bubbles rises from the sand and fades after 3 seconds or at the surface, never past it. Easter egg: tapping the tank quickly many times can release bubbles where you tap. Off under reduced motion.
+- **[web]**: Added a public profile view, `/profile/[userId]`: avatar, display name, stats, sessions by room type and fish tank, without the e-mail or the name editor. It shows a "Fisher not found" panel for unknown ids; signed-out viewers go to `/signin`. On `/account` a small "View public profile" button sits at the end of the e-mail line; your own public view has a "Back to account" button in the exact same spot, with the name where it is on `/account`. `PixelButton`'s `small` modifier now also works for text buttons. Both pages render the same shared components (`components/profile/`, with an `editable` prop). Loading skeletons use the real panel structure, and panels have locked minimum heights (`--panel-min-*` tokens), so loading and loaded pages are the same size. Data is **mock-only** (`lib/profile.ts`, `lib/mocks/profile.mock.ts`); the public type is the user wire type without the e-mail, and real data will come from the account, study-session / study-timer and reward services.
+- **[web]**: Tiles inside panels are now filled with a new `--color-tile` token (warm tan).
+- **[web]**: Added `apps/web/CREDITS.md` for third-party art.
+- **[web]**: Added `@fishertimer/shared-types` as an `apps/web` dependency and `'account'` to `client-api.ts`'s `ClientServiceName`, for future profile/statistics calls (`'auth'` stays as the existing gateway alias used by `lib/auth.ts`).
 
 ---
 
 ### Changed
 - **[web]**: Replaced the Turborepo starter `layout.tsx`, `page.tsx` and `globals.css`; the app is no longer titled "Create Next App".
+- **[web]**: Rewrote the sign-in / sign-up code (`lib/auth.ts`, `lib/client-api.ts`, `lib/mocks/auth.mock.ts`) to match the real account service API:
+  - Sign-in now redirects the browser to `/api/auth/google/login`; the backend sends it back to `/welcome` (new account) or `/signin` (existing account, or `?auth_error=`). `handleAuthCallback()` is replaced by `readAuthError()`.
+  - `getSession()` uses `GET /api/auth/me` (`signed_in` / `needs_signup` / `signed_out`); user fields are now the backend's snake_case names, with `role` passed through. Sign-up posts to `/api/auth/signup`; added `signOut()`.
+  - API calls go through the same-origin Next rewrites so the backend's login cookies are sent. Mock scenarios 01a–01d / 02a–02c still work via `?mockScenario=`.
+- **[web]**: Added a sign-out button to the header (top right): a square red `PixelButton` with the `Logout` icon from the new `pixelarticons` dependency. It shows only when signed in, calls `signOut()` (`POST /api/auth/signout`), then goes to `/signin`. New `components/SessionHeader.tsx` loads the session for the presentational `Header`; used on `/`. `PixelButton` gains `variant="danger"` and `icon` (`.pixel-btn--danger`, `.pixel-btn--icon`), with new `--color-rust-dk` / `--color-rust-dp` tokens.
+- **[web]**: Disabled buttons are now gray (new `--color-stone`, `--color-stone-dk`, `--color-stone-ink` tokens) instead of beige hex values hard-coded in `pixel.css`, and no longer show a variant's hover colour.
 
 ### Fixed
+- **[web]**: `globals.css` used `overflow-x: hidden` on `html`/`body`, which made `body` its own scroll container and broke sticky positioning; it now uses `overflow-x: clip`.
+- **[web]**: Link classes (`.pixel-link`, Tailwind's `underline`) had no effect: an unlayered `a` reset in `globals.css` overrode them. It now sits in `@layer base`.
 - **[web]**: Fixed `pnpm lint` failure in `apps/web/next.config.js` — added a Node globals override in `apps/web/eslint.config.js` so `process` is recognized, and declared the 7 gateway service URL env vars (`AUTH_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `SESSION_SERVICE_URL`, `TIMER_SERVICE_URL`, `REWARD_SERVICE_URL`, `LEADERBOARD_SERVICE_URL`, `ADMIN_SERVICE_URL`) in `turbo.json`'s `build` task so Turborepo hashes them correctly and `turbo/no-undeclared-env-vars` stops flagging them.
 - **[shared-types]**: Fixed `pnpm check-types` failure caused by `packages/shared-types/tsconfig.json` extending the nonexistent `@fishertimer/typescript-config/base.json`; corrected to `@repo/typescript-config/base.json`.
 
@@ -142,3 +172,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-module Go workspace `go.work` linking all 7 Go services.
 - Reproducible scaffolding script in `scripts/setup-turborepo.mjs`.
 - Phase 1 documentation in `docs/phase1/turborepo.md`, `microservice.md`, and `project-desc.md`.
+
+## [0.2.0] - 2026-09-22
+
+### Added
+- **[web]**: Added a mock-backed auth data layer for UC-06 (Sign In & Sign Up):
+  - `lib/auth.ts`: `signInWithGoogle()`, `handleAuthCallback()`, `completeFirstTimeSetup()` and `getSession()`, routed through `lib/client-api.ts`'s `clientApiFetch()`. Toggled by `NEXT_PUBLIC_USE_MOCKS` (see `.env.example`) — no component may import `fetch` or `lib/mocks/` directly.
+  - `lib/mocks/auth.mock.ts`: canned responses covering the 7 sign-in / first-time-setup wireframe states (default, consent denied, code exchange failed, account creation failed, and the three first-time setup states).
+  - `lib/validate-display-name.ts`: the display name rule (trim, 1–30 chars), pulled out of `app/styleguide/page.tsx` so both the styleguide demo and `completeFirstTimeSetup()` share one source of truth.
+- **[web]**: Added `components/ui/ParallaxScene.tsx` — a generic, full-viewport layered background scene (`ParallaxLayer[]` props, not signin-specific), combining two rendering modes since one CSS technique can't serve both art styles without either stretching or gapping:
+  - `"cover"` layers (`public/sprites/scene/skies/`: `Sky_sky.png` as the base, `sky_clouds.png` composited over it through its own transparency) are smooth painterly/gradient art with no pixel grid to misalign, so `.pixel-parallax__layer--cover` is plain `background-size: cover` — always preserves aspect ratio, only ever crops the overflow, and by definition fully covers any viewport shape (wide, narrow, short, tall). No stretch, boundless.
+  - `"tile"` layers (`public/sprites/scene/parallax-lake/`: mountains, forest-far/mid/near, valley-fill, foreground, water) are pixel-art — scaling those by any fraction (a percentage, or `cover`/`contain`) blurs their pixel grid, which reads as "stretched", so `.pixel-parallax__layer--tile` scales by the sprite's native size times `--px` instead (`--scene-tile-w`/`--scene-tile-h` tokens, the same `calc(var(--px) * n)` idiom as every other sprite scale) and tiles horizontally with an animated `background-position-x`, one tile-width per loop. This only ever covers a bounded band anchored to the bottom, not the whole viewport — a `"cover"` sky layer behind it fills whatever space opens up above that band on a tall viewport, so the two compose without a gap.
+  - Both variants share `background-position: bottom`, so they crop/anchor consistently with each other. `background-color: var(--color-sky-fill)` (new token, sampled from `Sky_sky.png`'s last opaque pixel before it fades to transparent) is the last-resort fallback below all of it.
+  - A `"cover"` layer can optionally drift (`driftSeconds`, e.g. the clouds' slow 90s-per-leg sway): since `cover` already fixes the image's scale, animating `background-position-x` as a percentage only pans within the art rather than resizing it, so it's safe in a way a percentage-driven size never was for `"tile"`. `sky_clouds.png`'s edges don't line up as a seamless tile, so `.pixel-parallax__layer--drift` eases back and forth (`animation-direction: alternate`) instead of looping in one direction, which would jump-cut at the seam.
+  - `.pixel-parallax` itself is `position: fixed; inset: 0; width: 100vw; height: 100dvh` — a container sized to its content or a wrapping box never reaches the top of a taller window — with `z-index: -1`, so it paints behind the page's normal-flow content without any component needing its own `z-index`.
+  - `lib/scenes/sky.ts` (the 2 `"cover"` layers) and `lib/scenes/parallax-lake.ts` (the 7 `"tile"` ground layers, no longer including that set's own now-unused `sky.png`/`clouds.png`) combine into `lib/scenes/signin-scene.ts`'s `SIGNIN_SCENE_LAYERS`, shared by `/signin` and the styleguide's "Scene" demo (boxed there via `contain: layout`, since the viewport-fixed scene would otherwise take over the whole preview page).
+- **[web]**: Added `/signin` (UC-06) and `/welcome` (UC-06 S-1) under `app/(auth)/`, a route group sharing one `app/(auth)/layout.tsx` (`SceneShell`: background + header + centred panel) so the background doesn't remount when navigating between them.
+  - `/signin`: Google button wired to `signInWithGoogle()` → `handleAuthCallback()`, routing to `/welcome` or `/` based on the result. Failures set `?error=<code>`, read by `SignInError.tsx`. `?mockScenario=` drives the whole flow in mock mode.
+  - `/welcome`: `PixelInput` wired to `completeFirstTimeSetup()`; both validation states (empty, too long) come from the shared `validateDisplayName()` (`lib/validate-display-name.ts`), matching the wireframe copy exactly.
+- **[web]**: Added the hanging sign (signpost, signboard, bird) to `SceneShell`, above the panel on every auth screen (`public/sprites/ui/{signpost,signboard}.png`, `public/sprites/items/sign-bird.png`). Sized via `calc(<native px> * var(--px))` in `app/pixel.css`: the post sits behind the panel, the board sways and carries "Fisher Timer" as real text, the bird perches on the panel's top-right corner and idles between frames.
+- **[web]**: `/welcome`'s panel now renders immediately regardless of the session load; only the name field and email line show a `.pixel-skeleton` placeholder while `session` is loading, sized to match the real elements so nothing shifts when they swap in.
+- **[web]**: `/welcome`'s display-name error now uses `.pixel-field-error` (`app/pixel.css`) instead of a boxed `PixelAlert` — red, pixel-label styled, and always reserves its line so the panel doesn't shift when it appears.
+- **[web]**: Added a required Privacy Notice consent checkbox to `/welcome`, gating `Continue` until checked. New `PixelCheckbox` and `PixelModal` components (`components/ui/`), with matching `.pixel-checkbox`, `.pixel-link` and `.pixel-modal` classes in `app/pixel.css`.

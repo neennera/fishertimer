@@ -55,12 +55,16 @@ Tokens are in the `@theme` block of `tokens.css`. Each one works as
 | `--color-bark` | Secondary text, edges |
 | `--color-cream` | Panel background |
 | `--color-cream-2` | Secondary buttons, dividers |
+| `--color-tile` | Sub-panel fill (a tile or box inside a panel): the warm tan of `cream-2` |
 | `--color-amber` | Primary buttons |
 | `--color-amber-dk` | Button hover and depth |
+| `--color-stone` / `-dk` / `-ink` | Disabled button cap, depth, label |
 | `--color-oak` | Header bar, wood |
 | `--color-lake` | Accent, input focus |
 | `--color-lake-dp` | Button focus ring |
-| `--color-rust` | Errors |
+| `--color-rust` | Errors, danger buttons |
+| `--color-rust-dk` | Danger button hover and depth |
+| `--color-rust-dp` | Danger button hover depth |
 
 **Not used yet** — for background scenes, not for UI.
 
@@ -104,19 +108,44 @@ From `app/pixel.css`. Use these before writing new CSS.
 
 | Class | What it is |
 | --- | --- |
-| `.pixel-header` | Top bar. Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` |
+| `.pixel-header` | Top bar, pinned to the top of the viewport (sticky, above page content). Fixed height, so it never shifts between pages. Parts: `__brand`, `__logo`, `__title`, `__avatar` (a link to `/account` styled as a cream (`--ghost`) `.pixel-btn--icon` key, with `__avatar-face` showing the picture via `__avatar-img` or initials), and `__action` for the right-hand key (sign out, or Sign in when signed out) |
 | `.pixel-panel` | Panel background with an edge and a bottom band |
-| `.pixel-btn` | Button. Add `--ghost` or `--block` |
+| `.pixel-btn` | Button. Add `--ghost`, `--danger` (red, destructive actions like sign out), `--icon` (square, one 24-unit pixelarticons glyph), `--sm` (smaller key: with `--icon` a small icon key beside text, without it a small text key such as a link-like action), `--busy` (spins its icon while an action is in flight) or `--block` |
 | `.pixel-label` | Uppercase field label |
 | `.pixel-input` | Text field. Set `aria-invalid="true"` for the error state |
 | `.pixel-error` | Message under a field |
+| `.pixel-field-error` | Same slot as `.pixel-label` (font, tracking, case) but red. Always mounted with a reserved line-height, even with no message, so an error appearing doesn't shift the layout |
+| `.pixel-checkbox` | Real `<input type="checkbox">`, visually hidden, plus a `__box` and `__label`. Checked state is fully filled amber, driven off the input's `:checked` via the adjacent-sibling selector |
+| `.pixel-link` | A `<button>` styled to read as an inline text link (e.g. opening a modal from inside a sentence) |
+| `.pixel-modal` | `.pixel-panel` surface for a dialog. Pair with `.pixel-modal-overlay` (fixed, dimmed backdrop), `__title`, `__close` (red on hover), `__body` |
 | `.pixel-alert` | Status message. Add `--warn` |
 | `.pixel-badge` | Small tag |
-| `.pixel-tile` | Number and caption, with `__value` and `__caption` |
+| `.pixel-tile` | Sub-panel: a flat block filled with `--color-tile`. Number and caption via `__value` and `__caption` |
 | `.pixel-sprite` | Pixel image. Sets `image-rendering: pixelated` |
+| `.pixel-tank` | Aquarium box: oak frame and `__water` (a size container, so contents can move in `cqw`; sets `--fish-size`, 16 art pixels, 11 on phones). `__layer` is one still background layer (`--layer-w` its native width, `--layer-offset` art pixels to shift it left); add `--front` to draw it over all but the nearest fish |
+| `.pixel-fish` | One fish in a tank. `components/account/useFishSwim.ts` moves, scales and fades it once the tank's `__water` has `data-live`, and turns and tilts `__turn`; until then, or under reduced motion, it rests at `--fish-rest-x` / `--fish-rest-y` (0–1 of the space it can swim in), facing right. On phones only the first 8 show |
+| `.pixel-tank-bubble` | A bubble in the tank (`components/account/useBubbles.ts`), `--big` (8x8) or `--small` (6x6) at `--px`: at 60% opacity: grows in, rises (`__rise`) with a sway (`__sway`), fades after 3s or at the surface (`__sprite`) |
+| `.pixel-fish-art` | A 16x16 fish picture. `--placeholder` draws a pixel fish shape in `--fish-color` with an ink outline; `--sprite` shows the 16x16 sprite, plus `--strip` for a 3-frame strip. `data-frame` on `__body` picks the tail pose (0 straight, 1 up, 2 down); without it, frame 0 |
+| `.pixel-fish-card` | Collection-list card (on `.pixel-tile`): the sprite, then `__text` with `__name` and `__count` |
+| `.pixel-name-row` | Fixed-height row for text that can be edited in place, so switching to the input never moves anything. `__text` truncates the shown text |
+| `.pixel-inline-field` | Wrapper for an inline input: draws a 1-art-pixel underline that steps in on open, turns `--color-lake-dp` on focus, and `--color-rust` with `--invalid` |
+| `.pixel-inline-input` | Borderless, transparent input sized to its content (8ch–31ch). Give it the same type classes as the text it replaces |
+| `.pixel-inline-error` | Error line for an inline edit, placed between the text and what follows. Always mounted with its space reserved (two lines on phones), so a message never shifts the page; fades in |
+| `.pixel-panel--profile` / `--stats` / `--tank` | Profile-page panels: minimum heights (md and up, from `--panel-min-*` tokens) so the loading skeleton and the loaded page are the same size |
+| `.pixel-chart` | Column chart (`components/profile/FocusHistoryChart.tsx`): a `__y` axis of `__tick`s and a `__plot` of fixed height (bar `__area` plus the x-label band, so nothing jumps or scrolls). `__area` holds hairline `__grid` lines (`--chart-grid`, `--color-tile`) and the centred `__empty` message. `__cols` holds one `__col` button per day: the whole slot is the hover / focus target; `--hidden` collapses it to zero width (ranges animate instead of re-mounting), `--active` darkens its bar. `__bar` is `--color-amber` with a 1-art-pixel `--color-amber-dk` top edge and stepped corners, at most `--chart-bar-max` wide with `--chart-bar-gap` between; `--h` (0–1) sets its height and `--i` staggers the grow; `--zero` is a `--chart-stub` amber-dk stub. `__label` is a "D/M" x label (`--end` right-aligns the last). `__bubble` is the tooltip, portalled to `<body>` so it can overhang the panel: `__bubble-value` in `--font-numeric`, `__bubble-date` in `--font-label`. The chart's text is `--font-label`, except the Total / Avg row in `--font-body`. `--at` (0–1) places ticks and gridlines. No motion under reduced motion |
+| `.pixel-wood` | Page backdrop of tiled wood planks (`public/sprites/scene/wood.png`, 32x32) at `--wood-scale` × `--px` (6 screen pixels per art pixel), under a 35% ink tint, with two soft amber lamp glows (wide ovals with an eased fade, screen-blended so they brighten the wood) and darkened corners. It is a layer fixed to the viewport, so it stays still while the page scrolls. Used on `/account`; text stays on panels |
+| `.pixel-placeholder` | Sub-panel (`--color-tile` fill) holding the place of content not built yet |
+| `.pixel-avatar` | Square profile picture with the panel bevel. `__img` for the photo, `__initials` when there is no photo or it fails to load (the same initials as the header) |
 
 React components in `components/ui/`: `PixelPanel`, `PixelButton`,
-`PixelInput`, `PixelAlert`, `PixelBadge`, `StatTile`.
+`PixelInput`, `PixelCheckbox`, `PixelModal`, `PixelAlert`, `PixelBadge`,
+`StatTile`.
+
+**Modals** portal to `document.body` (`react-dom`'s `createPortal`) rather
+than rendering in place — `position: fixed` is still clipped to the paint
+region of any ancestor with its own `clip-path`, which every `.pixel-panel`
+has, so an in-place overlay would be boxed into the panel instead of covering
+the viewport.
 
 **The style.** Square corners with one pixel cut off each corner
 (`--pixclip`), a one-pixel inset edge, and a one-pixel darker band along the
@@ -164,6 +193,22 @@ public/sprites/ui/      panel and button art
 public/sprites/scene/   background scenes
 public/sprites/items/   small images
 ```
+
+**Fish sprites** (the account page's fish tank): side view facing right,
+16x16, in `public/sprites/fish/`. A sprite may instead be a strip of three swim
+frames side by side (48x16, set `frames: 3`), which beats its tail while
+swimming. Frame 0 is also the collection-list icon. Register each one in
+`lib/fish-sprites.ts`; a species without art draws a placeholder shape.
+
+**Fish tank background**: layers in `public/sprites/scene/parallax-fishtank/`,
+listed back to front in `lib/scenes/fishtank.ts`. They draw at `--tank-px`
+(2 screen pixels per art pixel, 1 on phones) rather than `--px`, because this
+art is finer-grained than the UI sprites and would make the tank too tall.
+
+Tank fish are the one exception to the whole-pixel rule above: to swim
+naturally they glide between pixels, tilt, and shrink toward the back of the
+tank, which softens their edges slightly. The collection-list icons stay at
+whole pixels.
 
 **Replacing CSS surfaces with images.** Edit `pixel.css` only. No component or
 page changes.

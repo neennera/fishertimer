@@ -22,6 +22,131 @@
       inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.14);
   }
 
+  /* --- Skeleton loading ------------------------------------------------------
+     Placeholder for content still waiting on data (/welcome's session
+     fields). Pulses opacity; respects prefers-reduced-motion via the global
+     override. --input reuses .pixel-input's own padding/border, plus a
+     hand-tuned 52px (not calc(var(--px) * n) — 52 isn't a clean multiple)
+     to match a real <input>'s intrinsic sizing. --text sits inside the same
+     <p> as the real line so that line's own box reserves the height. */
+  .pixel-skeleton {
+    background: var(--color-cream-2);
+    clip-path: var(--pixclip);
+    animation: pixel-skeleton-pulse 1.2s ease-in-out infinite;
+  }
+
+  .pixel-input.pixel-skeleton {
+    background: var(--color-cream-2);
+    height: 52px;
+  }
+
+  .pixel-skeleton--text {
+    display: inline-block;
+    width: 70%;
+    height: 1em;
+  }
+
+  @keyframes pixel-skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* --- Hanging sign --------------------------------------------------------
+     Signpost + signboard + bird above the panel on every auth screen
+     (SceneShell). Sized by calc(<native pixels> * var(--px)), same idiom as
+     every other sprite here. Alignment (centered post, right-aligned bird)
+     is Tailwind on the JSX side, not here.
+
+     The post is plain/non-positioned so PixelPanel (position: relative)
+     paints over it — its negative margin-bottom overlap reads as planted
+     behind the panel. The board needs `position: relative` to paint over
+     the post the same way, where the post's negative margin-top tucks
+     under it. The bird needs `position: relative; z-index: 1` since it's
+     meant to paint in front of the panel, not behind it.
+
+     No mount-in animation on the sign or panel — /welcome's panel waits on
+     an async session load while the sign (in the persistent
+     app/(auth)/layout.tsx) doesn't, so any entrance timing raced. The panel
+     renders immediately instead, with a skeleton (above) for what's
+     loading. */
+  .pixel-sign__board {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(90 * var(--px));
+    height: calc(30 * var(--px));
+    padding-inline: calc(var(--px) * 3);
+    background-image: url(/sprites/ui/signboard.png);
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+    /* Bottom, not top: that edge touches the post, so it must stay put
+       through the sway. */
+    transform-origin: bottom center;
+    animation: pixel-sign-sway 5s ease-in-out infinite;
+  }
+
+  .pixel-sign__board-text {
+    font-family: var(--font-display);
+    font-size: calc(var(--px) * 16);
+    line-height: 1.1;
+    color: var(--color-cream);
+    text-align: center;
+  }
+
+  @keyframes pixel-sign-sway {
+    0%,
+    100% {
+      transform: rotate(-3deg);
+    }
+    50% {
+      transform: rotate(3deg);
+    }
+  }
+
+  .pixel-sign__post {
+    position: relative;
+    z-index: -1;
+    width: calc(18 * var(--px));
+    height: calc(26 * var(--px));
+    margin-top: calc(var(--px) * -1);
+    margin-bottom: calc(var(--px) * -24);
+    background-image: url(/sprites/ui/signpost.png);
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+  }
+
+  /* One 16x16 frame of the 3-frame, 48x16 sheet. steps(3) divides the loop
+     into three equal holds and jumps — a slow idle shift between frames,
+     not a continuous flap. */
+  .pixel-sign-bird {
+    position: relative;
+    z-index: 1;
+    width: calc(16 * var(--px));
+    height: calc(16 * var(--px));
+    margin-bottom: calc(var(--px) * -3);
+    background-image: url(/sprites/items/sign-bird.png);
+    background-repeat: no-repeat;
+    background-size: calc(48 * var(--px)) calc(16 * var(--px));
+    image-rendering: pixelated;
+    animation: pixel-sign-bird-idle 3.5s steps(3) infinite;
+  }
+
+  @keyframes pixel-sign-bird-idle {
+    from {
+      background-position-x: 0;
+    }
+    to {
+      background-position-x: calc(-48 * var(--px));
+    }
+  }
+
   /* --- Button: a chunky key sitting in its own socket ---------------------
      ::after draws the thickness, ::before draws the cap one pixel above it.
      Pressing drops the cap and the thickness vanishes, so the key ends flush.
@@ -105,10 +230,13 @@
     --thick: #bca47c;
   }
 
-  .pixel-btn:disabled {
-    --cap: #e3d6bc;
-    --thick: #cbbb9c;
-    color: #96866d;
+  /* :hover too, so a variant's hover colours (ghost, danger) never show
+     through on a disabled key. */
+  .pixel-btn:disabled,
+  .pixel-btn:disabled:hover {
+    --cap: var(--color-stone);
+    --thick: var(--color-stone-dk);
+    color: var(--color-stone-ink);
     cursor: not-allowed;
   }
   /* Disabled refuses to press, however hard you click it. */
@@ -124,6 +252,65 @@
 
   .pixel-btn--block {
     width: 100%;
+  }
+
+  /* Destructive actions (sign out). */
+  .pixel-btn--danger {
+    --cap: var(--color-rust);
+    --thick: var(--color-rust-dk);
+    color: var(--color-cream);
+  }
+  .pixel-btn--danger:hover {
+    --cap: var(--color-rust-dk);
+    --thick: var(--color-rust-dp);
+  }
+
+  /* Square key holding one pixelarticons glyph (24-unit grid, so 8 art
+     pixels keeps it crisp at --px: 3). Same press as the text button: one
+     pixel of padding swaps top-for-bottom. Declared after :disabled so the
+     disabled "refuses to press" reset keeps the icon padding. */
+  .pixel-btn--icon,
+  .pixel-btn--icon:disabled:active {
+    padding: calc(var(--px) * 2) calc(var(--px) * 2) calc(var(--px) * 3);
+  }
+  .pixel-btn--icon:active {
+    padding: calc(var(--px) * 3) calc(var(--px) * 2) calc(var(--px) * 2);
+  }
+  .pixel-btn--icon svg {
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+  }
+
+  /* Small square key for an inline action next to text (edit display name).
+     Same press, one pixel less padding all round, and a 6-unit glyph. */
+  .pixel-btn--icon.pixel-btn--sm,
+  .pixel-btn--icon.pixel-btn--sm:disabled:active {
+    padding: var(--px) var(--px) calc(var(--px) * 2);
+  }
+  .pixel-btn--icon.pixel-btn--sm:active {
+    padding: calc(var(--px) * 2) var(--px) var(--px);
+  }
+  .pixel-btn--sm svg {
+    width: calc(var(--px) * 6);
+    height: calc(var(--px) * 6);
+  }
+  /* Small text key, e.g. a link-like action at the end of a line. */
+  .pixel-btn--sm:not(.pixel-btn--icon),
+  .pixel-btn--sm:not(.pixel-btn--icon):disabled:active {
+    font-size: calc(var(--px) * 5);
+    padding: var(--px) calc(var(--px) * 3) calc(var(--px) * 2);
+  }
+  .pixel-btn--sm:not(.pixel-btn--icon):active {
+    padding: calc(var(--px) * 2) calc(var(--px) * 3) var(--px);
+  }
+  /* Swaps its icon for a stepped spinner while an action is in flight. */
+  .pixel-btn--busy svg {
+    animation: pixel-spin 0.8s steps(8) infinite;
+  }
+  @keyframes pixel-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* --- Input -------------------------------------------------------------- */
@@ -147,7 +334,7 @@
     border-radius: 0;
     clip-path: var(--pixclip);
     padding: calc(var(--px) * 4) calc(var(--px) * 5);
-    box-shadow: inset 0 0 0 var(--px) #e0ceac;
+    box-shadow: inset 0 0 0 var(--px) var(--color-cream-2);
   }
   .pixel-input:focus {
     outline: none;
@@ -162,6 +349,147 @@
     font-weight: 700;
     font-size: 0.85rem;
     margin-top: calc(var(--px) * 2);
+  }
+
+  /* Same slot as .pixel-label (font, tracking, case) but red, and always
+     mounted with a reserved line-height — even with no message — so a
+     field's error appearing/disappearing never shifts the panel around it. */
+  .pixel-field-error {
+    display: block;
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3.4);
+    line-height: 1.4;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-rust);
+    margin-top: calc(var(--px) * 2);
+    min-height: calc(1.4em);
+  }
+
+  /* --- Checkbox ------------------------------------------------------------
+     A real <input type="checkbox">, visually hidden (clipped, not
+     display:none, so it stays tabbable/announced) rather than replaced —
+     the box and label are both `<label for>` siblings that toggle it, and
+     the box itself is styled off the input's :checked state via the
+     adjacent-sibling selector below. */
+  .pixel-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: calc(var(--px) * 3);
+    cursor: pointer;
+  }
+
+  .pixel-checkbox__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .pixel-checkbox__box {
+    position: relative;
+    flex: none;
+    width: calc(var(--px) * 6);
+    height: calc(var(--px) * 6);
+    margin-top: calc(var(--px) * 0.5);
+    background: #fff;
+    clip-path: var(--pixclip);
+    box-shadow: inset 0 0 0 var(--px) var(--color-cream-2);
+    cursor: pointer;
+  }
+
+  .pixel-checkbox__input:checked + .pixel-checkbox__box {
+    background: var(--color-amber);
+    box-shadow: inset 0 0 0 var(--px) var(--color-amber-dk);
+  }
+
+  .pixel-checkbox__input:focus-visible + .pixel-checkbox__box {
+    box-shadow:
+      inset 0 0 0 var(--px) var(--color-lake-dp),
+      0 0 0 var(--px) var(--color-lake-dp);
+  }
+
+  .pixel-checkbox__label {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  /* --- Inline link ---------------------------------------------------------
+     A <button> made to read as a link — used where a sentence needs an
+     inline action (e.g. "the Privacy Notice" opening a modal) rather than
+     navigating away. */
+  .pixel-link {
+    font: inherit;
+    color: var(--color-lake-dp);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .pixel-link:hover {
+    color: var(--color-lake);
+  }
+
+  /* --- Modal -----------------------------------------------------------------
+     Dimmed backdrop plus a .pixel-panel surface — same parchment bevel as
+     every other panel, just floated over the page instead of sitting in it. */
+  .pixel-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--px) * 6);
+    background: rgb(58 42 30 / 0.55);
+  }
+
+  .pixel-modal {
+    width: 100%;
+    max-width: 32rem;
+    max-height: 80vh;
+    overflow-y: auto;
+    text-align: left;
+  }
+
+  .pixel-modal__title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1.1;
+  }
+
+  .pixel-modal__close {
+    flex: none;
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+    line-height: 1;
+    font-size: 1.25rem;
+    color: var(--color-bark);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .pixel-modal__close:hover {
+    color: var(--color-rust);
+  }
+
+  .pixel-modal__body {
+    margin-top: calc(var(--px) * 4);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-ink);
+  }
+  .pixel-modal__body p + p {
+    margin-top: calc(var(--px) * 3);
   }
 
   /* --- Alert -------------------------------------------------------------- */
@@ -195,15 +523,13 @@
   }
 
   /* --- Stat tile ---------------------------------------------------------- */
+  /* Sub-panel. */
   .pixel-tile {
-    background: var(--color-cream);
+    background: var(--color-tile);
     color: var(--color-ink);
     clip-path: var(--pixclip);
     text-align: center;
-    padding: calc(var(--px) * 5) calc(var(--px) * 3) calc(var(--px) * 6);
-    box-shadow:
-      inset 0 0 0 var(--px) rgb(107 75 53 / 0.17),
-      inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.12);
+    padding: calc(var(--px) * 5) calc(var(--px) * 3);
   }
   .pixel-tile__value {
     font-family: var(--font-numeric);
@@ -227,10 +553,715 @@
     height: auto;
   }
 
+  /* --- Avatar --------------------------------------------------------------
+     Square profile picture with the panel bevel. The photo (Google's
+     avatar_url) is not pixel art, so it is not .pixel-sprite. With no photo,
+     or one that fails to load, __initials shows the user's initials (as the
+     header does) in the same box, so nothing reflows between the two. */
+  .pixel-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: calc(var(--px) * 28);
+    height: calc(var(--px) * 28);
+    overflow: hidden;
+    background: var(--color-cream-2);
+    color: var(--color-bark);
+    clip-path: var(--pixclip);
+    box-shadow: inset 0 0 0 var(--px) rgb(107 75 53 / 0.17);
+  }
+  .pixel-avatar__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .pixel-avatar__initials {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 12);
+    line-height: 1;
+    color: var(--color-ink);
+  }
+
+  /* --- Fish tank ------------------------------------------------------------
+     Stacking: layers 0, fish 1–11 by depth (useFishSwim), --front layer 10. */
+  .pixel-tank {
+    padding: calc(var(--px) * 2);
+    background: var(--color-oak);
+    clip-path: var(--pixclip);
+  }
+  .pixel-tank__water {
+    position: relative;
+    container-type: inline-size;
+    height: calc(var(--tank-px) * var(--tank-tile-h));
+    overflow: hidden;
+    background: var(--color-lake-dp);
+    /* Art pixels; also read by useFishSwim. */
+    --fish-size: 16;
+  }
+  .pixel-tank__layer {
+    position: absolute;
+    inset: 0;
+    background-repeat: repeat-x;
+    background-position: calc(var(--tank-px) * var(--layer-offset) * -1) bottom;
+    background-size: calc(var(--tank-px) * var(--layer-w)) calc(var(--tank-px) * var(--tank-tile-h));
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+  .pixel-tank__layer--front {
+    z-index: 10;
+  }
+
+  /* A bubble (useBubbles): grows in, rises (__rise) with a slight sway
+     (__sway), and fades out after a few seconds or at the surface, without
+     scaling up, so it never passes the top of the water. Drawn at --px, like
+     the fish, and translucent. */
+  .pixel-tank-bubble {
+    position: absolute;
+    z-index: 9;
+    left: calc(var(--px) * var(--bubble-left));
+    bottom: calc(var(--px) * var(--bubble-bottom));
+    width: calc(var(--px) * var(--bubble-size));
+    height: calc(var(--px) * var(--bubble-size));
+    pointer-events: none;
+  }
+  .pixel-tank-bubble--big {
+    --bubble-size: 8;
+    --bubble-src: url(/sprites/items/big_bubble.png);
+  }
+  .pixel-tank-bubble--small {
+    --bubble-size: 6;
+    --bubble-src: url(/sprites/items/small_bubble.png);
+  }
+  .pixel-tank-bubble__rise,
+  .pixel-tank-bubble__sway,
+  .pixel-tank-bubble__sprite {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .pixel-tank-bubble__rise {
+    animation: pixel-bubble-rise var(--bubble-rise-s) linear var(--bubble-in-s) both;
+  }
+  .pixel-tank-bubble__sway {
+    animation: pixel-bubble-sway var(--bubble-sway-s) ease-in-out var(--bubble-in-s) infinite alternate;
+  }
+  .pixel-tank-bubble__sprite {
+    background: var(--bubble-src) center / 100% 100% no-repeat;
+    image-rendering: pixelated;
+    opacity: 0.6;
+    animation:
+      pixel-bubble-in var(--bubble-in-s) steps(3) both,
+      pixel-bubble-pop var(--bubble-pop-s) steps(4) var(--bubble-pop-at) forwards;
+  }
+  @keyframes pixel-bubble-rise {
+    to {
+      transform: translateY(calc(var(--px) * var(--bubble-rise) * -1));
+    }
+  }
+  @keyframes pixel-bubble-sway {
+    from {
+      transform: translateX(calc(var(--px) * -1));
+    }
+    to {
+      transform: translateX(var(--px));
+    }
+  }
+  @keyframes pixel-bubble-in {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+  @keyframes pixel-bubble-pop {
+    to {
+      opacity: 0;
+    }
+  }
+
+  /* Moved by useFishSwim once [data-live]. Otherwise (no JS, reduced motion)
+     it rests at --fish-rest-x/-y, using the same bounds as useFishSwim so
+     nothing jumps when swimming starts. */
+  .pixel-fish {
+    position: absolute;
+    /* At rest, in front of the rocks so none is hidden. */
+    z-index: 11;
+    top: calc(var(--px) * 2 + var(--fish-rest-y) * (84% - var(--px) * (var(--fish-size) + 2)));
+    left: 0;
+    transform: translateX(calc(var(--fish-rest-x) * (100cqw - var(--px) * (var(--fish-size) + 2))));
+    /* Without its own layer, the moving outline leaves ghosts in Chrome. */
+    will-change: transform, opacity;
+  }
+  .pixel-tank__water[data-live] .pixel-fish {
+    top: 0;
+  }
+  /* Phones: smaller fish, first 8 only (tankFish orders species first). */
+  @media (max-width: 767px) {
+    .pixel-tank__water {
+      --fish-size: 11;
+    }
+    .pixel-fish:nth-of-type(n + 9) {
+      display: none;
+    }
+  }
+  .pixel-fish__turn {
+    display: block;
+  }
+
+  /* data-frame on __body is the tail pose (0 straight, 1 up, 2 down). The
+     placeholder's outline filter is on the wrapper: on the clipped body it
+     would be clipped away. */
+  .pixel-fish-art {
+    --fish-art: calc(var(--px) * var(--fish-size, 16));
+    display: block;
+    flex: none;
+    width: var(--fish-art);
+    height: var(--fish-art);
+  }
+  .pixel-fish-art--placeholder {
+    filter: drop-shadow(var(--px) 0 0 var(--color-ink))
+      drop-shadow(calc(var(--px) * -1) 0 0 var(--color-ink))
+      drop-shadow(0 var(--px) 0 var(--color-ink))
+      drop-shadow(0 calc(var(--px) * -1) 0 var(--color-ink));
+  }
+  .pixel-fish-art__body {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  /* 16-unit grid; the poses differ only in the tail. */
+  .pixel-fish-art--placeholder .pixel-fish-art__body {
+    background: var(--fish-color);
+    clip-path: polygon(
+      0% 18.75%, 12.5% 18.75%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
+      43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
+      93.75% 31.25%, 93.75% 37.5%, 100% 37.5%, 100% 62.5%, 93.75% 62.5%,
+      93.75% 68.75%, 87.5% 68.75%, 87.5% 75%, 75% 75%, 75% 81.25%, 43.75% 81.25%,
+      43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
+      12.5% 81.25%, 0% 81.25%, 0% 62.5%, 6.25% 62.5%, 6.25% 37.5%, 0% 37.5%
+    );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body[data-frame="1"] {
+    clip-path: polygon(
+      0% 12.5%, 12.5% 12.5%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
+      43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
+      93.75% 31.25%, 93.75% 37.5%, 100% 37.5%, 100% 62.5%, 93.75% 62.5%,
+      93.75% 68.75%, 87.5% 68.75%, 87.5% 75%, 75% 75%, 75% 81.25%, 43.75% 81.25%,
+      43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
+      12.5% 75%, 0% 75%, 0% 56.25%, 6.25% 56.25%, 6.25% 31.25%, 0% 31.25%
+    );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body[data-frame="2"] {
+    clip-path: polygon(
+      0% 25%, 12.5% 25%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
+      43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
+      93.75% 31.25%, 93.75% 37.5%, 100% 37.5%, 100% 62.5%, 93.75% 62.5%,
+      93.75% 68.75%, 87.5% 68.75%, 87.5% 75%, 75% 75%, 75% 81.25%, 43.75% 81.25%,
+      43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
+      12.5% 87.5%, 0% 87.5%, 0% 68.75%, 6.25% 68.75%, 6.25% 43.75%, 0% 43.75%
+    );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body::after {
+    content: "";
+    position: absolute;
+    top: 37.5%;
+    left: 75%;
+    width: var(--px);
+    height: var(--px);
+    background: var(--color-ink);
+  }
+  .pixel-fish-art--sprite .pixel-fish-art__body {
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+  }
+  .pixel-fish-art--strip .pixel-fish-art__body {
+    background-size: calc(var(--fish-art) * 3) var(--fish-art);
+  }
+  .pixel-fish-art--strip .pixel-fish-art__body[data-frame="1"] {
+    background-position-x: calc(var(--fish-art) * -1);
+  }
+  .pixel-fish-art--strip .pixel-fish-art__body[data-frame="2"] {
+    background-position-x: calc(var(--fish-art) * -2);
+  }
+
+  .pixel-fish-card {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 4);
+    padding: calc(var(--px) * 3) calc(var(--px) * 4) calc(var(--px) * 3) calc(var(--px) * 3);
+    text-align: left;
+  }
+  .pixel-fish-card__text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: calc(var(--px) * 2);
+  }
+  .pixel-fish-card__name {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1;
+    overflow-wrap: break-word;
+  }
+  .pixel-fish-card__count {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 7);
+    line-height: 1;
+    color: var(--color-bark);
+  }
+
+  /* --- Inline edit -----------------------------------------------------------
+     Editing text in place (the /account display name). The row has a fixed
+     height so swapping text for input never moves anything; the input takes
+     the text's own type classes and only adds an underline. */
+  .pixel-name-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 2);
+    height: calc(var(--px) * 11);
+    min-width: 0;
+  }
+  .pixel-name-row__text {
+    min-width: 0;
+    padding-bottom: var(--px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pixel-inline-field {
+    position: relative;
+    display: flex;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .pixel-inline-field::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: var(--px);
+    background: var(--color-bark);
+    transform-origin: left;
+    animation: pixel-underline-in 0.12s steps(4) both;
+    transition: background-color 0.12s ease-out;
+    pointer-events: none;
+  }
+  .pixel-inline-field:focus-within::after {
+    background: var(--color-lake-dp);
+  }
+  .pixel-inline-field--invalid::after,
+  .pixel-inline-field--invalid:focus-within::after {
+    background: var(--color-rust);
+  }
+  @keyframes pixel-underline-in {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  .pixel-inline-input {
+    field-sizing: content;
+    min-width: 8ch;
+    max-width: min(31ch, 100%);
+    margin: 0;
+    padding: 0 0 var(--px);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    caret-color: var(--color-amber-dk);
+    outline: none;
+    transition: opacity 0.12s ease-out;
+  }
+  .pixel-inline-input:disabled {
+    color: inherit;
+    opacity: 0.6;
+  }
+  /* The check / close keys arrive with the underline. */
+  .pixel-name-row .pixel-inline-field ~ .pixel-btn {
+    animation: pixel-fade-in 0.12s ease-out both;
+  }
+  @keyframes pixel-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  /* Between the name and the e-mail, always mounted with room for the
+     message, so an error never shifts the page. Two lines on phones, where
+     the longest message wraps. */
+  .pixel-inline-error {
+    margin: var(--px) 0;
+    min-height: 1.4em;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--color-rust);
+  }
+  /* Your own public view: the name centres beside the avatar as on anyone
+     else's profile, with the button pinned where it sits on /account. */
+  @media (min-width: 640px) {
+    .pixel-profile-preview .pixel-inline-error {
+      display: none;
+    }
+    .pixel-profile-preview .pixel-name-bottom {
+      position: absolute;
+      right: calc(var(--px) * 6);
+      bottom: calc(var(--px) * 6);
+    }
+  }
+  .pixel-inline-error:not(:empty) {
+    animation: pixel-fade-in 0.12s ease-out;
+  }
+  @media (max-width: 639px) {
+    .pixel-inline-error {
+      min-height: 2.8em;
+    }
+  }
+
+  /* --- Wood background -------------------------------------------------------
+     A fixed layer rather than background-attachment: fixed, which iOS Safari
+     ignores. Layers: two lamp glows (screen-blended), vignette, tint, planks. */
+  .pixel-wood::before {
+    --wood-size: calc(var(--px) * var(--wood-scale) * var(--wood-tile));
+    --wood-shade: color-mix(in srgb, var(--color-ink) 35%, transparent);
+    --glow: var(--color-amber);
+    --vignette: color-mix(in srgb, var(--color-ink) 70%, transparent);
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse 55vmax 42vmax at 12% 16%,
+        color-mix(in srgb, var(--glow) 34%, transparent) 0%,
+        color-mix(in srgb, var(--glow) 26%, transparent) 15%,
+        color-mix(in srgb, var(--glow) 17%, transparent) 32%,
+        color-mix(in srgb, var(--glow) 9%, transparent) 52%,
+        color-mix(in srgb, var(--glow) 3%, transparent) 74%,
+        transparent 100%
+      ),
+      radial-gradient(
+        ellipse 45vmax 35vmax at 90% 74%,
+        color-mix(in srgb, var(--glow) 26%, transparent) 0%,
+        color-mix(in srgb, var(--glow) 19%, transparent) 15%,
+        color-mix(in srgb, var(--glow) 12%, transparent) 32%,
+        color-mix(in srgb, var(--glow) 6%, transparent) 52%,
+        color-mix(in srgb, var(--glow) 2%, transparent) 74%,
+        transparent 100%
+      ),
+      radial-gradient(ellipse at center, transparent 50%, var(--vignette) 110%),
+      linear-gradient(var(--wood-shade), var(--wood-shade)),
+      url(/sprites/scene/wood.png) 0 0 / var(--wood-size) var(--wood-size) repeat,
+      var(--color-oak);
+    background-blend-mode: screen, screen, multiply, normal, normal, normal;
+    image-rendering: pixelated;
+  }
+
+  /* --- Profile page panels --------------------------------------------------
+     Locked minimum heights (md and up) so loading and loaded match. */
+  @media (min-width: 768px) {
+    .pixel-panel--profile {
+      min-height: var(--panel-min-profile);
+    }
+    .pixel-panel--stats {
+      min-height: var(--panel-min-stats);
+    }
+    .pixel-panel--tank {
+      min-height: var(--panel-min-tank);
+    }
+  }
+
+  /* --- Column chart (focus history) -------------------------------------------
+     Fixed height, so ranges and loading never move anything. Columns outside
+     the range shrink to zero width rather than unmounting, so bars slide. */
+  .pixel-chart {
+    --chart-area: calc(var(--px) * 50);
+    --chart-band: calc(var(--px) * 7);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: calc(var(--px) * 2);
+    padding-top: calc(var(--px) * 2);
+  }
+  .pixel-chart__y {
+    position: relative;
+    height: var(--chart-area);
+    min-width: calc(var(--px) * 10);
+  }
+  .pixel-chart__tick,
+  .pixel-chart__label {
+    font-size: calc(var(--px) * 3.6);
+    line-height: 1;
+    color: var(--color-bark);
+    white-space: nowrap;
+  }
+  .pixel-chart__tick {
+    position: absolute;
+    right: 0;
+    bottom: calc(var(--at) * 100%);
+    transform: translateY(50%);
+  }
+  .pixel-chart__plot {
+    position: relative;
+    height: calc(var(--chart-area) + var(--chart-band));
+  }
+  .pixel-chart__area {
+    position: absolute;
+    inset: 0 0 auto;
+    height: var(--chart-area);
+  }
+  .pixel-chart__grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--at) * 100%);
+    height: var(--chart-grid);
+    background: var(--color-tile);
+  }
+  .pixel-chart__empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: calc(var(--px) * 2);
+    font-size: 0.85rem;
+    text-align: center;
+    color: var(--color-bark);
+  }
+  .pixel-chart__cols {
+    position: absolute;
+    inset: 0;
+    display: flex;
+  }
+  .pixel-chart__col {
+    position: relative;
+    /* A button centres its content; pin the bar slot to the top. */
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    padding: 0 calc(var(--chart-bar-gap) / 2);
+    border: 0;
+    background: none;
+    cursor: pointer;
+    transition:
+      flex-grow 0.3s ease-out,
+      padding 0.3s ease-out;
+  }
+  .pixel-chart__col--hidden {
+    flex-grow: 0;
+    padding-inline: 0;
+    pointer-events: none;
+  }
+  .pixel-chart__col:focus-visible {
+    outline: var(--px) solid var(--color-lake-dp);
+    outline-offset: calc(var(--px) * -1);
+  }
+  .pixel-chart__bar-slot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: var(--chart-area);
+  }
+  .pixel-chart__bar {
+    display: block;
+    width: 100%;
+    max-width: var(--chart-bar-max);
+    height: calc(var(--h) * 100%);
+    background: var(--color-amber);
+    box-shadow: inset 0 var(--px) 0 var(--color-amber-dk);
+    clip-path: polygon(
+      var(--px) 0,
+      calc(100% - var(--px)) 0,
+      100% var(--px),
+      100% 100%,
+      0 100%,
+      0 var(--px)
+    );
+    transition:
+      height 0.3s ease-out calc(var(--i) * 12ms),
+      background-color 0.12s ease-out;
+  }
+  .pixel-chart__bar--zero {
+    height: var(--chart-stub);
+    background: var(--color-amber-dk);
+    box-shadow: none;
+    clip-path: none;
+  }
+  .pixel-chart__col:hover .pixel-chart__bar,
+  .pixel-chart__col--active .pixel-chart__bar {
+    background: var(--color-amber-dk);
+  }
+  .pixel-chart__label {
+    position: absolute;
+    bottom: 0;
+    /* Tall enough for the glyphs, so nothing overflows the plot. */
+    line-height: normal;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .pixel-chart__label--end {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+  .pixel-chart__col--active .pixel-chart__bar-slot {
+    background: color-mix(in srgb, var(--color-tile) 60%, transparent);
+  }
+  /* Portalled to <body>: panels clip their children. */
+  .pixel-chart__bubble {
+    position: absolute;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(var(--px) * 2) calc(var(--px) * 3);
+    background: var(--color-ink);
+    color: var(--color-cream);
+    font-family: var(--font-label);
+    clip-path: var(--pixclip);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .pixel-chart__bubble-value {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 6);
+    line-height: 1;
+  }
+  .pixel-chart__bubble-date {
+    margin-top: calc(var(--px) * 1.5);
+    font-size: calc(var(--px) * 3.4);
+    line-height: 1;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-cream-2);
+  }
+  /* The global rule shortens durations but not delays; drop the stagger too. */
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-chart__bar,
+    .pixel-chart__col {
+      transition: none;
+    }
+  }
+
+  /* --- Placeholder -----------------------------------------------------------
+     Inset box holding the spot for content that isn't built yet, so the page
+     keeps its final shape. */
+  .pixel-placeholder {
+    display: grid;
+    place-items: center;
+    min-height: calc(var(--px) * 40);
+    padding: calc(var(--px) * 4);
+    background: var(--color-tile);
+    color: var(--color-bark);
+    clip-path: var(--pixclip);
+    text-align: center;
+  }
+
+  /* --- Parallax scene ------------------------------------------------------
+     A stack of full-bleed background layers, fixed to the viewport rather
+     than sized to its container — a container sized to its content doesn't
+     reach the top of a taller window, which is what left a gap above the
+     sky in an earlier version of this. z-index: -1 with no other positioned
+     ancestor in the page paints it behind the root stacking context's
+     normal-flow content (Header, panel, page body) automatically — see how
+     stacking order works for negative-z-index descendants.
+
+     Two layer variants, because one CSS technique can't serve both art
+     styles without either stretching or gapping:
+
+     --cover is for smooth painterly/gradient art (public/sprites/scene/
+     skies/) with no pixel grid to misalign, so background-size: cover —
+     which always preserves aspect ratio and only ever crops the overflow,
+     never distorts it — is the correct, ordinary tool: it fully covers any
+     viewport shape (wide, narrow, short, tall) by definition, boundless.
+
+     --tile is for pixel-art sprites (public/sprites/scene/parallax-lake/):
+     scaling those by any fraction (a percentage, or cover/contain) blurs
+     their pixel grid, which reads as "stretched", so background-size is the
+     sprite's native size times --px instead — the same calc(var(--px) * n)
+     idiom as every other sprite scale in this file. That only ever covers a
+     bounded band anchored to the bottom, not the whole viewport; a --cover
+     sky layer behind it naturally fills whatever space opens up above that
+     band on a tall viewport, so the two compose without a gap. The
+     background-position-x scroll shifts by exactly one tile's width (a real
+     length, since the tile size is fixed) with background-repeat: repeat-x
+     — seamless at any width, no double-width element or transform trick.
+
+     Both variants share background-position: bottom, so a --tile band and
+     any --cover layers behind it crop/anchor consistently with each other.
+     --color-sky-fill (the container's own background) is the last-resort
+     fallback below all of it.
+
+     A --cover layer can optionally --drift: since cover already fixes the
+     image's scale, animating background-position-x as a percentage only
+     pans within the art — it never resizes it, so it's safe in a way a
+     percentage-driven size never was for --tile. sky_clouds.png's left and
+     right edges don't line up (it isn't a seamless tile), so this eases
+     back and forth (animation-direction: alternate) instead of looping in
+     one direction, which would jump-cut at the seam. */
+  .pixel-parallax {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: -1;
+    overflow: hidden;
+    background-color: var(--color-sky-fill);
+  }
+
+  .pixel-parallax__layer {
+    position: absolute;
+    inset: 0;
+    background-position: bottom;
+  }
+
+  .pixel-parallax__layer--cover {
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .pixel-parallax__layer--drift {
+    animation-name: pixel-parallax-drift;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+
+  @keyframes pixel-parallax-drift {
+    from {
+      background-position-x: 40%;
+    }
+    to {
+      background-position-x: 60%;
+    }
+  }
+
+  .pixel-parallax__layer--tile {
+    background-repeat: repeat-x;
+    background-size: calc(var(--scene-tile-w) * var(--px)) calc(var(--scene-tile-h) * var(--px));
+    image-rendering: pixelated;
+    animation-name: pixel-parallax-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes pixel-parallax-scroll {
+    from {
+      background-position-x: 0;
+    }
+    to {
+      background-position-x: calc(var(--scene-tile-w) * var(--px) * -1);
+    }
+  }
+
   /* --- Header -------------------------------------------------------------
      Fixed height. It must not change between pages, whether or not an avatar
      is present, so the height is set here and never derived from content. */
+  /* Pinned to the top of the viewport; above the page's own stacking (the
+     fish tank's layers go up to 11). */
   .pixel-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
     display: flex;
     align-items: center;
     gap: calc(var(--px) * 3);
@@ -269,16 +1300,26 @@
 
   .pixel-header__avatar {
     margin-left: auto;
-    flex: none;
+  }
+  .pixel-header__avatar-face {
     display: grid;
     place-items: center;
-    width: calc(var(--px) * 10);
-    height: calc(var(--px) * 10);
-    background: var(--color-lake);
-    color: var(--color-cream);
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+    overflow: hidden;
     clip-path: var(--pixclip);
     font-family: var(--font-numeric);
     font-size: calc(var(--px) * 5);
     line-height: 1;
+  }
+  .pixel-header__avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Sign out / Sign in: pushed right when no avatar comes before it. */
+  .pixel-header__brand + .pixel-header__action {
+    margin-left: auto;
   }
 }

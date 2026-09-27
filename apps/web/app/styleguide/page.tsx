@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Logout } from "pixelarticons/react/Logout";
 import { Header } from "../../components/Header";
 import { PixelAlert } from "../../components/ui/PixelAlert";
 import { PixelBadge } from "../../components/ui/PixelBadge";
 import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelInput } from "../../components/ui/PixelInput";
 import { PixelPanel } from "../../components/ui/PixelPanel";
+import { ParallaxScene } from "../../components/ui/ParallaxScene";
 import { StatTile } from "../../components/ui/StatTile";
+import { SIGNIN_SCENE_LAYERS } from "../../lib/scenes/signin-scene";
+import { validateDisplayName } from "../../lib/validate-display-name";
 
 const ASSIGNED = [
   ["ink", "Text"],
@@ -16,10 +20,15 @@ const ASSIGNED = [
   ["cream-2", "Secondary control"],
   ["amber", "Primary action"],
   ["amber-dk", "Hover, depth"],
+  ["stone", "Disabled"],
+  ["stone-dk", "Disabled depth"],
+  ["stone-ink", "Disabled label"],
   ["oak", "Header, wood"],
   ["lake", "Accent, field focus"],
   ["lake-dp", "Focus ring"],
-  ["rust", "Error"],
+  ["rust", "Error, danger"],
+  ["rust-dk", "Danger hover, depth"],
+  ["rust-dp", "Danger hover depth"],
 ] as const;
 
 const AVAILABLE = [
@@ -182,17 +191,12 @@ export default function StyleguidePage() {
   const hex = useTokenHex(theme);
   const [name, setName] = useState("Chayut A.");
 
-  const trimmed = name.trim();
-  const nameError =
-    trimmed.length === 0
-      ? "Name can't be empty."
-      : trimmed.length > 100
-        ? "Name can't be longer than 100 characters."
-        : undefined;
+  const nameError = validateDisplayName(name);
 
   return (
     <>
-      <Header user={{ displayName: "Chayut A." }} />
+      {/* Demo only: the real sign-out wiring lives in SessionHeader. */}
+      <Header user={{ displayName: "Chayut A." }} onSignOut={() => {}} />
 
       <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -260,6 +264,15 @@ export default function StyleguidePage() {
                 <PixelButton>Continue</PixelButton>
                 <PixelButton variant="ghost">Cancel</PixelButton>
                 <PixelButton disabled>Saving…</PixelButton>
+                <div className="flex gap-2">
+                  <PixelButton variant="danger">Sign out</PixelButton>
+                  <PixelButton variant="danger" icon aria-label="Sign out" title="Sign out">
+                    <Logout aria-hidden="true" />
+                  </PixelButton>
+                  <PixelButton variant="danger" icon disabled aria-label="Signing out">
+                    <Logout aria-hidden="true" />
+                  </PixelButton>
+                </div>
               </div>
             </Demo>
 
@@ -270,7 +283,7 @@ export default function StyleguidePage() {
                 onChange={(e) => setName(e.target.value)}
                 error={nameError}
                 hint="Shown in study rooms."
-                maxLength={120}
+                maxLength={40}
               />
             </Demo>
 
@@ -295,6 +308,23 @@ export default function StyleguidePage() {
               </div>
             </Demo>
           </div>
+        </Section>
+
+        <Section title="Scene">
+          {/* ParallaxScene is fixed to the viewport by its own CSS (it's a
+              page background, e.g. /signin). contain: layout makes this box
+              its containing block instead, purely to preview it boxed here —
+              /signin doesn't need this wrapper. */}
+          <div className="relative h-56 overflow-hidden" style={{ contain: "layout" }}>
+            <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            Two layer kinds: the sky and clouds are{" "}
+            <code>background-size: cover</code> (smooth gradient art, no
+            pixel grid to misalign); the mountains, forest and water tile at
+            whole multiples of <code>--px</code>. The cover sky fills
+            whatever space opens above the tiled band on a tall viewport.
+          </p>
         </Section>
 
         <Section title="Grid">

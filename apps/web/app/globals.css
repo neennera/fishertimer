@@ -7,10 +7,17 @@
    surfaces, and everything else belongs in a component.
    ========================================================================== */
 
+/* clip, not hidden: hidden turns body into its own scroll container, which
+   breaks the sticky header. */
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* Pages don't shift sideways when a scrollbar appears. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -29,9 +36,13 @@ body {
   box-sizing: border-box;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* In the base layer: unlayered, it would beat every link class
+   (.pixel-link, Tailwind's underline), whatever their specificity. */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 /* Anything that animates must be able to stop. */
