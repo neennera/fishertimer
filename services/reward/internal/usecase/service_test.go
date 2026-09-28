@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"testing"
+	"time"
 	"github.com/neennera/fishertimer/services/reward/internal/domain"
 	"github.com/neennera/fishertimer/services/reward/internal/usecase"
 )
@@ -15,6 +16,10 @@ func (repo *mockRepository) Award(ctx context.Context, r *domain.FishReward) err
 
 func (repo *mockRepository) ListByUser(ctx context.Context, userID string) ([]domain.FishReward, error) {
 	return []domain.FishReward{{ID: "fish_1", UserID: userID, Species: "Golden Salmon", Rarity: "RARE"}}, nil
+}
+
+func (repo *mockRepository) GetLastUpdate(ctx context.Context) (time.Time, error) {
+	return time.Time{}, nil
 }
 
 func TestUsecase_Success(t *testing.T) {
