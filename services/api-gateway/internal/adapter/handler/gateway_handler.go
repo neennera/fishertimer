@@ -76,11 +76,17 @@ func (h *GatewayHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/gateway/status", h.withCORS(h.Status))
 
 	// Microservices proxy routes for Client
+	mux.HandleFunc("/api/account", h.withCORS(h.handleAccount))
 	mux.HandleFunc("/api/account/", h.withCORS(h.handleAccount))
+	mux.HandleFunc("/api/auth", h.withCORS(h.handleAccount))
 	mux.HandleFunc("/api/auth/", h.withCORS(h.handleAccount))
+	mux.HandleFunc("/api/timer", h.withCORS(h.handleTimer))
 	mux.HandleFunc("/api/timer/", h.withCORS(h.handleTimer))
+	mux.HandleFunc("/api/leaderboard", h.withCORS(h.handleLeaderboard))
 	mux.HandleFunc("/api/leaderboard/", h.withCORS(h.handleLeaderboard))
+	mux.HandleFunc("/api/session", h.withCORS(h.handleSession))
 	mux.HandleFunc("/api/session/", h.withCORS(h.handleSession))
+	mux.HandleFunc("/api/reward", h.withCORS(h.handleReward))
 	mux.HandleFunc("/api/reward/", h.withCORS(h.handleReward))
 }
 

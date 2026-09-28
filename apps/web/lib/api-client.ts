@@ -17,7 +17,9 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   // Route through Next.js reverse proxy gateway (avoids CORS issues on the client)
-  const url = `/api/${service}/${cleanEndpoint}`;
+  const url = cleanEndpoint.startsWith('?') || cleanEndpoint === ''
+    ? `/api/${service}${cleanEndpoint}`
+    : `/api/${service}/${cleanEndpoint}`;
 
   const res = await fetch(url, {
     ...init,
