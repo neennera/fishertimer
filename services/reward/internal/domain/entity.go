@@ -11,9 +11,10 @@ var (
 )
 
 type FishReward struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Species   string    `json:"species"`
-	Rarity    string    `json:"rarity"`
-	AwardedAt time.Time `json:"awarded_at"`
+	ID          string    `json:"id"`
+	UserID      string    `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+	Species     string    `json:"species"`
+	Rarity      string    `json:"rarity"`
+	AwardedAt   time.Time `json:"awarded_at"`
 }
