@@ -14,23 +14,35 @@ import (
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/repository"
+	"github.com/neennera/fishertimer/services/leaderboard/internal/domain"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/usecase"
 )
 
 func main() {
 	cfg := config.Load()
 
-	// 1. Instantiate Driven Adapter (Repository & Reward Collaborator Client)
-	repo := repository.NewInMemory()
+	// ── 1. Repository (Redis if available, in-memory fallback) ───────────────
+	var repo domain.Repository
+	ctx := context.Background()
+
+	redisRepo, err := repository.NewRedisFromURL(ctx, cfg.RedisURL)
+	if err != nil {
+		log.Printf("⚠️  Redis unavailable (%v) — falling back to in-memory cache", err)
+		repo = repository.NewInMemory()
+	} else {
+		log.Printf("✅ Connected to Redis at %s", cfg.RedisURL)
+		repo = redisRepo
+		defer redisRepo.Close()
+	}
+
+	// ── 2. Reward client ─────────────────────────────────────────────────────
 	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
 
-	// 2. Inject into Application Usecase
+	// ── 3. Usecase ───────────────────────────────────────────────────────────
 	uc := usecase.New(repo, rewardClient)
 
-	// 3. Inject into Driving Adapter (HTTP Handler)
+	// ── 4. HTTP handler & router ─────────────────────────────────────────────
 	h := handler.New(uc)
-
-	// 4. Setup Router & Server
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
@@ -42,7 +54,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("leaderboard service listening on port %d [%s]", cfg.Port, cfg.Env)
+		log.Printf("🏆 leaderboard service listening on port %d [%s]", cfg.Port, cfg.Env)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen error: %s\n", err)
 		}
@@ -53,9 +65,9 @@ func main() {
 	<-quit
 
 	log.Printf("Shutting down leaderboard service...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutCtx); err != nil {
 		log.Fatalf("forced shutdown: %s\n", err)
 	}
 	log.Printf("leaderboard exited cleanly")
