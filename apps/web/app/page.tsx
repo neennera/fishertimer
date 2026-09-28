@@ -60,6 +60,9 @@ export default function Home() {
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <PixelButton>Start Studying</PixelButton>
+            <Link href="/leaderboard" className="underline underline-offset-4">
+              🏆 View Leaderboard
+            </Link>
             <Link href="/admin" className="underline underline-offset-4">
               🛡️ Switch to Admin Portal
             </Link>
