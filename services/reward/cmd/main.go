@@ -13,22 +13,31 @@ import (
 	"github.com/neennera/fishertimer/services/reward/config"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/repository"
+	"github.com/neennera/fishertimer/services/reward/internal/domain"
 	"github.com/neennera/fishertimer/services/reward/internal/usecase"
 )
 
 func main() {
 	cfg := config.Load()
 
-	// 1. Instantiate Driven Adapter (Repository)
-	repo := repository.NewInMemory()
+	// ── 1. Repository (MongoDB if available, in-memory fallback) ────────────
+	var repo domain.Repository
+	ctx := context.Background()
 
-	// 2. Inject into Application Usecase
+	mongoRepo, err := repository.NewMongo(ctx, cfg.MongoDBURI)
+	if err != nil {
+		log.Printf("⚠️  MongoDB unavailable (%v) — falling back to in-memory seed data", err)
+		repo = repository.NewInMemory()
+	} else {
+		log.Printf("✅ Connected to MongoDB at %s", cfg.MongoDBURI)
+		repo = mongoRepo
+	}
+
+	// ── 2. Usecase ───────────────────────────────────────────────────────────
 	uc := usecase.New(repo)
 
-	// 3. Inject into Driving Adapter (HTTP Handler)
+	// ── 3. HTTP handler & router ─────────────────────────────────────────────
 	h := handler.New(uc)
-
-	// 4. Setup Router & Server
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
@@ -40,7 +49,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("reward service listening on port %d [%s]", cfg.Port, cfg.Env)
+		log.Printf("🐟 reward service listening on port %d [%s]", cfg.Port, cfg.Env)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen error: %s\n", err)
 		}
@@ -51,9 +60,9 @@ func main() {
 	<-quit
 
 	log.Printf("Shutting down reward service...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutCtx); err != nil {
 		log.Fatalf("forced shutdown: %s\n", err)
 	}
 	log.Printf("reward exited cleanly")

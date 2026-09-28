@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"time"
+
 	"github.com/neennera/fishertimer/services/reward/internal/domain"
 )
 
@@ -9,6 +11,8 @@ type Usecase interface {
 	GrantReward(ctx context.Context, userID, species, rarity string) (*domain.FishReward, error)
 	AwardReward(ctx context.Context, userID, reason string) (*domain.FishReward, error)
 	GetUserInventory(ctx context.Context, userID string) ([]domain.FishReward, error)
+	ListAllRewards(ctx context.Context) ([]domain.FishReward, error)
+	GetLastUpdate(ctx context.Context) (time.Time, error)
 }
 
 type service struct {
@@ -37,3 +41,12 @@ func (s *service) AwardReward(ctx context.Context, userID, reason string) (*doma
 func (s *service) GetUserInventory(ctx context.Context, userID string) ([]domain.FishReward, error) {
 	return s.repo.ListByUser(ctx, userID)
 }
+
+func (s *service) ListAllRewards(ctx context.Context) ([]domain.FishReward, error) {
+	return s.repo.ListByUser(ctx, "")
+}
+
+func (s *service) GetLastUpdate(ctx context.Context) (time.Time, error) {
+	return s.repo.GetLastUpdate(ctx)
+}
+
