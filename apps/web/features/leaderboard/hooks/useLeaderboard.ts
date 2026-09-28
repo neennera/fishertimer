@@ -30,7 +30,7 @@ export function useLeaderboard(
     try {
       const result = await apiFetch<LeaderboardResponse>(
         'leaderboard',
-        `v1/leaderboard?period=${period}`
+        `?period=${period}`
       );
       setData(result);
     } catch (err) {

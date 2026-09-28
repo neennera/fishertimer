@@ -32,14 +32,11 @@ func periodStart(period string) time.Time {
 	now := time.Now().UTC()
 	switch period {
 	case "weekly":
-		// ISO week starts on Monday.
-		weekday := int(now.Weekday())
-		if weekday == 0 {
-			weekday = 7 // treat Sunday as day 7 so Monday is always day 1
-		}
-		return time.Date(now.Year(), now.Month(), now.Day()-weekday+1, 0, 0, 0, 0, time.UTC)
+		// Rolling 7 days window (168 hours) ensures a full 7-day week is always represented
+		return now.AddDate(0, 0, -7)
 	case "monthly":
-		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		// Rolling 30 days window ensures a full month of active rewards is always represented
+		return now.AddDate(0, 0, -30)
 	default: // "all-time"
 		return time.Time{}
 	}

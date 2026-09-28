@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Header } from '../../components/Header';
 import { PixelPanel } from '../../components/ui/PixelPanel';
 import { PixelButton } from '../../components/ui/PixelButton';
@@ -38,6 +39,24 @@ export default function LeaderboardPage() {
       <Header />
       <main className="mx-auto w-full max-w-2xl px-4 py-10">
         <PixelPanel>
+          {/* ── Navigation bar ────────────────────────────────────────── */}
+          <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 text-bark hover:text-ink font-label text-sm transition-colors"
+            >
+              ← Back to Study Room
+            </Link>
+            <div className="flex items-center gap-3 text-xs text-bark font-label">
+              <Link href="/admin" className="hover:text-ink underline underline-offset-4">
+                🛡️ Admin
+              </Link>
+              <Link href="/styleguide" className="hover:text-ink underline underline-offset-4">
+                Styleguide
+              </Link>
+            </div>
+          </div>
+
           {/* ── Page header ───────────────────────────────────────────── */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -120,6 +139,16 @@ export default function LeaderboardPage() {
           >
             Ties are broken by the earliest reward earned at that total. Rankings are read-only.
           </p>
+
+          {/* ── Quick Action / Navigation Buttons ────────────────────── */}
+          <div className="mt-6 pt-4 border-t border-[var(--color-sand)] flex flex-wrap items-center justify-between gap-3">
+            <Link href="/">
+              <PixelButton variant="ghost">← Back to Study Room</PixelButton>
+            </Link>
+            <Link href="/">
+              <PixelButton>Start Focus Timer</PixelButton>
+            </Link>
+          </div>
         </PixelPanel>
       </main>
     </>

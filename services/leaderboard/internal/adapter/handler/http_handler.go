@@ -22,8 +22,10 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/leaderboard/status", h.withCORS(h.Status))
 	// UC-08 ViewLeaderboard: GET /api/v1/leaderboard?period={weekly|monthly|all-time}
 	mux.HandleFunc("/api/v1/leaderboard", h.withCORS(h.ViewLeaderboard))
+	mux.HandleFunc("/api/v1/leaderboard/", h.withCORS(h.ViewLeaderboard))
 	// GetRanking: returns only the rankings array (consumed by the frontend).
 	mux.HandleFunc("/api/v1/leaderboard/rankings", h.withCORS(h.GetRanking))
+	mux.HandleFunc("/api/v1/leaderboard/rankings/", h.withCORS(h.GetRanking))
 }
 
 // withCORS wraps a handler to add permissive CORS headers for development.
