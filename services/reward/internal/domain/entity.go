@@ -27,13 +27,16 @@ const (
 )
 
 // UnlockedReward is one catch/drop: a user_rewards row joined with its
-// reward_items catalog details
+// reward_items catalog details.
 type UnlockedReward struct {
 	UserRewardID string    `json:"user_reward_id"`
+	ID           string    `json:"id,omitempty"` // Alias for UserRewardID for backward compatibility
 	ItemID       string    `json:"item_id"`
 	UserID       string    `json:"user_id"`
-	CycleID      string    `json:"cycle_id"`
+	DisplayName  string    `json:"display_name,omitempty"` // User display name for leaderboard
+	CycleID      string    `json:"cycle_id,omitempty"`
 	ItemName     string    `json:"item_name"`
+	Species      string    `json:"species,omitempty"` // Alias for ItemName (FISH species)
 	Category     string    `json:"category"`
 	Rarity       string    `json:"rarity"`
 	BaseWeight   float64   `json:"base_weight"`
@@ -41,3 +44,6 @@ type UnlockedReward struct {
 	AssetURL     string    `json:"asset_url"`
 	AwardedAt    time.Time `json:"awarded_at"`
 }
+
+// FishReward is a type alias for UnlockedReward for compatibility.
+type FishReward = UnlockedReward

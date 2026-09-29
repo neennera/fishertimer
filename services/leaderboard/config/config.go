@@ -28,7 +28,10 @@ func Load() *Config {
 		env = "development"
 	}
 
-	redisURL := os.Getenv("REDIS_URL")
+	redisURL := os.Getenv("LEADERBOARD_REDIS_URL")
+	if redisURL == "" {
+		redisURL = os.Getenv("REDIS_URL")
+	}
 	if redisURL == "" {
 		redisURL = "redis://localhost:6379/0"
 	}

@@ -74,6 +74,16 @@
 
 ---
 
+### Incident 006: Leaderboard Empty After Database Reset Due to Unseeded `user_rewards`
+- **Date:** 2026-09-30
+- **Component:** `services/reward`, `services/leaderboard`, MongoDB, Redis Cache
+- **Symptom:** After running `pnpm db:reset`, querying `GET /api/v1/leaderboard` returned `"rankings": []` with `"cached": true`.
+- **Root Cause:** `002_seed_reward_items.js` seeded only the catalog collection (`reward_items`), leaving `user_rewards` with 0 documents. The Reward service returned an empty reward list to Leaderboard, which cached the empty ranking into Redis.
+- **Solution:** Added `services/reward/database/schemas/003_seed_user_rewards.js` containing 41 demo user catches across 5 users (`user1` to `user5`). When cache is stale after seeding, run `docker exec -i fishertimer-redis redis-cli FLUSHALL`.
+- **Action for Future Agents:** Whenever normalized 3NF schemas separate catalog items from user interaction records, ensure both collections have corresponding initialization seed scripts in `/docker-entrypoint-initdb.d/`.
+
+---
+
 ## 2. Template for Recording New Lessons Learned
 
 When documenting a new learning, append to Section 1 using this markdown structure:

@@ -8,20 +8,40 @@ const nextConfig = {
     return [
       // Client-side routes routed through the API Gateway
       {
+        source: '/api/auth',
+        destination: `${gatewayUrl}/api/auth`,
+      },
+      {
         source: '/api/auth/:path*',
         destination: `${gatewayUrl}/api/auth/:path*`,
+      },
+      {
+        source: '/api/session',
+        destination: `${gatewayUrl}/api/session`,
       },
       {
         source: '/api/session/:path*',
         destination: `${gatewayUrl}/api/session/:path*`,
       },
       {
+        source: '/api/timer',
+        destination: `${gatewayUrl}/api/timer`,
+      },
+      {
         source: '/api/timer/:path*',
         destination: `${gatewayUrl}/api/timer/:path*`,
       },
       {
+        source: '/api/reward',
+        destination: `${gatewayUrl}/api/reward`,
+      },
+      {
         source: '/api/reward/:path*',
         destination: `${gatewayUrl}/api/reward/:path*`,
+      },
+      {
+        source: '/api/leaderboard',
+        destination: `${gatewayUrl}/api/leaderboard`,
       },
       {
         source: '/api/leaderboard/:path*',

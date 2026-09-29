@@ -48,10 +48,26 @@ func createReverseProxy(targetURL, prefix string) *httputil.ReverseProxy {
 		req.Host = target.Host
 
 		// Map /api/<service>/... to <prefix>/...
-		path := req.URL.Path
-		parts := strings.SplitN(strings.TrimPrefix(path, "/api/"), "/", 2)
+		path := strings.TrimPrefix(req.URL.Path, "/api/")
+		parts := strings.SplitN(path, "/", 2)
+
+		subPath := ""
 		if len(parts) == 2 {
-			req.URL.Path = prefix + "/" + parts[1]
+			subPath = strings.TrimPrefix(parts[1], "/")
+		}
+
+		// Normalize: strip accidental duplicate service prefixes like "v1/leaderboard" or "leaderboard"
+		prefixNoSlash := strings.TrimPrefix(prefix, "/")
+		v1Prefix := strings.TrimPrefix(prefixNoSlash, "api/")
+		serviceName := parts[0]
+
+		subPath = strings.TrimPrefix(subPath, prefixNoSlash)
+		subPath = strings.TrimPrefix(subPath, v1Prefix)
+		subPath = strings.TrimPrefix(subPath, serviceName)
+		subPath = strings.TrimPrefix(subPath, "/")
+
+		if subPath != "" {
+			req.URL.Path = prefix + "/" + subPath
 		} else {
 			req.URL.Path = prefix
 		}
@@ -65,11 +81,17 @@ func (h *GatewayHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/gateway/whoami", h.withCORS(h.Whoami))
 
 	// Microservices proxy routes for Client
+	mux.HandleFunc("/api/account", h.withCORS(h.handleAccount))
 	mux.HandleFunc("/api/account/", h.withCORS(h.handleAccount))
+	mux.HandleFunc("/api/auth", h.withCORS(h.handleAccount))
 	mux.HandleFunc("/api/auth/", h.withCORS(h.handleAccount))
+	mux.HandleFunc("/api/timer", h.withCORS(h.handleTimer))
 	mux.HandleFunc("/api/timer/", h.withCORS(h.handleTimer))
+	mux.HandleFunc("/api/leaderboard", h.withCORS(h.handleLeaderboard))
 	mux.HandleFunc("/api/leaderboard/", h.withCORS(h.handleLeaderboard))
+	mux.HandleFunc("/api/session", h.withCORS(h.handleSession))
 	mux.HandleFunc("/api/session/", h.withCORS(h.handleSession))
+	mux.HandleFunc("/api/reward", h.withCORS(h.handleReward))
 	mux.HandleFunc("/api/reward/", h.withCORS(h.handleReward))
 }
 

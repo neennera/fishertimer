@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
 	"github.com/neennera/fishertimer/services/reward/internal/usecase"
 )
 
@@ -20,8 +21,11 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/reward/status", h.Status)
 	mux.HandleFunc("/api/v1/reward/award", h.AwardReward)
 	mux.HandleFunc("/api/v1/reward/rewards", h.ViewRewards)
+	mux.HandleFunc("/api/v1/reward/all-rewards", h.AllRewards)
+	mux.HandleFunc("/api/v1/reward/last-update", h.GetLastUpdate)
 }
 
+// ViewRewards returns rewards for a specific user (or all users if user_id is omitted).
 func (h *HTTPHandler) ViewRewards(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -37,6 +41,43 @@ func (h *HTTPHandler) ViewRewards(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rewards)
+}
+
+// AllRewards returns all rewards across all users (used by leaderboard for ranking).
+func (h *HTTPHandler) AllRewards(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rewards, err := h.uc.ListAllRewards(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rewards)
+}
+
+// GetLastUpdate returns the timestamp of the most recent reward change.
+// Leaderboard uses this to validate its in-memory cache without fetching all data.
+func (h *HTTPHandler) GetLastUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ts, err := h.uc.GetLastUpdate(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"reward_last_update": ts.UTC().Format(time.RFC3339Nano),
+	})
 }
 
 type awardRequest struct {

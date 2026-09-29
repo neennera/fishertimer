@@ -1,26 +1,62 @@
 # Reward Service
 
 ## Overview
-Gamification reward drop calculation and inventory progression
+The **Reward Service** manages gamification reward drops, fish catch inventory progression, and supplies historical reward data to the **Account Service** and **Leaderboard Service**.
 
-## Port
-Default port: `8085`
+It supports dual persistence:
+1. **MongoDB** (`reward_db`: `reward_items`, `user_rewards`) with compound indexes for high-throughput queries.
+2. **In-Memory Repository** with built-in 5-user relative seed data for instant development without Docker.
 
-## HTTP API
+---
 
-| Method | Route | Purpose |
-| :--- | :--- | :--- |
-| `GET` | `/api/v1/reward/rewards?user_id=<id>` | Lists every catch/drop for a user, joining `user_rewards` with `reward_items`: `[{user_reward_id, item_id, user_id, cycle_id, item_name, category, rarity, base_weight, score_value, asset_url, awarded_at}, ...]` (empty array if none). `user_rewards` has no uniqueness constraint on `(user_id, item_id)` - a user can catch the same item more than once, and each catch is its own row. This is a flat per-catch log (also read by Leaderboard's `ViewRewards()` collaborator); the Account service's `GET /api/v1/account/rewards?id=<user_id>` is the one that groups it into totals + per-item counts.|
+## Ports & Endpoints
 
+- **Default Port**: `8085`
+- **Internal Routes**:
+  - `GET /health` — Service health check.
+  - `GET /api/v1/reward/status` — Layer status check.
+  - `POST /api/v1/reward/award` — Awards a fish reward to a user (`{ user_id, reason }`).
+  - `GET /api/v1/reward/rewards?user_id={id}` — Returns fish rewards for a specific user, joining `user_rewards` with `reward_items`.
+  - `GET /api/v1/reward/all-rewards` — Returns all rewards across all users (consumed by Leaderboard for rankings).
+  - `GET /api/v1/reward/last-update` — Returns `{ "reward_last_update": "<RFC3339>" }` timestamp for Leaderboard cache validation.
 
-## Environment
+---
 
-| Variable | Purpose |
-| :--- | :--- |
-| `REWARD_MONGODB_URI` | `reward_db` connection string (default `mongodb://mongoadmin:mongopassword@localhost:27017/reward_db?authSource=admin`). **Required** - the service exits if the database is unreachable. |
+## Seed Dataset (5 Users, 41 Rewards)
 
-## Scripts
-- `pnpm dev` : Runs the service locally with Go
-- `pnpm build` : Compiles the Go binary to `bin/server`
-- `pnpm test` : Runs Go tests
-- `pnpm lint` : Runs Go static analysis (`go vet`)
+Both the in-memory repository and MongoDB init scripts contain a pre-configured seed dataset with relative timestamps:
+
+| User ID | Display Name | All-Time Total | Period Outcome |
+|---------|--------------|----------------|----------------|
+| `user1` | TideAngler   | 12 catches     | 🏆 **All-Time Champion** (#1) |
+| `user2` | CastMaster   | 8 catches      | Regular active angler |
+| `user3` | LureQueen    | 5 catches      | 📅 **Weekly Winner** (#1 on 7-day rolling) |
+| `user4` | DeepDiver    | 6 catches      | Steady contender |
+| `user5` | ReefRider    | 10 catches     | 🗓️ **Monthly Winner** (#1 on 30-day rolling) |
+
+---
+
+## Configuration & Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` or `REWARD_SERVICE_PORT` | HTTP server listening port | `8085` |
+| `REWARD_MONGODB_URI` or `MONGODB_URI` | MongoDB connection URI | `mongodb://mongoadmin:mongopassword@localhost:27017/reward_db?authSource=admin` |
+| `ENV` | Environment identifier | `development` |
+
+*Note: If MongoDB is unavailable, the service automatically logs a notice and operates with in-memory seeded storage.*
+
+---
+
+## Development & Testing
+
+```powershell
+# Run service locally
+go run cmd/main.go
+
+# Run unit tests
+go test ./... -v
+
+# Static analysis
+go vet ./...
+```
