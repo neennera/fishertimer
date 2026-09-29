@@ -11,7 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **[reward]**: Added `003_seed_user_rewards.js` to seed 41 user catches across 5 demo users (`user1` to `user5`) for Leaderboard and FishTank demonstrations in MongoDB.
+- **[reward]**: Added `GET /api/v1/reward/all-rewards` and `GET /api/v1/reward/last-update` endpoints for Leaderboard cache validation (S-1) and ranking computation (S-3).
+- **[web]**: Added Leaderboard feature (`apps/web/app/leaderboard/page.tsx`, `features/leaderboard/`) with Weekly, Monthly, and All-Time period tabs, cache status indicators, and current-user highlighting.
+
 ### Changed
+- **[reward]**: Unified `domain.UnlockedReward` entity to support both the 3NF database schema (items/user drops) for the Account service and leaderboard fields (`ID`, `DisplayName`, `Species`, `AwardedAt`) with `type FishReward = UnlockedReward` for backwards compatibility.
+- **[reward]**: Implemented MongoDB repository lookup joining `user_rewards` with `reward_items` supporting all-reward listing (`userID == ""`) and `GetLastUpdate` sorted by `awarded_at: -1`.
+- **[reward]**: Configured `cmd/main.go` to connect to MongoDB when available and gracefully fall back to the 5-user in-memory seeded store for isolated local development without Docker.
+- **[web]**: Merged Home page (`apps/web/app/page.tsx`) navigation links to include both the Study Timer (`/timer`) and Leaderboard (`/leaderboard`).
+- **[web]**: Kept full production implementation of `/account` from `main` using `ProfileShell`, `ProfileSections`, and live session management.
+
+### Fixed
+- **[leaderboard]**: Fixed empty ranking issue where `user_rewards` was unseeded after `pnpm db:reset`, causing Leaderboard to cache an empty response into Redis.
 - **[study-timer]**: The Postgres repository now persists the live timer progress (`phase`, `running_since`, `elapsed_ms` on `timer_sessions`, added by `database/schemas/002_add_timer_progress.sql`) so remaining time survives reloads with the timestamp-based timer; phase is read from its own column instead of being inferred from the last completed cycle. `TimerStatistics` over gRPC maps `total_sessions` from `SessionsJoined`. Existing local databases need `pnpm db:reset` to pick up the new columns.
 - **[web]**: `/timer`'s fixed demo owner uses placeholder UUIDs instead of `demo`, since `timer_db` keys timers by UUID.
 - **[web]**: `/account` and `/profile/[userId]` show a Focus history chart (7D / 14D / 30D, from `statistics.daily_focus_minutes`) in place of the "Sessions by room type" placeholder. New `.pixel-chart` classes and `--chart-*` tokens.

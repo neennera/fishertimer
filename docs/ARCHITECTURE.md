@@ -96,7 +96,8 @@ As defined in `docs/phase1/microservice.md`:
 | Account       | StudyTimer.TimerStatistics()| gRPC     | Aggregate total sessions and focus time        |
 | Account       | Reward.ViewRewards()        | REST     | Render earned fish collection on profile       |
 | Study Timer   | Reward.AwardReward()        | REST     | Grant reward to user upon CompleteCycle        |
-| Leaderboard   | Reward.ViewRewards()        | REST     | Fetches earned rewards for leaderboard ranking |
+| Leaderboard   | Reward.ViewAllRewards()     | REST     | Fetches all earned rewards for ranking (S-3)   |
+| Leaderboard   | Reward.GetLastUpdate()      | REST     | Checks reward mutation timestamp (S-1 cache)   |
 | Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
 | Admin         | StudySession.EndSession()   | gRPC     | Command to close/end active study session room |
 | API Gateway   | StudyTimer.{Start,Get,Pause,| gRPC     | Browser REST /api/timer/* translated to gRPC   |
@@ -156,7 +157,10 @@ Detailed database schemas, 3NF relations, and DBML definitions are maintained in
   - Account (`account_db`): `services/account/database/schemas/001_create_users_table.sql`
   - Study Session (`session_db`): `services/study-session/database/schemas/001_create_study_sessions_tables.sql`
   - Study Timer (`timer_db`): `services/study-timer/database/schemas/001_create_timer_tables.sql`
-  - Reward (`reward_db`): `services/reward/database/schemas/001_create_reward_collections.js`
+  - Reward (`reward_db`):
+    - `services/reward/database/schemas/001_create_reward_collections.js` (3NF collections: `reward_items`, `user_rewards`)
+    - `services/reward/database/schemas/002_seed_reward_items.js` (Seeds 15 fish sprite catalog items)
+    - `services/reward/database/schemas/003_seed_user_rewards.js` (Seeds 41 user catches for 5 demo users)
   - Admin Moderation (`admin_db`): `services/admin/database/schemas/001_create_admin_logs_table.sql`
   - Leaderboard: In-memory Redis cache (`redis://localhost:6379`)
 
