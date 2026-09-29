@@ -34,14 +34,17 @@ function stats(
   };
 }
 
+const now = new Date();
+const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600000).toISOString();
+
 export const MOCK_STATISTICS: Record<string, TimerStatistics> = {
-  [MOCK_USER_IDS.signedIn]: stats(MOCK_USER_IDS.signedIn, 24, 58, 1120, '2026-09-26T19:40:00Z', [
+  [MOCK_USER_IDS.signedIn]: stats(MOCK_USER_IDS.signedIn, 24, 58, 1120, hoursAgo(4), [
     25, 0, 50, 75, 0, 0, 100, 25, 50, 0, 0, 120, 75, 25, 0, 50, 90, 0, 25, 0, 60, 110, 0, 50, 25, 0, 75, 100, 0, 45,
   ]),
-  [MOCK_USER_IDS.mira]: stats(MOCK_USER_IDS.mira, 31, 72, 1545, '2026-09-25T08:15:00Z', [
+  [MOCK_USER_IDS.mira]: stats(MOCK_USER_IDS.mira, 31, 72, 1545, hoursAgo(24), [
     60, 90, 0, 120, 75, 60, 0, 0, 90, 100, 50, 0, 75, 120, 60, 0, 25, 90, 110, 0, 0, 60, 75, 120, 90, 0, 50, 100, 25, 0,
   ]),
-  [MOCK_USER_IDS.tan]: stats(MOCK_USER_IDS.tan, 9, 14, 215, '2025-12-03T21:05:00Z', ZERO_DAYS),
+  [MOCK_USER_IDS.tan]: stats(MOCK_USER_IDS.tan, 9, 14, 215, hoursAgo(24 * 45), ZERO_DAYS),
   // Never studied: zero counts, the zero timestamp and 30 zero days.
   [MOCK_USER_IDS.newAngler]: stats(MOCK_USER_IDS.newAngler, 0, 0, 0, NEVER_ACTIVE, ZERO_DAYS),
 };

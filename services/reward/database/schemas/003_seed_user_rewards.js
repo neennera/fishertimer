@@ -3,6 +3,13 @@
 // Database Engine: MongoDB
 // Database: reward_db
 // =======================================================
+//
+// Computes timestamps dynamically relative to "new Date()" at the exact moment
+// this seed script is executed. This guarantees that:
+//   - Weekly rankings always contain the latest 7-day catches (user3 / LureQueen is #1).
+//   - Monthly rankings always contain the latest 30-day catches (user5 / ReefRider is #1).
+//   - All-time rankings always contain all 41 catches (user1 / TideAngler is #1).
+// Re-running this script refreshes the timestamps to the current time.
 
 db = db.getSiblingDB('reward_db');
 
@@ -14,7 +21,7 @@ db.reward_items.find().forEach((item) => {
 const defaultItemId = db.reward_items.findOne()?._id;
 
 const now = new Date();
-const daysAgo = (n) => new Date(now.getTime() - n * 86400000);
+const daysAgo = (n, hours = 0) => new Date(now.getTime() - n * 86400000 - hours * 3600000);
 
 const CATCHES = [
   // ── user1: 12 rewards (All-time #1) ──
@@ -69,16 +76,16 @@ const CATCHES = [
   { user_id: 'user5', display_name: 'ReefRider', item_name: 'Bass', cycle_id: 'c-u5-10', awarded_at: daysAgo(7) },
 ];
 
-if (db.user_rewards.countDocuments() === 0) {
-  const docs = CATCHES.map((c) => ({
-    user_id: c.user_id,
-    display_name: c.display_name,
-    cycle_id: c.cycle_id,
-    item_id: items[c.item_name] || defaultItemId,
-    awarded_at: c.awarded_at,
-  }));
-  db.user_rewards.insertMany(docs);
-  print('✅ reward_db seeded: user_rewards (' + docs.length + ' docs)');
-} else {
-  print('ℹ️ reward_db user_rewards already seeded (' + db.user_rewards.countDocuments() + ' docs)');
-}
+// Clean existing demo user rewards so timestamps are always fresh relative to the exact moment the seed is run
+db.user_rewards.deleteMany({ user_id: { $in: ['user1', 'user2', 'user3', 'user4', 'user5'] } });
+
+const docs = CATCHES.map((c) => ({
+  user_id: c.user_id,
+  display_name: c.display_name,
+  cycle_id: c.cycle_id,
+  item_id: items[c.item_name] || defaultItemId,
+  awarded_at: c.awarded_at,
+}));
+
+db.user_rewards.insertMany(docs);
+print('✅ reward_db user_rewards refreshed with live timestamps relative to ' + now.toISOString() + ' (' + docs.length + ' docs)');

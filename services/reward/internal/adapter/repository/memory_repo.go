@@ -78,7 +78,7 @@ func seedCatch(id, userID, displayName, itemName, rarity string, awardedAt time.
 //	user3:  5 rewards (5 this week)  → weekly #1, monthly top-5
 //	user4:  6 rewards (3 this month) → monthly contender
 //	user5: 10 rewards (8 this month) → monthly #1
-var seedRewards = func() []domain.UnlockedReward {
+func generateSeedRewards() []domain.UnlockedReward {
 	now := time.Now().UTC()
 
 	// helper: returns a time N days ago
@@ -138,7 +138,7 @@ var seedRewards = func() []domain.UnlockedReward {
 		seedCatch("r-u5-09", "user5", "ReefRider", "Legendary Koi", domain.RarityLegendary, daysAgo(10)), // this month
 		seedCatch("r-u5-10", "user5", "ReefRider", "Silver Bass", domain.RarityUncommon, daysAgo(7)), // this month
 	}
-}()
+}
 
 // lastUpdate tracks when rewards were last mutated (for leaderboard cache invalidation).
 var lastUpdate = time.Now().UTC()
@@ -149,10 +149,7 @@ type InMemoryRepository struct {
 }
 
 func NewInMemory() *InMemoryRepository {
-	// Copy seed so concurrent Award() calls don't mutate the package-level slice.
-	rewards := make([]domain.UnlockedReward, len(seedRewards))
-	copy(rewards, seedRewards)
-	return &InMemoryRepository{rewards: rewards}
+	return &InMemoryRepository{rewards: generateSeedRewards()}
 }
 
 func (repo *InMemoryRepository) Award(ctx context.Context, r *domain.UnlockedReward) error {
