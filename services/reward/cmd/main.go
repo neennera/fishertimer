@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
 	"github.com/neennera/fishertimer/services/reward/config"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/repository"
@@ -22,15 +25,14 @@ func main() {
 
 	// ── 1. Repository (MongoDB if available, in-memory fallback) ────────────
 	var repo domain.Repository
-	ctx := context.Background()
-
-	mongoRepo, err := repository.NewMongo(ctx, cfg.MongoDBURI)
+	mongoClient, err := tryConnectMongo(cfg)
 	if err != nil {
 		log.Printf("⚠️  MongoDB unavailable (%v) — falling back to in-memory seed data", err)
 		repo = repository.NewInMemory()
 	} else {
+		defer mongoClient.Disconnect(context.Background())
 		log.Printf("✅ Connected to MongoDB at %s", cfg.MongoDBURI)
-		repo = mongoRepo
+		repo = repository.NewMongo(mongoClient.Database("reward_db"))
 	}
 
 	// ── 2. Usecase ───────────────────────────────────────────────────────────
@@ -66,4 +68,20 @@ func main() {
 		log.Fatalf("forced shutdown: %s\n", err)
 	}
 	log.Printf("reward exited cleanly")
+}
+
+// tryConnectMongo attempts to ping reward_db within 3 seconds.
+// Returns a connected *mongo.Client or an error if unreachable.
+func tryConnectMongo(cfg *config.Config) (*mongo.Client, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(options.Client().ApplyURI(cfg.MongoDBURI))
+	if err != nil {
+		return nil, fmt.Errorf("mongo.Connect: %w", err)
+	}
+	if err := client.Ping(ctx, nil); err != nil {
+		return nil, fmt.Errorf("mongo.Ping: %w", err)
+	}
+	return client, nil
 }

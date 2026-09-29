@@ -14,13 +14,13 @@ func TestGatewayHandler_Health(t *testing.T) {
 		Port:                  8000,
 		Env:                   "test",
 		AccountServiceURL:     "http://localhost:8082",
-		TimerServiceURL:       "http://localhost:8084",
+		TimerGRPCTarget:       "localhost:50051",
 		LeaderboardServiceURL: "http://localhost:8086",
 		SessionServiceURL:     "http://localhost:8083",
 		RewardServiceURL:      "http://localhost:8085",
 	}
 
-	h := handler.New(cfg)
+	h := handler.New(cfg, nil)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
@@ -39,13 +39,13 @@ func TestGatewayHandler_Status(t *testing.T) {
 		Port:                  8000,
 		Env:                   "test",
 		AccountServiceURL:     "http://localhost:8082",
-		TimerServiceURL:       "http://localhost:8084",
+		TimerGRPCTarget:       "localhost:50051",
 		LeaderboardServiceURL: "http://localhost:8086",
 		SessionServiceURL:     "http://localhost:8083",
 		RewardServiceURL:      "http://localhost:8085",
 	}
 
-	h := handler.New(cfg)
+	h := handler.New(cfg, nil)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 

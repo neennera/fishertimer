@@ -8,23 +8,27 @@ import (
 	"strings"
 	"time"
 
+	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/config"
+	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/middleware"
 )
 
 type GatewayHandler struct {
 	cfg          *config.Config
 	accountProxy *httputil.ReverseProxy
-	timerProxy   *httputil.ReverseProxy
+	timer        *TimerHandler
 	boardProxy   *httputil.ReverseProxy
 	sessionProxy *httputil.ReverseProxy
 	rewardProxy  *httputil.ReverseProxy
 }
 
-func New(cfg *config.Config) *GatewayHandler {
+// New builds the gateway. Most services are reverse-proxied over HTTP; Study
+// Timer is reached over gRPC through timerClient.
+func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient) *GatewayHandler {
 	return &GatewayHandler{
 		cfg:          cfg,
 		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account"),
-		timerProxy:   createReverseProxy(cfg.TimerServiceURL, "/api/v1/study-timer"),
+		timer:        NewTimerHandler(timerClient),
 		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard"),
 		sessionProxy: createReverseProxy(cfg.SessionServiceURL, "/api/v1/study-session"),
 		rewardProxy:  createReverseProxy(cfg.RewardServiceURL, "/api/v1/reward"),
@@ -74,6 +78,7 @@ func createReverseProxy(targetURL, prefix string) *httputil.ReverseProxy {
 func (h *GatewayHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", h.withCORS(h.Health))
 	mux.HandleFunc("/api/v1/gateway/status", h.withCORS(h.Status))
+	mux.HandleFunc("/api/v1/gateway/whoami", h.withCORS(h.Whoami))
 
 	// Microservices proxy routes for Client
 	mux.HandleFunc("/api/account", h.withCORS(h.handleAccount))
@@ -132,12 +137,28 @@ func (h *GatewayHandler) Status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Whoami echoes the identity headers middleware.Verifier.Identity attached to
+// this request, purely so the header-forwarding contract can be exercised
+// end-to-end from the browser without waiting on a downstream service to
+// start reading them.
+func (h *GatewayHandler) Whoami(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get(middleware.HeaderUserID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"authenticated":  userID != "",
+		"x_user_id":      userID,
+		"x_user_role":    r.Header.Get(middleware.HeaderUserRole),
+		"x_display_name": r.Header.Get(middleware.HeaderDisplayName),
+	})
+}
+
 func (h *GatewayHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 	h.accountProxy.ServeHTTP(w, r)
 }
 
 func (h *GatewayHandler) handleTimer(w http.ResponseWriter, r *http.Request) {
-	h.timerProxy.ServeHTTP(w, r)
+	h.timer.ServeHTTP(w, r)
 }
 
 func (h *GatewayHandler) handleLeaderboard(w http.ResponseWriter, r *http.Request) {

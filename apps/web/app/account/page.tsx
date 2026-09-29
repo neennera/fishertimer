@@ -1,124 +1,59 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Header } from '../../components/Header';
-import { PixelPanel } from '../../components/ui/PixelPanel';
-import { PixelButton } from '../../components/ui/PixelButton';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ProfileSections } from "../../components/profile/ProfileSections";
+import { ProfileShell, useSignedInUser } from "../../components/profile/ProfileShell";
+import { loadPanels, toPublicProfile, type PanelData } from "../../lib/profile";
+import type { RewardsSummary, TimerStatistics } from "../../lib/profile-types";
 
-/**
- * Account page (UC-06).
- *
- * Provides a user profile dashboard with user stats, linked back to
- * the Study Room (timer) and Leaderboard.
- */
+const LOADING = { status: "loading" } as const;
+
 export default function AccountPage() {
-  const demoUser = {
-    displayName: 'LureQueen',
-    userId: 'user3',
-    email: 'lurequeen@fishertimer.local',
-    role: 'Dedicated Angler',
-    totalCatches: 5,
-    weeklyRank: '#1 Weekly Champion',
-  };
+  const router = useRouter();
+  const { user, setUser, signingOut, handleSignOut } = useSignedInUser();
+  const userId = user?.user_id ?? null;
+  // Needs the user id from /me. Keyed by it, so a stale answer never shows.
+  const [panels, setPanels] = useState<{
+    userId: string;
+    stats: PanelData<TimerStatistics>;
+    rewards: PanelData<RewardsSummary>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+    let cancelled = false;
+    void loadPanels(userId).then((loaded) => {
+      if (!cancelled) {
+        setPanels({ userId, ...loaded });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const current = panels?.userId === userId ? panels : null;
 
   return (
-    <>
-      <Header user={{ displayName: demoUser.displayName }} />
-      <main className="mx-auto w-full max-w-2xl px-4 py-10">
-        <PixelPanel>
-          {/* Top navigation */}
-          <div className="mb-6 flex items-center justify-between">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-bark hover:text-ink font-label text-sm transition-colors"
-            >
-              ← Back to Study Room
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="inline-flex items-center gap-1.5 text-bark hover:text-ink font-label text-sm transition-colors"
-            >
-              🏆 View Leaderboard →
-            </Link>
-          </div>
-
-          {/* Profile Header */}
-          <div className="flex items-center gap-4 pb-6 border-b border-[var(--color-rule)] flex-wrap">
-            <div
-              className="w-16 h-16 flex items-center justify-center font-numeric text-2xl font-bold"
-              style={{
-                clipPath: 'var(--pixclip)',
-                background: 'var(--color-lake)',
-                color: '#fff',
-                boxShadow: 'inset 0 0 0 var(--px) var(--color-lake-dp)',
-              }}
-            >
-              LQ
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h1
-                  className="font-display leading-tight"
-                  style={{ fontSize: 'calc(var(--px) * 9)' }}
-                >
-                  {demoUser.displayName}
-                </h1>
-                <span className="pixel-badge" style={{ background: 'var(--color-amber)' }}>
-                  ACTIVE
-                </span>
-              </div>
-              <p className="text-bark font-label text-xs mt-1">
-                ID: {demoUser.userId} · {demoUser.email}
-              </p>
-            </div>
-          </div>
-
-          {/* Statistics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-            <div
-              className="pixel-panel"
-              style={{
-                background: 'var(--color-cream-2)',
-                padding: 'calc(var(--px) * 5)',
-              }}
-            >
-              <div className="font-label text-xs uppercase text-bark mb-1">Weekly Standing</div>
-              <div className="font-numeric text-xl text-ink flex items-center gap-2">
-                <span>🥇</span> {demoUser.weeklyRank}
-              </div>
-              <p className="text-xs font-body text-bark mt-1">
-                Ranked #1 on this week&apos;s leaderboard
-              </p>
-            </div>
-
-            <div
-              className="pixel-panel"
-              style={{
-                background: 'var(--color-cream-2)',
-                padding: 'calc(var(--px) * 5)',
-              }}
-            >
-              <div className="font-label text-xs uppercase text-bark mb-1">Total Fish Caught</div>
-              <div className="font-numeric text-xl text-ink flex items-center gap-2">
-                <span>🐟</span> {demoUser.totalCatches} Catches
-              </div>
-              <p className="text-xs font-body text-bark mt-1">
-                Earned from completed focus sessions
-              </p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-8 pt-5 border-t border-[var(--color-rule)] flex flex-wrap items-center justify-between gap-3">
-            <Link href="/">
-              <PixelButton variant="ghost">⏱️ Focus Timer</PixelButton>
-            </Link>
-            <Link href="/leaderboard">
-              <PixelButton>🏆 Open Leaderboard</PixelButton>
-            </Link>
-          </div>
-        </PixelPanel>
-      </main>
-    </>
+    <ProfileShell title="Account" viewer={user} signingOut={signingOut} onSignOut={handleSignOut}>
+      <ProfileSections
+        profile={user ? toPublicProfile(user) : null}
+        stats={current?.stats ?? LOADING}
+        rewards={current?.rewards ?? LOADING}
+        editable
+        owner={
+          user
+            ? {
+                email: user.email,
+                onNameSaved: setUser,
+                onSignedOut: () => router.replace("/signin"),
+              }
+            : undefined
+        }
+      />
+    </ProfileShell>
   );
 }

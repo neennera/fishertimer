@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -11,123 +12,142 @@ import (
 	"github.com/neennera/fishertimer/services/reward/internal/domain"
 )
 
-const (
-	dbName         = "reward_db"
-	collectionName = "fish_rewards"
-)
+// MongoRepository persists rewards in reward_db (reward_items, user_rewards)
+// - see database/schemas/001_create_reward_collections.js.
+type MongoRepository struct {
+	items  *mongo.Collection
+	unlock *mongo.Collection
+}
 
-// fishRewardDoc is the MongoDB document shape for the fish_rewards collection.
-// We use bson tags so field names match the JS schema exactly.
-type fishRewardDoc struct {
-	ID          bson.ObjectID `bson:"_id,omitempty"`
+func NewMongo(db *mongo.Database) *MongoRepository {
+	return &MongoRepository{
+		items:  db.Collection("reward_items"),
+		unlock: db.Collection("user_rewards"),
+	}
+}
+
+// userRewardDoc mirrors a user_rewards document.
+type userRewardDoc struct {
 	UserID      string        `bson:"user_id"`
-	DisplayName string        `bson:"display_name"`
-	Species     string        `bson:"species"`
-	Rarity      string        `bson:"rarity"`
+	DisplayName string        `bson:"display_name,omitempty"`
+	CycleID     string        `bson:"cycle_id"`
+	ItemID      bson.ObjectID `bson:"item_id"`
 	AwardedAt   time.Time     `bson:"awarded_at"`
 }
 
-func (d fishRewardDoc) toDomain() domain.FishReward {
-	return domain.FishReward{
-		ID:          d.ID.Hex(),
-		UserID:      d.UserID,
-		DisplayName: d.DisplayName,
-		Species:     d.Species,
-		Rarity:      d.Rarity,
-		AwardedAt:   d.AwardedAt,
-	}
-}
-
-// MongoRepository implements domain.Repository backed by MongoDB.
-type MongoRepository struct {
-	col *mongo.Collection
-}
-
-// NewMongo creates a MongoRepository connected to the given URI.
-// It also ensures the required indexes exist.
-func NewMongo(ctx context.Context, mongoURI string) (*MongoRepository, error) {
-	client, err := mongo.Connect(options.Client().ApplyURI(mongoURI))
-	if err != nil {
-		return nil, err
+func (r *MongoRepository) Award(ctx context.Context, reward *domain.UnlockedReward) error {
+	var itemID bson.ObjectID
+	var err error
+	if reward.ItemID != "" {
+		itemID, err = bson.ObjectIDFromHex(reward.ItemID)
+		if err != nil {
+			itemID = bson.NewObjectID()
+		}
+	} else {
+		itemID = bson.NewObjectID()
 	}
 
-	// Verify connectivity.
-	if err := client.Ping(ctx, nil); err != nil {
-		return nil, err
+	awardedAt := reward.AwardedAt
+	if awardedAt.IsZero() {
+		awardedAt = time.Now().UTC()
 	}
 
-	col := client.Database(dbName).Collection(collectionName)
-
-	// Ensure indexes (idempotent — safe to run on every startup).
-	indexes := []mongo.IndexModel{
-		{Keys: bson.D{{Key: "user_id", Value: 1}}},
-		{Keys: bson.D{{Key: "awarded_at", Value: -1}}},
-		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "awarded_at", Value: -1}}},
-	}
-	if _, err := col.Indexes().CreateMany(ctx, indexes); err != nil {
-		return nil, err
-	}
-
-	return &MongoRepository{col: col}, nil
-}
-
-// Award inserts a new fish reward document into MongoDB.
-func (r *MongoRepository) Award(ctx context.Context, reward *domain.FishReward) error {
-	if reward.AwardedAt.IsZero() {
-		reward.AwardedAt = time.Now().UTC()
-	}
-	doc := fishRewardDoc{
+	res, err := r.unlock.InsertOne(ctx, userRewardDoc{
 		UserID:      reward.UserID,
 		DisplayName: reward.DisplayName,
-		Species:     reward.Species,
-		Rarity:      reward.Rarity,
-		AwardedAt:   reward.AwardedAt,
-	}
-	res, err := r.col.InsertOne(ctx, doc)
+		CycleID:     reward.CycleID,
+		ItemID:      itemID,
+		AwardedAt:   awardedAt,
+	})
 	if err != nil {
 		return err
 	}
-	// Write back the generated _id so caller has it.
 	if oid, ok := res.InsertedID.(bson.ObjectID); ok {
+		reward.UserRewardID = oid.Hex()
 		reward.ID = oid.Hex()
 	}
 	return nil
 }
 
-// ListByUser returns rewards for a specific user, or all users when userID == "".
-// Results are ordered by awarded_at descending (newest first).
-func (r *MongoRepository) ListByUser(ctx context.Context, userID string) ([]domain.FishReward, error) {
-	filter := bson.D{}
+func (r *MongoRepository) ListByUser(ctx context.Context, userID string) ([]domain.UnlockedReward, error) {
+	match := bson.M{}
 	if userID != "" {
-		filter = bson.D{{Key: "user_id", Value: userID}}
+		match["user_id"] = userID
 	}
-	opts := options.Find().SetSort(bson.D{{Key: "awarded_at", Value: -1}})
 
-	cur, err := r.col.Find(ctx, filter, opts)
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: match}},
+		{{Key: "$lookup", Value: bson.M{
+			"from":         "reward_items",
+			"localField":   "item_id",
+			"foreignField": "_id",
+			"as":           "item",
+		}}},
+		{{Key: "$unwind", Value: bson.M{
+			"path":                       "$item",
+			"preserveNullAndEmptyArrays": true,
+		}}},
+		{{Key: "$sort", Value: bson.M{"awarded_at": -1}}},
+	}
+
+	cursor, err := r.unlock.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, err
 	}
-	defer cur.Close(ctx)
+	defer cursor.Close(ctx)
 
-	var docs []fishRewardDoc
-	if err := cur.All(ctx, &docs); err != nil {
+	var docs []struct {
+		ID          bson.ObjectID `bson:"_id"`
+		UserID      string        `bson:"user_id"`
+		DisplayName string        `bson:"display_name"`
+		CycleID     string        `bson:"cycle_id"`
+		AwardedAt   time.Time     `bson:"awarded_at"`
+		Item        *struct {
+			ID         bson.ObjectID `bson:"_id"`
+			ItemName   string        `bson:"item_name"`
+			Category   string        `bson:"category"`
+			Rarity     string        `bson:"rarity"`
+			BaseWeight float64       `bson:"base_weight"`
+			ScoreValue int           `bson:"score_value"`
+			AssetURL   string        `bson:"asset_url"`
+		} `bson:"item"`
+	}
+	if err := cursor.All(ctx, &docs); err != nil {
 		return nil, err
 	}
 
-	rewards := make([]domain.FishReward, len(docs))
-	for i, d := range docs {
-		rewards[i] = d.toDomain()
+	rewards := make([]domain.UnlockedReward, 0, len(docs))
+	for _, d := range docs {
+		item := domain.UnlockedReward{
+			UserRewardID: d.ID.Hex(),
+			ID:           d.ID.Hex(),
+			UserID:       d.UserID,
+			DisplayName:  d.DisplayName,
+			CycleID:      d.CycleID,
+			AwardedAt:    d.AwardedAt,
+		}
+		if d.Item != nil {
+			item.ItemID = d.Item.ID.Hex()
+			item.ItemName = d.Item.ItemName
+			item.Species = d.Item.ItemName
+			item.Category = d.Item.Category
+			item.Rarity = d.Item.Rarity
+			item.BaseWeight = d.Item.BaseWeight
+			item.ScoreValue = d.Item.ScoreValue
+			item.AssetURL = d.Item.AssetURL
+		}
+		rewards = append(rewards, item)
 	}
 	return rewards, nil
 }
 
 // GetLastUpdate returns the awarded_at of the most recently inserted reward.
-// The leaderboard service calls this endpoint to decide if its cache is stale.
+// The leaderboard service calls this to decide if its cache is stale.
 func (r *MongoRepository) GetLastUpdate(ctx context.Context) (time.Time, error) {
 	opts := options.FindOne().SetSort(bson.D{{Key: "awarded_at", Value: -1}})
-	var doc fishRewardDoc
-	err := r.col.FindOne(ctx, bson.D{}, opts).Decode(&doc)
-	if err == mongo.ErrNoDocuments {
+	var doc userRewardDoc
+	err := r.unlock.FindOne(ctx, bson.D{}, opts).Decode(&doc)
+	if errors.Is(err, mongo.ErrNoDocuments) {
 		return time.Time{}, nil
 	}
 	if err != nil {

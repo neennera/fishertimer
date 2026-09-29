@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/neennera/fishertimer/services/study-timer/internal/domain"
@@ -9,6 +10,7 @@ import (
 
 type Usecase interface {
 	StartTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
+	GetTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	PauseTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	ResumeTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	StopTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
@@ -22,119 +24,115 @@ type Usecase interface {
 type service struct {
 	repo         domain.Repository
 	rewardClient domain.RewardClient
+	now          func() time.Time
 }
 
-func New(repo domain.Repository, rewardClient domain.RewardClient) Usecase {
-	return &service{
+// Option customises the usecase service.
+type Option func(*service)
+
+// WithClock replaces the wall clock, so tests can control elapsed time.
+func WithClock(now func() time.Time) Option {
+	return func(s *service) { s.now = now }
+}
+
+func New(repo domain.Repository, rewardClient domain.RewardClient, opts ...Option) Usecase {
+	s := &service{
 		repo:         repo,
 		rewardClient: rewardClient,
+		now:          func() time.Time { return time.Now().UTC() },
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// loadTimer returns the participant's timer, or a new stopped one if they
+// have never used the timer in this room.
+func (s *service) loadTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
+	if sessionID == "" || userID == "" {
+		return nil, domain.ErrInvalid
+	}
+	t, err := s.repo.GetTimer(ctx, sessionID, userID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return domain.NewTimer(sessionID, userID), nil
+	}
+	return t, err
+}
+
+// update loads the timer, applies change to it and saves the result.
+func (s *service) update(ctx context.Context, sessionID, userID string, change func(t *domain.TimerState, now time.Time) error) (*domain.TimerState, error) {
+	t, err := s.loadTimer(ctx, sessionID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := change(t, s.now()); err != nil {
+		return nil, err
+	}
+	if err := s.repo.SaveTimer(ctx, t); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (s *service) StartTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		t = &domain.TimerState{
-			SessionID:   sessionID,
-			UserID:      userID,
-			WorkMinutes: 25,
-			RestMinutes: 5,
-		}
-	}
-	t.Status = "RUNNING"
-	t.Phase = domain.PhaseWork
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, func(t *domain.TimerState, now time.Time) error {
+		t.Start(now)
+		return nil
+	})
+}
+
+func (s *service) GetTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
+	return s.loadTimer(ctx, sessionID, userID)
 }
 
 func (s *service) PauseTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		return nil, err
-	}
-	t.Status = "PAUSED"
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, (*domain.TimerState).Pause)
 }
 
 func (s *service) ResumeTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		return nil, err
-	}
-	t.Status = "RUNNING"
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, (*domain.TimerState).Resume)
 }
 
 func (s *service) StopTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		return nil, err
-	}
-	t.Status = "STOPPED"
-	t.Phase = domain.PhaseWork
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, func(t *domain.TimerState, now time.Time) error {
+		t.Stop(now)
+		return nil
+	})
 }
 
 func (s *service) ResetTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		return nil, err
-	}
-	t.Status = "STOPPED"
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, func(t *domain.TimerState, now time.Time) error {
+		t.Reset(now)
+		return nil
+	})
 }
 
 func (s *service) CompleteCycle(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
+	var workCompleted bool
+	t, err := s.update(ctx, sessionID, userID, func(t *domain.TimerState, now time.Time) error {
+		workCompleted = t.CompleteCycle(now)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// 1. Call Reward Service AwardReward() collaborator
-	if s.rewardClient != nil {
+	// Only a completed work cycle earns a reward (UC-05 S-2); rest earns nothing.
+	if workCompleted && s.rewardClient != nil {
 		_ = s.rewardClient.AwardReward(ctx, userID, "CompleteCycle")
 	}
-
-	// 2. Increment cycle count and switch phase
-	t.CurrentCycle++
-	if t.Phase == domain.PhaseWork {
-		t.Phase = domain.PhaseRest
-	} else {
-		t.Phase = domain.PhaseWork
-	}
-	t.Status = "RUNNING"
-	t.LastUpdated = time.Now().UTC()
-
-	return t, s.repo.SaveTimer(ctx, t)
+	return t, nil
 }
 
 func (s *service) SkipRest(ctx context.Context, sessionID, userID string) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		return nil, err
-	}
-	t.Phase = domain.PhaseWork
-	t.Status = "RUNNING"
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, (*domain.TimerState).SkipRest)
 }
 
 func (s *service) UpdateTimerSetting(ctx context.Context, sessionID, userID string, workMin, restMin int) (*domain.TimerState, error) {
-	t, err := s.repo.GetTimer(ctx, sessionID, userID)
-	if err != nil {
-		t = &domain.TimerState{
-			SessionID: sessionID,
-			UserID:    userID,
-		}
-	}
-	t.WorkMinutes = workMin
-	t.RestMinutes = restMin
-	t.LastUpdated = time.Now().UTC()
-	return t, s.repo.SaveTimer(ctx, t)
+	return s.update(ctx, sessionID, userID, func(t *domain.TimerState, now time.Time) error {
+		return t.UpdateSetting(workMin, restMin, now)
+	})
 }
 
 func (s *service) TimerStatistics(ctx context.Context, userID string) (*domain.TimerHistory, error) {

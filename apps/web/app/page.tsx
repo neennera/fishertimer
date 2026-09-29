@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Header } from "../components/Header";
+import { SessionHeader } from "../components/SessionHeader";
 import { PixelButton } from "../components/ui/PixelButton";
 import { PixelPanel } from "../components/ui/PixelPanel";
 
@@ -33,7 +33,7 @@ const FEATURES = [
 export default function Home() {
   return (
     <>
-      <Header />
+      <SessionHeader />
       <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <PixelPanel>
           <h1
@@ -60,6 +60,9 @@ export default function Home() {
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <PixelButton>Start Studying</PixelButton>
+            <Link href="/timer" className="underline underline-offset-4">
+              ⏱️ Try the study timer
+            </Link>
             <Link href="/leaderboard" className="underline underline-offset-4">
               🏆 View Leaderboard
             </Link>

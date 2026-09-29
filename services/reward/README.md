@@ -1,10 +1,10 @@
 # Reward Service
 
 ## Overview
-The **Reward Service** manages gamification reward drops, fish catch inventory progression, and supplies historical reward data to the **Leaderboard Service**.
+The **Reward Service** manages gamification reward drops, fish catch inventory progression, and supplies historical reward data to the **Account Service** and **Leaderboard Service**.
 
 It supports dual persistence:
-1. **MongoDB** (`reward_db.fish_rewards`) with compound indexes for high-throughput queries.
+1. **MongoDB** (`reward_db`: `reward_items`, `user_rewards`) with compound indexes for high-throughput queries.
 2. **In-Memory Repository** with built-in 5-user relative seed data for instant development without Docker.
 
 ---
@@ -16,15 +16,15 @@ It supports dual persistence:
   - `GET /health` — Service health check.
   - `GET /api/v1/reward/status` — Layer status check.
   - `POST /api/v1/reward/award` — Awards a fish reward to a user (`{ user_id, reason }`).
-  - `GET /api/v1/reward/rewards?user_id={id}` — Returns fish rewards for a specific user.
-  - `GET /api/v1/reward/all-rewards` — Returns all rewards across all users (consumed by Leaderboard).
-  - `GET /api/v1/reward/last-update` — Returns `{ "reward_last_update": "<RFC3339>" }` timestamp for cache validation.
+  - `GET /api/v1/reward/rewards?user_id={id}` — Returns fish rewards for a specific user, joining `user_rewards` with `reward_items`.
+  - `GET /api/v1/reward/all-rewards` — Returns all rewards across all users (consumed by Leaderboard for rankings).
+  - `GET /api/v1/reward/last-update` — Returns `{ "reward_last_update": "<RFC3339>" }` timestamp for Leaderboard cache validation.
 
 ---
 
 ## Seed Dataset (5 Users, 41 Rewards)
 
-Both the in-memory repository and MongoDB init script (`001_create_reward_collections.js`) contain a pre-configured seed dataset with relative timestamps:
+Both the in-memory repository and MongoDB init scripts contain a pre-configured seed dataset with relative timestamps:
 
 | User ID | Display Name | All-Time Total | Period Outcome |
 |---------|--------------|----------------|----------------|
