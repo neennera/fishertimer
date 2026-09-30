@@ -12,6 +12,8 @@ service StudyTimerService {
   rpc StartTimer(StartTimerRequest) returns (TimerStateResponse);
   // Reads the timer's current state and remaining time.
   rpc GetTimer(GetTimerRequest) returns (TimerStateResponse);
+  // Reads all active participant timers for a room (session_id).
+  rpc GetRoomTimers(GetRoomTimersRequest) returns (GetRoomTimersResponse);
   // Freezes the remaining time of a running timer.
   rpc PauseTimer(PauseTimerRequest) returns (TimerStateResponse);
   // Continues a paused timer from where it was frozen.
@@ -111,4 +113,12 @@ message TimerStatisticsResponse {
   int32 total_sessions = 2;
   int32 total_focus_minutes = 3;
   string last_active = 4;
+}
+
+message GetRoomTimersRequest {
+  string session_id = 1;
+}
+
+message GetRoomTimersResponse {
+  repeated TimerStateResponse timers = 1;
 }

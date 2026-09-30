@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	StudyTimerService_StartTimer_FullMethodName         = "/fishertimer.studytimer.v1.StudyTimerService/StartTimer"
 	StudyTimerService_GetTimer_FullMethodName           = "/fishertimer.studytimer.v1.StudyTimerService/GetTimer"
+	StudyTimerService_GetRoomTimers_FullMethodName      = "/fishertimer.studytimer.v1.StudyTimerService/GetRoomTimers"
 	StudyTimerService_PauseTimer_FullMethodName         = "/fishertimer.studytimer.v1.StudyTimerService/PauseTimer"
 	StudyTimerService_ResumeTimer_FullMethodName        = "/fishertimer.studytimer.v1.StudyTimerService/ResumeTimer"
 	StudyTimerService_StopTimer_FullMethodName          = "/fishertimer.studytimer.v1.StudyTimerService/StopTimer"
@@ -43,6 +44,8 @@ type StudyTimerServiceClient interface {
 	StartTimer(ctx context.Context, in *StartTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
 	// Reads the timer's current state and remaining time.
 	GetTimer(ctx context.Context, in *GetTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
+	// Reads all active participant timers for a room (session_id).
+	GetRoomTimers(ctx context.Context, in *GetRoomTimersRequest, opts ...grpc.CallOption) (*GetRoomTimersResponse, error)
 	// Freezes the remaining time of a running timer.
 	PauseTimer(ctx context.Context, in *PauseTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
 	// Continues a paused timer from where it was frozen.
@@ -78,6 +81,16 @@ func (c *studyTimerServiceClient) GetTimer(ctx context.Context, in *GetTimerRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TimerStateResponse)
 	err := c.cc.Invoke(ctx, StudyTimerService_GetTimer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *studyTimerServiceClient) GetRoomTimers(ctx context.Context, in *GetRoomTimersRequest, opts ...grpc.CallOption) (*GetRoomTimersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRoomTimersResponse)
+	err := c.cc.Invoke(ctx, StudyTimerService_GetRoomTimers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +189,8 @@ type StudyTimerServiceServer interface {
 	StartTimer(context.Context, *StartTimerRequest) (*TimerStateResponse, error)
 	// Reads the timer's current state and remaining time.
 	GetTimer(context.Context, *GetTimerRequest) (*TimerStateResponse, error)
+	// Reads all active participant timers for a room (session_id).
+	GetRoomTimers(context.Context, *GetRoomTimersRequest) (*GetRoomTimersResponse, error)
 	// Freezes the remaining time of a running timer.
 	PauseTimer(context.Context, *PauseTimerRequest) (*TimerStateResponse, error)
 	// Continues a paused timer from where it was frozen.
@@ -202,6 +217,9 @@ func (UnimplementedStudyTimerServiceServer) StartTimer(context.Context, *StartTi
 }
 func (UnimplementedStudyTimerServiceServer) GetTimer(context.Context, *GetTimerRequest) (*TimerStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTimer not implemented")
+}
+func (UnimplementedStudyTimerServiceServer) GetRoomTimers(context.Context, *GetRoomTimersRequest) (*GetRoomTimersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRoomTimers not implemented")
 }
 func (UnimplementedStudyTimerServiceServer) PauseTimer(context.Context, *PauseTimerRequest) (*TimerStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PauseTimer not implemented")
@@ -280,6 +298,24 @@ func _StudyTimerService_GetTimer_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(StudyTimerServiceServer).GetTimer(ctx, req.(*GetTimerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StudyTimerService_GetRoomTimers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoomTimersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StudyTimerServiceServer).GetRoomTimers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StudyTimerService_GetRoomTimers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StudyTimerServiceServer).GetRoomTimers(ctx, req.(*GetRoomTimersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -442,6 +478,10 @@ var StudyTimerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTimer",
 			Handler:    _StudyTimerService_GetTimer_Handler,
+		},
+		{
+			MethodName: "GetRoomTimers",
+			Handler:    _StudyTimerService_GetRoomTimers_Handler,
 		},
 		{
 			MethodName: "PauseTimer",

@@ -84,6 +84,26 @@
 
 ---
 
+### Incident 007: Docker Port 5432 Conflict with Host PostgreSQL & Selective Container Starting
+- **Date:** 2026-09-30
+- **Component:** `docker-compose.yml`, `account-db`
+- **Symptom:** Running `docker compose up -d` failed with `listen tcp 0.0.0.0:5432: bind: address already in use`.
+- **Root Cause:** A host PostgreSQL daemon (installed via Homebrew or native macOS service) was already actively bound to local port 5432, preventing `account-db` from binding to 5432.
+- **Solution:** For targeted service development (e.g. Phase 2 Role B Study Timer), run only non-conflicting containers: `docker compose up -d timer-db rabbitmq adminer` (where `timer-db` is on 5434, RabbitMQ is on 5672/15672, Adminer is on 8080).
+- **Action for Future Agents:** If host port conflicts occur during Docker startup, instruct developers or run selective container subsets rather than failing all containers, or remap host binding ports.
+
+---
+
+### Incident 008: At-Least-Once Delivery Idempotency with `processed_events` in Database Transactions
+- **Date:** 2026-09-30
+- **Component:** `services/study-timer/internal/adapter/amqp/consumer.go`, `timer_db.processed_events`
+- **Symptom:** RabbitMQ consumers re-deliver messages upon reconnection or unacknowledged failures, potentially causing duplicate cycle terminations or state corruption.
+- **Root Cause:** AMQP guarantees at-least-once message delivery, meaning network blips or pod restarts can cause the same message (`event_id`) to be received multiple times.
+- **Solution:** Implemented `processed_events` table (`event_id`, `event_type`, `processed_at`) checked and recorded within the same atomic SQL transaction (`tx`) as timer finalization. If the `event_id` is already present, the transaction rolls back gracefully and the AMQP consumer acks the message without reapplying side effects.
+- **Action for Future Agents:** Always combine message deduplication keys in the same database transaction as business state mutations when implementing AMQP consumers.
+
+---
+
 ## 2. Template for Recording New Lessons Learned
 
 When documenting a new learning, append to Section 1 using this markdown structure:

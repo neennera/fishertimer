@@ -45,6 +45,11 @@ services/<service-name>/database/
 - **File:** [`services/reward/database/schemas/001_create_reward_collections.js`](../../../services/reward/database/schemas/001_create_reward_collections.js)
 - **Purpose:** Stores catalog of unlockable items (`SKIN`, `BADGE`, `FISH_SPECIES`) and unlocked user inventory.
 
+### Sample Table 3: `timer_db.timers`, `cycles`, & `processed_events` (PostgreSQL)
+- **Service Owner:** Study Timer Service
+- **File:** [`services/study-timer/database/schemas/003_phase2_timer_and_events.sql`](../../../services/study-timer/database/schemas/003_phase2_timer_and_events.sql)
+- **Purpose:** Manages room timer records (`OPEN`, `FINALIZED`), work/rest cycles (`RUNNING`, `PAUSED`, `COMPLETED`, `DISCARDED`), reward grant states, and event deduplication for RabbitMQ.
+
 ---
 
 ## 3. How to Create a Repository in Go Clean Architecture
@@ -141,4 +146,5 @@ h := handler.New(uc)
 | `admin` | `ADMIN_DATABASE_URL` | `postgres://postgres:postgrespassword@localhost:5435/admin_db?sslmode=disable` | Supabase / PostgreSQL |
 | `reward` | `REWARD_MONGODB_URI` | `mongodb://mongoadmin:mongopassword@localhost:27017/reward_db?authSource=admin` | MongoDB |
 | `leaderboard`| `LEADERBOARD_REDIS_URL` | `redis://localhost:6379` | Redis (Cache) |
+| `study-timer` / `study-session` | `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672/` | RabbitMQ (Message Broker) |
 

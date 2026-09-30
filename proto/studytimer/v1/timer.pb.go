@@ -226,6 +226,67 @@ func (x *GetTimerRequest) GetUserId() string {
 	return ""
 }
 
+type GetRoomTimersRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+}
+
+func (x *GetRoomTimersRequest) Reset() {
+	*x = GetRoomTimersRequest{}
+}
+
+func (x *GetRoomTimersRequest) String() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (*GetRoomTimersRequest) ProtoMessage() {}
+
+func (x *GetRoomTimersRequest) ProtoReflect() protoreflect.Message {
+	return nil
+}
+
+func (x *GetRoomTimersRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type GetRoomTimersResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Timers []*TimerStateResponse `protobuf:"bytes,1,rep,name=timers,proto3" json:"timers,omitempty"`
+}
+
+func (x *GetRoomTimersResponse) Reset() {
+	*x = GetRoomTimersResponse{}
+}
+
+func (x *GetRoomTimersResponse) String() string {
+	return ""
+}
+
+func (*GetRoomTimersResponse) ProtoMessage() {}
+
+func (x *GetRoomTimersResponse) ProtoReflect() protoreflect.Message {
+	return nil
+}
+
+func (x *GetRoomTimersResponse) GetTimers() []*TimerStateResponse {
+	if x != nil {
+		return x.Timers
+	}
+	return nil
+}
+
 type PauseTimerRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`

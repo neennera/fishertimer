@@ -32,6 +32,23 @@ func (h *GRPCHandler) GetTimer(ctx context.Context, req *timerv1.GetTimerRequest
 	return toTimerResponse(h.uc.GetTimer(ctx, req.GetSessionId(), req.GetUserId()))
 }
 
+func (h *GRPCHandler) GetRoomTimers(ctx context.Context, req *timerv1.GetRoomTimersRequest) (*timerv1.GetRoomTimersResponse, error) {
+	timers, err := h.uc.GetRoomTimers(ctx, req.GetSessionId())
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	resp := &timerv1.GetRoomTimersResponse{
+		Timers: make([]*timerv1.TimerStateResponse, 0, len(timers)),
+	}
+	for _, t := range timers {
+		tr, err := toTimerResponse(t, nil)
+		if err == nil && tr != nil {
+			resp.Timers = append(resp.Timers, tr)
+		}
+	}
+	return resp, nil
+}
+
 func (h *GRPCHandler) PauseTimer(ctx context.Context, req *timerv1.PauseTimerRequest) (*timerv1.TimerStateResponse, error) {
 	return toTimerResponse(h.uc.PauseTimer(ctx, req.GetSessionId(), req.GetUserId()))
 }
