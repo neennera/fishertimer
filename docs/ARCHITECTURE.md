@@ -100,6 +100,7 @@ As defined in `docs/phase1/microservice.md`:
 | Leaderboard   | Reward.GetLastUpdate()      | REST     | Checks reward mutation timestamp (S-1 cache)   |
 | Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
 | Admin         | StudySession.EndSession()   | gRPC     | Command to close/end active study session room |
+| Study Session | StudyTimer.SessionEvents    | RabbitMQ | Async events (participant.left, session.ended) |
 | API Gateway   | StudyTimer.{Start,Get,Pause,| gRPC     | Browser REST /api/timer/* translated to gRPC   |
 |               |   Resume,Reset}Timer()      |          | (TIMER_GRPC_TARGET, default localhost:50051)   |
 +---------------+-----------------------------+----------+------------------------------------------------+

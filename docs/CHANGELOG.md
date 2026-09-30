@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **[infra]**: Added RabbitMQ (`rabbitmq:3-management-alpine` on ports 5672 and 15672) and Adminer DB GUI (port 8080) to `docker-compose.yml`.
+- **[events]**: Created shared contracts module `pkg/events` with JSON event structs (`ParticipantJoined`, `ParticipantLeft`, `SessionEnded`) and topology constants (`fisher.session`, `fisher.session.dlx`, `timer.session-events`, `timer.session-events.dlq`). Added `./pkg/events` to `go.work`.
+- **[study-timer]**: Added schema migration `003_phase2_timer_and_events.sql` creating `processed_events` for idempotency, `timers` (OPEN/FINALIZED), and `cycles` (RUNNING/PAUSED/DISCARDED/COMPLETED).
+- **[study-timer]**: Added temporary testing seed script `001_temp_w1_active_timer_seed.sql` for seeding an open timer and running work cycle.
+- **[study-timer]**: Implemented AMQP topology auto-declarer (`internal/adapter/amqp/topology.go`) and consumer worker (`consumer.go`) with manual Ack/Nack, prefetch 10, and DLQ routing.
+- **[study-timer]**: Extended gRPC interface with `GetRoomTimers` RPC in `proto/studytimer/v1/timer.proto` to fetch all active participant timers for a given room.
+- **[study-timer]**: Added mock event publisher CLI test tool `scripts/publish_mock_event.go`.
+- **[docs]**: Created `database-design-with-rabbitmq.md` at workspace root detailing Phase 2 3NF schema and RabbitMQ topology.
 - **[reward]**: Added `003_seed_user_rewards.js` to seed 41 user catches across 5 demo users (`user1` to `user5`) for Leaderboard and FishTank demonstrations in MongoDB.
 - **[reward]**: Added `GET /api/v1/reward/all-rewards` and `GET /api/v1/reward/last-update` endpoints for Leaderboard cache validation (S-1) and ranking computation (S-3).
 - **[web]**: Added Leaderboard feature (`apps/web/app/leaderboard/page.tsx`, `features/leaderboard/`) with Weekly, Monthly, and All-Time period tabs, cache status indicators, and current-user highlighting.
