@@ -1,11 +1,25 @@
--- =======================================================
--- Study Timer Service: Temporary Seed for Phase 2 W1 Testing
+-- ==============================================================================
+-- [REMARK: TEMPORARY MOCK SEED ONLY]
+-- Study Timer Service: Phase 2 W1 Local Testing Fixture
 -- Database: timer_db
--- =======================================================
--- Description:
--- Seeds an active study room timer with OPEN status and a RUNNING work cycle.
--- This allows testing RabbitMQ event consumer (LeaveSession, EndSession)
--- before JoinSession is implemented in W2.
+-- ==============================================================================
+-- REMARK / CONTEXT:
+-- • สถานะ: TEMPORARY MOCK FIXTURE (ใช้เฉพาะการทดสอบ Local ของ Role B)
+-- • รอเชื่อมต่อกับ: Study Session Service (Role A) ใน Phase 2 Week 2 (W2)
+-- • คำอธิบาย:
+--   ในระบบจริง (Production / Integrated System) ตาราง timers และ cycles จะถูกสร้าง
+--   แบบ Dynamic เมื่อผู้ใช้สร้าง/เข้าร่วมห้องและกดเริ่มนาฬิกา (gRPC StartTimer)
+--   ไม่ใช่การ Seed ไว้ล่วงหน้าแบบคงที่
+--
+-- • วัตถุประสงค์ของ Mock Seed นี้:
+--   จำลองห้องเรียนและ Timer ที่เปิดอยู่ (OPEN) พร้อม Work Cycle ที่กำลังรัน (RUNNING)
+--   เพื่อให้สามารถทดสอบการทำงานของ RabbitMQ Event Consumer (เช่น session.participant.left
+--   และ session.ended) รวมถึงคำนวณเวลาและตัดจบรอบ (Finalize) ได้ทันทีก่อนที่
+--   Study Session Service จะพัฒนาระบบ JoinSession เสร็จสมบูรณ์
+--
+-- • ข้อควรระวัง:
+--   สามารถ Wipe หรือล้างข้อมูลชุดนี้ทิ้งได้เมื่อเชื่อมต่อระหว่าง Service ครบถ้วน
+-- ==============================================================================
 
 -- 1. Seed user timer in room
 INSERT INTO timers (timer_id, session_id, user_id, status, opened_at)

@@ -10,10 +10,12 @@ In adherence to microservice autonomy and high cohesion, each service manages it
 | :--- | :--- | :--- | :--- | :--- |
 | **Account** | `account_db` | PostgreSQL (Supabase) | `5432` | `users` |
 | **Study Session** | `session_db` | PostgreSQL | `5433` | `study_sessions`, `session_participants` |
-| **Study Timer** | `timer_db` | PostgreSQL | `5434` | `timer_settings`, `timer_sessions`, `timer_cycles` |
+| **Study Timer** | `timer_db` | PostgreSQL | `5434` | `timer_settings`, `timers`, `cycles`, `processed_events`<br>*(Legacy: `timer_sessions`, `timer_cycles`)* |
 | **Reward** | `reward_db` | MongoDB | `27017` | `reward_items`, `user_rewards` |
 | **Admin Moderation**| `admin_db` | PostgreSQL | `5435` | `admin_logs` |
 | **Leaderboard** | Redis Cache | Redis | `6379` | In-memory sorted sets (no dedicated SQL/Mongo DB) |
+| **Message Broker** | RabbitMQ | RabbitMQ (Management) | `5672`<br>`15672` (UI) | Exchange: `fisher.session`, DLX: `fisher.session.dlx`<br>Queue: `timer.session-events`, DLQ: `timer.session-events.dlq` |
+| **Database GUI** | Adminer | Docker Web GUI | `8080` | Web inspection for all SQL databases |
 
 ---
 
@@ -46,28 +48,38 @@ The canonical DBML representation is available in [`schema.dbml`](./schema.dbml)
   - `joined_at`, `left_at` (TIMESTAMPTZ)
   - Composite PK: `(session_id, user_id)`
 
-#### 3. Study Timer Service (`timer_db`)
+#### 3. Study Timer Service (`timer_db` - Phase 2 Specification)
 - `timer_settings`: Per-user pomodoro configuration.
   - `user_id` (UUID, PK, logical ref to `account_db.users.user_id`)
-  - `focus_duration` (INT, DEFAULT 1500 seconds / 25 mins)
-  - `short_break_duration` (INT, DEFAULT 300 seconds / 5 mins)
-  - `long_break_duration` (INT, DEFAULT 900 seconds / 15 mins)
-  - `cycles_before_long_break` (INT, DEFAULT 4)
+  - `focus_duration` / `work_duration_seconds` (INT, default 1500 seconds / 25 mins)
+  - `short_break_duration` / `rest_duration_seconds` (INT, default 300 seconds / 5 mins)
   - `updated_at` (TIMESTAMPTZ)
-- `timer_sessions`: Timer run sessions (solo or bound to a study room).
-  - `timer_session_id` (UUID, PK)
+- `timers`: Session timer status per user per study room (Phase 2).
+  - `timer_id` (UUID, PK)
+  - `session_id` (UUID, logical ref to `session_db.study_sessions.session_id`)
   - `user_id` (UUID, logical ref to `account_db.users.user_id`)
-  - `study_session_id` (UUID, NULLABLE, logical ref to `session_db.study_sessions.session_id`)
-  - `status` (`FOCUS` | `SHORT_BREAK` | `LONG_BREAK` | `PAUSED` | `COMPLETED` | `STOPPED`)
-  - `started_at`, `completed_at` (TIMESTAMPTZ)
-- `timer_cycles`: Individual interval cycles completed within a timer session.
+  - `status` (`OPEN` | `FINALIZED`)
+  - `opened_at` (TIMESTAMPTZ, NOT NULL)
+  - `finalized_at` (TIMESTAMPTZ, nullable)
+  - Unique Constraint: `(session_id, user_id)`
+- `cycles`: Detailed cycle tracking within a timer (Phase 2).
   - `cycle_id` (UUID, PK)
-  - `timer_session_id` (UUID, FK -> `timer_sessions.timer_session_id`)
-  - `cycle_number` (INT)
-  - `phase_type` (`FOCUS` | `SHORT_BREAK` | `LONG_BREAK`)
-  - `duration` (INT, elapsed seconds)
-  - `is_completed` (BOOLEAN, DEFAULT FALSE)
-  - `ended_at` (TIMESTAMPTZ)
+  - `timer_id` (UUID, FK -> `timers.timer_id` ON DELETE CASCADE)
+  - `type` (`WORK` | `REST`)
+  - `status` (`RUNNING` | `PAUSED` | `COMPLETED` | `SKIPPED` | `DISCARDED`)
+  - `duration_sec` (INT, target interval seconds)
+  - `started_at` (TIMESTAMPTZ, NOT NULL)
+  - `paused_at` (TIMESTAMPTZ, nullable)
+  - `paused_total_sec` (INT, total paused duration)
+  - `ended_at` (TIMESTAMPTZ, nullable)
+  - `reward_status` (`NONE` | `PENDING` | `SENT`)
+  - Partial Unique Index: `(timer_id) WHERE status IN ('RUNNING', 'PAUSED')`
+- `processed_events`: RabbitMQ at-least-once message deduplication store.
+  - `event_id` (VARCHAR(64), PK)
+  - `event_type` (VARCHAR(50), NOT NULL)
+  - `processed_at` (TIMESTAMPTZ, NOT NULL)
+- *(Legacy Phase 1 tables maintained for backward compatibility: `timer_sessions`, `timer_cycles`)*
+- *Seed Note (`001_temp_w1_active_timer_seed.sql`):* Temporary mock fixture for Week 1 isolated testing. Seeds an `OPEN` timer and `RUNNING` cycle solely to verify AMQP consumer finalization locally. In production, timers/cycles are created dynamically via API/gRPC; this mock fixture will be superseded once integrated with Study Session Service (Role A) in Week 2.
 
 #### 4. Reward Service (`reward_db`)
 - `reward_items`: Catalog of unlockable reward items.
