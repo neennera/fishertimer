@@ -11,6 +11,7 @@ import (
 type Usecase interface {
 	StartTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	GetTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
+	GetRoomTimers(ctx context.Context, sessionID string) ([]*domain.TimerState, error)
 	PauseTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	ResumeTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	StopTimer(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
@@ -19,6 +20,10 @@ type Usecase interface {
 	SkipRest(ctx context.Context, sessionID, userID string) (*domain.TimerState, error)
 	UpdateTimerSetting(ctx context.Context, sessionID, userID string, workMin, restMin int) (*domain.TimerState, error)
 	TimerStatistics(ctx context.Context, userID string) (*domain.TimerHistory, error)
+
+	// Phase 2: RabbitMQ Event Consumers
+	FinalizeParticipantTimer(ctx context.Context, sessionID, userID, eventID, reason string) error
+	FinalizeSessionTimers(ctx context.Context, sessionID, eventID, reason string) error
 }
 
 type service struct {
@@ -137,4 +142,25 @@ func (s *service) UpdateTimerSetting(ctx context.Context, sessionID, userID stri
 
 func (s *service) TimerStatistics(ctx context.Context, userID string) (*domain.TimerHistory, error) {
 	return s.repo.GetHistory(ctx, userID)
+}
+
+func (s *service) GetRoomTimers(ctx context.Context, sessionID string) ([]*domain.TimerState, error) {
+	if sessionID == "" {
+		return nil, domain.ErrInvalid
+	}
+	return s.repo.GetRoomTimers(ctx, sessionID)
+}
+
+func (s *service) FinalizeParticipantTimer(ctx context.Context, sessionID, userID, eventID, reason string) error {
+	if sessionID == "" || userID == "" || eventID == "" {
+		return domain.ErrInvalid
+	}
+	return s.repo.FinalizeParticipantTimer(ctx, sessionID, userID, eventID, "session.participant.left")
+}
+
+func (s *service) FinalizeSessionTimers(ctx context.Context, sessionID, eventID, reason string) error {
+	if sessionID == "" || eventID == "" {
+		return domain.ErrInvalid
+	}
+	return s.repo.FinalizeSessionTimers(ctx, sessionID, eventID, "session.ended")
 }
