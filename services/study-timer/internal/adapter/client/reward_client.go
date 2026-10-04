@@ -25,29 +25,37 @@ func NewRewardClient(baseURL string) domain.RewardClient {
 	}
 }
 
+// awardPayload is POST /api/v1/reward/award (UC-05 S-2 / UC-09): everything
+// Reward needs to roll the catch. cycle_id makes a retried call harmless.
 type awardPayload struct {
-	UserID string `json:"user_id"`
-	Reason string `json:"reason"`
+	UserID           string `json:"user_id"`
+	SessionID        string `json:"session_id"`
+	CycleID          string `json:"cycle_id"`
+	WorkMinutes      int    `json:"work_duration"`
+	ParticipantCount int    `json:"participant_count"`
+	Reason           string `json:"reason"`
 }
 
-func (c *HTTPRewardClient) AwardReward(ctx context.Context, userID, reason string) error {
-	payload := awardPayload{
-		UserID: userID,
-		Reason: reason,
-	}
-
-	body, err := json.Marshal(payload)
+func (c *HTTPRewardClient) AwardReward(ctx context.Context, req domain.AwardRequest) error {
+	body, err := json.Marshal(awardPayload{
+		UserID:           req.UserID,
+		SessionID:        req.SessionID,
+		CycleID:          req.CycleID,
+		WorkMinutes:      req.WorkMinutes,
+		ParticipantCount: req.ParticipantCount,
+		Reason:           "CompleteCycle",
+	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal award payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/reward/award", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/reward/award", bytes.NewBuffer(body))
 	if err != nil {
 		return fmt.Errorf("failed to create award request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("failed to execute award request: %w", err)
 	}
