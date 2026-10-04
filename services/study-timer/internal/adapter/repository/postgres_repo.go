@@ -36,13 +36,15 @@ func (r *PostgresRepository) GetTimer(ctx context.Context, sessionID, userID str
 		return nil, err
 	}
 
-	var status, phase string
+	// A room holds one timer_sessions row per participant, keyed by
+	// (study_session_id, user_id); timer_session_id is that row's own id.
+	var timerSessionID, status, phase string
 	var startedAt, completedAt, runningSince sql.NullTime
 	var elapsedMs int64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT status, phase, running_since, elapsed_ms, started_at, completed_at
-		FROM timer_sessions WHERE timer_session_id = $1 AND user_id = $2`, sessionID, userID,
-	).Scan(&status, &phase, &runningSince, &elapsedMs, &startedAt, &completedAt)
+		SELECT timer_session_id, status, phase, running_since, elapsed_ms, started_at, completed_at
+		FROM timer_sessions WHERE study_session_id = $1 AND user_id = $2`, sessionID, userID,
+	).Scan(&timerSessionID, &status, &phase, &runningSince, &elapsedMs, &startedAt, &completedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, nil
 	}
@@ -58,7 +60,7 @@ func (r *PostgresRepository) GetTimer(ctx context.Context, sessionID, userID str
 
 	if err := r.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM timer_cycles
-		WHERE timer_session_id = $1 AND is_completed`, sessionID,
+		WHERE timer_session_id = $1 AND is_completed`, timerSessionID,
 	).Scan(&t.CurrentCycle); err != nil {
 		return nil, err
 	}
@@ -116,17 +118,20 @@ func (r *PostgresRepository) SaveTimer(ctx context.Context, t *domain.TimerState
 		runningSince = t.RunningSince
 	}
 
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO timer_sessions (timer_session_id, user_id, status, phase, running_since, elapsed_ms, started_at, completed_at)
+	// One row per participant per room (see 004_timer_sessions_per_participant.sql).
+	var timerSessionID string
+	if err := tx.QueryRowContext(ctx, `
+		INSERT INTO timer_sessions (study_session_id, user_id, status, phase, running_since, elapsed_ms, started_at, completed_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (timer_session_id) DO UPDATE
+		ON CONFLICT (study_session_id, user_id) DO UPDATE
 		SET status = EXCLUDED.status,
 		    phase = EXCLUDED.phase,
 		    running_since = EXCLUDED.running_since,
 		    elapsed_ms = EXCLUDED.elapsed_ms,
-		    completed_at = EXCLUDED.completed_at`,
+		    completed_at = EXCLUDED.completed_at
+		RETURNING timer_session_id`,
 		t.SessionID, t.UserID, dbStatus, string(t.Phase), runningSince, t.Elapsed.Milliseconds(), t.LastUpdated, completedAt,
-	); err != nil {
+	).Scan(&timerSessionID); err != nil {
 		return err
 	}
 
@@ -135,7 +140,7 @@ func (r *PostgresRepository) SaveTimer(ctx context.Context, t *domain.TimerState
 	// that just finished is the opposite of the (already flipped) new phase.
 	var recorded int
 	if err := tx.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM timer_cycles WHERE timer_session_id = $1`, t.SessionID,
+		SELECT COUNT(*) FROM timer_cycles WHERE timer_session_id = $1`, timerSessionID,
 	).Scan(&recorded); err != nil {
 		return err
 	}
@@ -148,7 +153,7 @@ func (r *PostgresRepository) SaveTimer(ctx context.Context, t *domain.TimerState
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO timer_cycles (timer_session_id, cycle_number, phase_type, duration, is_completed, ended_at)
 			VALUES ($1, $2, $3, $4, TRUE, $5)`,
-			t.SessionID, cycleNumber, phaseType, duration, t.LastUpdated,
+			timerSessionID, cycleNumber, phaseType, duration, t.LastUpdated,
 		); err != nil {
 			return err
 		}
@@ -240,7 +245,7 @@ func (r *PostgresRepository) GetRoomTimers(ctx context.Context, sessionID string
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT user_id::text FROM timers WHERE session_id = $1 AND status = 'OPEN'
 		UNION
-		SELECT user_id::text FROM timer_sessions WHERE timer_session_id = $1`, sessionID)
+		SELECT user_id::text FROM timer_sessions WHERE study_session_id = $1`, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +334,7 @@ func (r *PostgresRepository) FinalizeParticipantTimer(ctx context.Context, sessi
 	_, err = tx.ExecContext(ctx, `
 		UPDATE timer_sessions
 		SET status = 'STOPPED', completed_at = $1
-		WHERE timer_session_id = $2 AND user_id = $3`, now, sessionID, userID)
+		WHERE study_session_id = $2 AND user_id = $3`, now, sessionID, userID)
 	if err != nil {
 		return err
 	}
@@ -386,7 +391,7 @@ func (r *PostgresRepository) FinalizeSessionTimers(ctx context.Context, sessionI
 	_, err = tx.ExecContext(ctx, `
 		UPDATE timer_sessions
 		SET status = 'STOPPED', completed_at = $1
-		WHERE timer_session_id = $2`, now, sessionID)
+		WHERE study_session_id = $2`, now, sessionID)
 	if err != nil {
 		return err
 	}
