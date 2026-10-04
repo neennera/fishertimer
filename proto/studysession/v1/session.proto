@@ -4,42 +4,77 @@ package fishertimer.studysession.v1;
 
 option go_package = "github.com/neennera/fishertimer/proto/studysession/v1;sessionv1";
 
+// StudySessionService owns study rooms and who is in them (UC-01..04).
+// Every change to room membership is also published to RabbitMQ
+// (exchange fisher.session) so Study Timer can open and finalize timers.
+//
+// Errors are gRPC status codes, so callers can branch without parsing text:
+//   INVALID_ARGUMENT     bad name / limit / ids              (UC-01 E-1)
+//   NOT_FOUND            no such room
+//   FAILED_PRECONDITION  room has ended                      (UC-02 E-1)
+//   RESOURCE_EXHAUSTED   room is full                        (UC-02 E-2)
+//   ALREADY_EXISTS       user is already in another room     (UC-01 E-2, UC-02 E-3)
 service StudySessionService {
   rpc CreateSession(CreateSessionRequest) returns (StudySessionResponse);
   rpc JoinSession(JoinSessionRequest) returns (JoinSessionResponse);
+  // Idempotent: leaving a room you already left is a successful no-op (UC-04 E-4).
   rpc LeaveSession(LeaveSessionRequest) returns (LeaveSessionResponse);
+  // Idempotent: ending an ended room is a successful no-op.
   rpc EndSession(EndSessionRequest) returns (StudySessionResponse);
   rpc ListActiveSession(ListActiveSessionRequest) returns (ListActiveSessionResponse);
+  // Active participants only (left_at IS NULL).
   rpc GetParticipants(GetParticipantsRequest) returns (GetParticipantsResponse);
+  rpc GetSession(GetSessionRequest) returns (StudySessionResponse);
+  // The room the user is currently in, if any.
+  rpc GetMySession(GetMySessionRequest) returns (GetMySessionResponse);
+  // Presence ping from an open room page. A participant whose pings stop is
+  // auto-left with reason DISCONNECT_TIMEOUT (UC-03 E-3).
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 message CreateSessionRequest {
   string name = 1;
   string creator_id = 2;
   int32 participant_limit = 3;
+  string creator_display_name = 4;
 }
 
 message JoinSessionRequest {
   string session_id = 1;
   string user_id = 2;
+  string display_name = 3;
 }
 
 message JoinSessionResponse {
   bool success = 1;
+  StudySessionResponse session = 2;
 }
 
 message LeaveSessionRequest {
   string session_id = 1;
   string user_id = 2;
+  // LEFT (default) | KICKED | DISCONNECT_TIMEOUT | IDLE_TIMEOUT
+  string reason = 3;
 }
 
 message LeaveSessionResponse {
   bool success = 1;
+  // False when the user had already left (no-op).
+  bool left = 2;
+  // True when this leave emptied the room and ended it (UC-03 S-2).
+  bool session_ended = 3;
+  string session_id = 4;
+  string user_id = 5;
+  string joined_at = 6;
+  string left_at = 7;
 }
 
 message EndSessionRequest {
   string session_id = 1;
+  // Kept for compatibility; who asked is not needed to end a room.
   string user_id = 2;
+  // ADMIN_CLOSED (default) | EMPTY | TIMEOUT_24H
+  string reason = 3;
 }
 
 message ListActiveSessionRequest {}
@@ -48,6 +83,8 @@ message ParticipantInfo {
   string session_id = 1;
   string user_id = 2;
   string joined_at = 3;
+  string display_name = 4;
+  string last_seen_at = 5;
 }
 
 message StudySessionResponse {
@@ -57,6 +94,9 @@ message StudySessionResponse {
   int32 participant_limit = 4;
   string status = 5;
   string created_at = 6;
+  int32 participant_count = 7;
+  string ended_at = 8;
+  string end_reason = 9;
 }
 
 message ListActiveSessionResponse {
@@ -69,4 +109,32 @@ message GetParticipantsRequest {
 
 message GetParticipantsResponse {
   repeated ParticipantInfo participants = 1;
+}
+
+message GetSessionRequest {
+  string session_id = 1;
+}
+
+message GetMySessionRequest {
+  string user_id = 1;
+}
+
+message GetMySessionResponse {
+  bool in_session = 1;
+  StudySessionResponse session = 2;
+  ParticipantInfo participant = 3;
+}
+
+message HeartbeatRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message HeartbeatResponse {
+  // False once the user is no longer in the room (left, kicked, timed out,
+  // or the room ended); the page should then leave.
+  bool active = 1;
+  // Why the user is no longer active, when known: a leave reason
+  // (KICKED, IDLE_TIMEOUT, ...) or SESSION_ENDED.
+  string reason = 2;
 }
