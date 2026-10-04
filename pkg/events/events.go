@@ -20,6 +20,9 @@ const (
 	ReasonLeft              = "LEFT"
 	ReasonKicked            = "KICKED"
 	ReasonDisconnectTimeout = "DISCONNECT_TIMEOUT"
+	// ReasonIdleTimeout: no running work cycle for IDLE_TIMEOUT_MINUTES
+	// (UC-03 E-7 / UC-05 E-8).
+	ReasonIdleTimeout = "IDLE_TIMEOUT"
 )
 
 // Reason constants for SessionEnded
@@ -43,7 +46,7 @@ type ParticipantLeft struct {
 	OccurredAt time.Time `json:"occurred_at"`
 	SessionID  string    `json:"session_id"`
 	UserID     string    `json:"user_id"`
-	Reason     string    `json:"reason"` // LEFT | KICKED | DISCONNECT_TIMEOUT
+	Reason     string    `json:"reason"` // LEFT | KICKED | DISCONNECT_TIMEOUT | IDLE_TIMEOUT
 }
 
 // SessionEnded is published by Study Session when all members leave or admin force-closes the room.
