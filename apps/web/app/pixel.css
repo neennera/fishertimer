@@ -1481,4 +1481,471 @@
     background: var(--color-cream-2);
     color: var(--color-bark);
   }
+
+  /* --- Study rooms ---------------------------------------------------------
+     /rooms (the lake's room list) and /rooms/[id] (one room). */
+
+  /* Seats: one pip per spot a room has. Taken spots are amber, open ones
+     an empty socket, so "2 of 4" reads at a glance. */
+  .pixel-seats {
+    display: inline-flex;
+    gap: var(--px);
+  }
+  .pixel-seats__seat {
+    width: calc(var(--px) * 3);
+    height: calc(var(--px) * 3);
+    background: var(--color-cream);
+    box-shadow: inset 0 0 0 var(--px) color-mix(in srgb, var(--color-bark) 35%, transparent);
+  }
+  .pixel-seats__seat--taken {
+    background: var(--color-amber);
+    box-shadow: inset 0 calc(var(--px) * -1) 0 var(--color-amber-dk);
+  }
+
+  /* One room on the list: a tile with a lake-blue left edge, like a
+     mooring post. --full and --mine recolour that edge. */
+  .pixel-room-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 4);
+    text-align: left;
+    padding: calc(var(--px) * 4) calc(var(--px) * 4) calc(var(--px) * 4) calc(var(--px) * 6);
+  }
+  .pixel-room-card::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: calc(var(--px) * 2);
+    background: var(--color-lake);
+  }
+  .pixel-room-card--full::before {
+    background: var(--color-stone-dk);
+  }
+  .pixel-room-card--mine::before {
+    background: var(--color-amber);
+  }
+  .pixel-room-card__name {
+    font-family: var(--font-display);
+    font-size: calc(var(--px) * 7);
+    line-height: 1.05;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pixel-room-card__meta {
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3.2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-bark);
+  }
+
+  /* Seat picker (create room): real radio inputs, visually hidden, with a
+     key-like label per size. Same pattern as .pixel-checkbox. */
+  .pixel-seat-picker {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: calc(var(--px) * 2);
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  .pixel-seat-picker__input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+  }
+  .pixel-seat-picker__option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--px) * 1.5);
+    padding: calc(var(--px) * 3) var(--px);
+    cursor: pointer;
+    clip-path: var(--pixclip);
+    background: var(--color-cream-2);
+    color: var(--color-bark);
+    box-shadow: inset 0 calc(var(--px) * -1) 0 color-mix(in srgb, var(--color-bark) 25%, transparent);
+    transition: background 0.12s linear, color 0.12s linear;
+  }
+  .pixel-seat-picker__option:hover {
+    background: color-mix(in srgb, var(--color-amber) 20%, var(--color-cream-2));
+  }
+  .pixel-seat-picker__input:checked + .pixel-seat-picker__option {
+    background: var(--color-amber);
+    color: var(--color-cream);
+    box-shadow: inset 0 calc(var(--px) * -1) 0 var(--color-amber-dk);
+  }
+  .pixel-seat-picker__input:focus-visible + .pixel-seat-picker__option {
+    outline: var(--px) solid var(--color-lake-dp);
+    outline-offset: var(--px);
+  }
+  .pixel-seat-picker__count {
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 8);
+    line-height: 1;
+  }
+  .pixel-seat-picker__caption {
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 2.8);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* --- The dock ------------------------------------------------------------
+     A side view of one room: dusk sky, a far shore, a wooden pier on posts
+     and the lake below. Each participant is an angler standing on the pier;
+     their line and bobber show their timer:
+       data-state="focus"   bobber bobs, ripples spread
+       data-state="paused"  bobber floats still
+       data-state="caught"  the work block ran out: bobber dives, "!" shows
+       data-state="rest"    rod down, on a break ("z" drifts up)
+       data-state="idle"    rod up, no line in the water
+     Geometry is in --u (one art pixel, --dock-px) from the top of the scene:
+     pier deck from 36u, sitting on the waterline at 40u; 60u tall. Decoration only
+     (aria-hidden); the roster list below it carries the same information. */
+  .pixel-dock {
+    --u: var(--dock-px);
+    --deck: calc(var(--u) * 36);
+    --waterline: calc(var(--u) * 40);
+
+    position: relative;
+    height: calc(var(--u) * 60);
+    overflow: hidden;
+    clip-path: var(--pixclip);
+    background:
+      /* deck: top edge, plank seams, boards */
+      linear-gradient(var(--color-oak-lt), var(--color-oak-lt)) 0 var(--deck) / 100% var(--u) no-repeat,
+      repeating-linear-gradient(
+          to right,
+          transparent 0 calc(var(--u) * 11),
+          color-mix(in srgb, var(--color-bark) 70%, var(--color-oak)) calc(var(--u) * 11) calc(var(--u) * 12)
+        )
+        0 var(--deck) / 100% calc(var(--u) * 4) no-repeat,
+      linear-gradient(var(--color-oak), var(--color-oak)) 0 var(--deck) / 100% calc(var(--u) * 4) no-repeat,
+      /* posts down into the water */
+      repeating-linear-gradient(
+          to right,
+          transparent 0 calc(var(--u) * 14),
+          var(--color-bark) calc(var(--u) * 14) calc(var(--u) * 16)
+        )
+        0 calc(var(--deck) + var(--u) * 4) / 100% calc(var(--u) * 11) no-repeat,
+      /* light on the water */
+      repeating-linear-gradient(
+          to bottom,
+          transparent 0 calc(var(--u) * 3),
+          color-mix(in srgb, var(--color-cream) 22%, transparent) calc(var(--u) * 3) calc(var(--u) * 4)
+        )
+        0 var(--waterline) / 100% calc(var(--u) * 14) no-repeat,
+      /* sky, then lake */
+      linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--color-sky) 45%, var(--color-cream)) 0,
+        var(--color-sky) var(--waterline),
+        var(--color-lake) var(--waterline),
+        var(--color-lake-dp) 100%
+      );
+  }
+  /* The far shore: a hazy staircase treeline, its foot hidden behind the
+     pier. Painted above the sky only, so it never covers the deck. */
+  .pixel-dock::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: calc(var(--deck) - var(--u) * 12);
+    height: calc(var(--u) * 12);
+    background: color-mix(in srgb, var(--color-forest) 55%, var(--color-sky));
+    clip-path: polygon(
+      0 100%, 0 50%, 4% 50%, 4% 20%, 6% 20%, 6% 55%, 14% 55%, 14% 30%, 16% 30%, 16% 60%,
+      27% 60%, 27% 10%, 29% 10%, 29% 45%, 40% 45%, 40% 65%, 49% 65%, 49% 25%, 51% 25%,
+      51% 50%, 62% 50%, 62% 0, 64% 0, 64% 40%, 76% 40%, 76% 60%, 85% 60%, 85% 15%, 87% 15%,
+      87% 50%, 100% 50%, 100% 100%
+    );
+  }
+
+  .pixel-dock__spots {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(var(--spots, 5), minmax(0, 1fr));
+  }
+
+  .pixel-angler {
+    /* Shift the figure left of centre so figure + rod sit centred. */
+    --cx: calc(50% - var(--u) * 2.5);
+    --angler: var(--color-lake);
+
+    position: relative;
+    min-width: 0;
+  }
+
+  /* Name tag above the hat. */
+  .pixel-angler__tag {
+    position: absolute;
+    top: calc(var(--u) * 5);
+    left: 50%;
+    max-width: calc(100% - var(--u) * 2);
+    transform: translateX(-50%);
+    padding: calc(var(--u) * 1) calc(var(--u) * 2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-label);
+    font-size: calc(var(--u) * 3.4);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    clip-path: var(--pixclip);
+    background: color-mix(in srgb, var(--color-cream) 85%, transparent);
+    color: var(--color-ink);
+  }
+  .pixel-angler--me .pixel-angler__tag {
+    background: var(--color-amber);
+    color: var(--color-cream);
+  }
+
+  /* Hat, head, body: blocks standing on the deck. */
+  .pixel-angler__hat,
+  .pixel-angler__head,
+  .pixel-angler__body {
+    position: absolute;
+  }
+  .pixel-angler__hat {
+    left: calc(var(--cx) - var(--u) * 8);
+    top: calc(var(--u) * 19);
+    width: calc(var(--u) * 8);
+    height: calc(var(--u) * 2);
+    background: color-mix(in srgb, var(--angler) 70%, var(--color-ink));
+  }
+  .pixel-angler__head {
+    left: calc(var(--cx) - var(--u) * 7);
+    top: calc(var(--u) * 21);
+    width: calc(var(--u) * 6);
+    height: calc(var(--u) * 7);
+    background: var(--color-sky);
+  }
+  /* One eye, looking out at the water. */
+  .pixel-angler__head::after {
+    content: "";
+    position: absolute;
+    right: var(--u);
+    top: calc(var(--u) * 3);
+    width: var(--u);
+    height: var(--u);
+    background: var(--color-ink);
+  }
+  .pixel-angler--open .pixel-angler__head::after {
+    display: none;
+  }
+  .pixel-angler__body {
+    left: calc(var(--cx) - var(--u) * 8);
+    top: calc(var(--u) * 28);
+    width: calc(var(--u) * 8);
+    height: calc(var(--u) * 8);
+    display: grid;
+    place-items: center;
+    background: var(--angler);
+    box-shadow: inset 0 calc(var(--u) * -1) 0 color-mix(in srgb, var(--angler) 70%, var(--color-ink));
+    font-family: var(--font-label);
+    font-size: calc(var(--u) * 3);
+    line-height: 1;
+    color: var(--color-cream);
+  }
+
+  /* Rod: a one-pixel diagonal from the hand up to the tip, drawn as one
+     art pixel and its box-shadow copies so it stays on the pixel grid. */
+  .pixel-angler__rod {
+    position: absolute;
+    left: var(--cx);
+    top: calc(var(--u) * 30);
+    width: var(--u);
+    height: var(--u);
+    background: var(--color-bark);
+    box-shadow:
+      calc(var(--u) * 1) calc(var(--u) * -1) var(--color-bark),
+      calc(var(--u) * 2) calc(var(--u) * -2) var(--color-bark),
+      calc(var(--u) * 3) calc(var(--u) * -3) var(--color-bark),
+      calc(var(--u) * 4) calc(var(--u) * -4) var(--color-bark),
+      calc(var(--u) * 5) calc(var(--u) * -5) var(--color-oak),
+      calc(var(--u) * 6) calc(var(--u) * -6) var(--color-oak),
+      calc(var(--u) * 7) calc(var(--u) * -7) var(--color-oak),
+      calc(var(--u) * 8) calc(var(--u) * -8) var(--color-oak),
+      calc(var(--u) * 9) calc(var(--u) * -9) var(--color-oak-lt),
+      calc(var(--u) * 10) calc(var(--u) * -10) var(--color-oak-lt),
+      calc(var(--u) * 11) calc(var(--u) * -11) var(--color-oak-lt);
+    transform-origin: 0 100%;
+    transition: transform 0.3s steps(3);
+  }
+  /* On a break the rod is laid down on the deck. */
+  .pixel-angler[data-state="rest"] .pixel-angler__rod {
+    transform: rotate(45deg) translateY(calc(var(--u) * 4));
+  }
+
+  /* Line from the rod tip down to the bobber at the waterline. */
+  .pixel-angler__line {
+    position: absolute;
+    left: calc(var(--cx) + var(--u) * 11.5 - var(--dock-line) / 2);
+    top: calc(var(--u) * 19);
+    width: var(--dock-line);
+    height: calc(var(--waterline) - var(--u) * 21);
+    background: color-mix(in srgb, var(--color-cream) 80%, transparent);
+  }
+  .pixel-angler__bobber {
+    position: absolute;
+    left: calc(var(--cx) + var(--u) * 10);
+    top: calc(var(--waterline) - var(--u) * 2.5);
+    width: calc(var(--u) * 3);
+    height: calc(var(--u) * 4);
+    background: linear-gradient(to bottom, var(--color-rust) 50%, var(--color-cream) 50%);
+  }
+  /* Rings on the water around a bobbing float. */
+  .pixel-angler__ripple {
+    position: absolute;
+    left: calc(var(--cx) + var(--u) * 5.5);
+    top: calc(var(--waterline) + var(--u) * 1.5);
+    width: calc(var(--u) * 12);
+    height: var(--u);
+    opacity: 0;
+    background:
+      linear-gradient(var(--color-cream), var(--color-cream)) 0 0 / calc(var(--u) * 3) 100% no-repeat,
+      linear-gradient(var(--color-cream), var(--color-cream)) 100% 0 / calc(var(--u) * 3) 100% no-repeat;
+  }
+
+  .pixel-angler[data-state="idle"] .pixel-angler__line,
+  .pixel-angler[data-state="idle"] .pixel-angler__bobber,
+  .pixel-angler[data-state="rest"] .pixel-angler__line,
+  .pixel-angler[data-state="rest"] .pixel-angler__bobber {
+    visibility: hidden;
+  }
+
+  .pixel-angler[data-state="focus"] .pixel-angler__bobber {
+    animation: pixel-bobber-bob 1.4s steps(1) infinite;
+  }
+  .pixel-angler[data-state="focus"] .pixel-angler__ripple {
+    animation: pixel-ripple 2.8s steps(4) infinite;
+  }
+  .pixel-angler[data-state="caught"] .pixel-angler__bobber {
+    animation: pixel-bobber-dive 0.9s steps(2) infinite;
+  }
+  .pixel-angler[data-state="paused"] .pixel-angler__line {
+    background: color-mix(in srgb, var(--color-amber) 80%, transparent);
+  }
+
+  @keyframes pixel-bobber-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(var(--u));
+    }
+  }
+  @keyframes pixel-bobber-dive {
+    0%,
+    100% {
+      transform: translateY(var(--u));
+    }
+    50% {
+      transform: translateY(calc(var(--u) * 3));
+    }
+  }
+  @keyframes pixel-ripple {
+    0% {
+      opacity: 0.8;
+      transform: scaleX(0.4);
+    }
+    100% {
+      opacity: 0;
+      transform: scaleX(1.3);
+    }
+  }
+
+  /* "!" when the line goes taut, "z" while resting: one glyph above the hat. */
+  .pixel-angler__mark {
+    position: absolute;
+    left: calc(var(--cx) - var(--u) * 1);
+    top: calc(var(--u) * 12);
+    font-family: var(--font-display);
+    font-size: calc(var(--u) * 6);
+    line-height: 1;
+    color: var(--color-cream);
+    text-shadow: var(--u) var(--u) 0 var(--color-ink);
+  }
+  .pixel-angler[data-state="caught"] .pixel-angler__mark {
+    color: var(--color-amber);
+    animation: pixel-mark-blink 0.8s steps(1) infinite;
+  }
+  .pixel-angler[data-state="rest"] .pixel-angler__mark {
+    animation: pixel-mark-drift 2.4s steps(4) infinite;
+  }
+  @keyframes pixel-mark-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  @keyframes pixel-mark-drift {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0);
+    }
+    30% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(var(--u) * 3), calc(var(--u) * -4));
+    }
+  }
+
+  /* An open spot: a faint outline of where the next angler will stand. */
+  .pixel-angler--open .pixel-angler__head,
+  .pixel-angler--open .pixel-angler__body {
+    background: transparent;
+    box-shadow: inset 0 0 0 var(--u) color-mix(in srgb, var(--color-cream) 55%, transparent);
+  }
+  .pixel-angler--open .pixel-angler__tag {
+    background: transparent;
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+
+  /* Roster: the accessible list under the dock. */
+  .pixel-roster {
+    display: grid;
+    gap: calc(var(--px) * 2);
+  }
+  .pixel-roster__row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 3);
+    padding: calc(var(--px) * 2.5) calc(var(--px) * 3);
+    clip-path: var(--pixclip);
+    background: var(--color-tile);
+  }
+  .pixel-roster__swatch {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: calc(var(--px) * 8);
+    height: calc(var(--px) * 8);
+    clip-path: var(--pixclip);
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 4.5);
+    line-height: 1;
+    color: var(--color-cream);
+  }
+  .pixel-chip--rest {
+    --chip: var(--color-sage);
+    --chip-fg: var(--color-cream);
+  }
+
+  /* Session summary: the haul after leaving. */
+  .pixel-haul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(calc(var(--px) * 30), 1fr));
+    gap: calc(var(--px) * 2);
+  }
 }
