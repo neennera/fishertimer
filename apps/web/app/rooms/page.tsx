@@ -53,7 +53,12 @@ export default function RoomsPage() {
               <h1 id="rooms-heading" className="font-display text-4xl leading-none">
                 The Lake
               </h1>
-              <p className="mt-2 text-sm text-bark">Pick a spot on a dock, or open your own. Everyone runs their own timer.</p>
+              <p className="mt-2 text-sm text-bark">
+                Pick a spot on a dock, or open your own. Everyone runs their own timer.{" "}
+                <Link href="/settings" className="pixel-link">
+                  Timer defaults
+                </Link>
+              </p>
             </div>
             {actorState.status !== "signed_out" && (
               <PixelButton onClick={() => setCreating(true)} disabled={!actor}>

@@ -64,6 +64,9 @@ export default function Home() {
             <Link href="/timer" className="underline underline-offset-4">
               ⏱️ Try the study timer
             </Link>
+            <Link href="/settings" className="underline underline-offset-4">
+              ⚙️ Timer defaults
+            </Link>
             <Link href="/leaderboard" className="underline underline-offset-4">
               🏆 View Leaderboard
             </Link>
