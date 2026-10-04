@@ -292,7 +292,14 @@ export function TimerPanel({ owner }: { owner: TimerOwner }) {
         </PixelModal>
       )}
 
-      <CatchReveal block={completed} userId={owner.userId} onClose={dismissCompleted} />
+      <CatchReveal
+        block={completed}
+        userId={owner.userId}
+        onClose={dismissCompleted}
+        breakMinutes={rest}
+        onStartBreak={view === "rest-ready" ? () => run("start", { phase: "REST", minutes: rest }) : undefined}
+        onSkipBreak={view === "rest-ready" ? () => run("skip-rest") : undefined}
+      />
     </PixelPanel>
   );
 }
