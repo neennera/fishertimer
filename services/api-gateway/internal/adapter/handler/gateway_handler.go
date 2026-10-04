@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	sessionv1 "github.com/neennera/fishertimer/proto/studysession/v1"
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/config"
 	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/middleware"
@@ -18,19 +19,19 @@ type GatewayHandler struct {
 	accountProxy *httputil.ReverseProxy
 	timer        *TimerHandler
 	boardProxy   *httputil.ReverseProxy
-	sessionProxy *httputil.ReverseProxy
+	session      *SessionHandler
 	rewardProxy  *httputil.ReverseProxy
 }
 
 // New builds the gateway. Most services are reverse-proxied over HTTP; Study
-// Timer is reached over gRPC through timerClient.
-func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient) *GatewayHandler {
+// Timer and Study Session are reached over gRPC through their clients.
+func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient, sessionClient sessionv1.StudySessionServiceClient) *GatewayHandler {
 	return &GatewayHandler{
 		cfg:          cfg,
 		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account"),
 		timer:        NewTimerHandler(timerClient),
 		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard"),
-		sessionProxy: createReverseProxy(cfg.SessionServiceURL, "/api/v1/study-session"),
+		session:      NewSessionHandler(sessionClient, cfg.Env != "production"),
 		rewardProxy:  createReverseProxy(cfg.RewardServiceURL, "/api/v1/reward"),
 	}
 }
@@ -61,10 +62,9 @@ func createReverseProxy(targetURL, prefix string) *httputil.ReverseProxy {
 		v1Prefix := strings.TrimPrefix(prefixNoSlash, "api/")
 		serviceName := parts[0]
 
-		subPath = strings.TrimPrefix(subPath, prefixNoSlash)
-		subPath = strings.TrimPrefix(subPath, v1Prefix)
-		subPath = strings.TrimPrefix(subPath, serviceName)
-		subPath = strings.TrimPrefix(subPath, "/")
+		subPath = trimSegments(subPath, prefixNoSlash)
+		subPath = trimSegments(subPath, v1Prefix)
+		subPath = trimSegments(subPath, serviceName)
 
 		if subPath != "" {
 			req.URL.Path = prefix + "/" + subPath
@@ -73,6 +73,22 @@ func createReverseProxy(targetURL, prefix string) *httputil.ReverseProxy {
 		}
 	}
 	return proxy
+}
+
+// trimSegments removes prefix from path only when it is made of whole path
+// segments: "reward/x" loses "reward", but "rewards" keeps its name (a plain
+// string trim turned /api/reward/rewards into /api/v1/reward/s).
+func trimSegments(path, prefix string) string {
+	switch {
+	case prefix == "":
+		return path
+	case path == prefix:
+		return ""
+	case strings.HasPrefix(path, prefix+"/"):
+		return strings.TrimPrefix(path[len(prefix)+1:], "/")
+	default:
+		return path
+	}
 }
 
 func (h *GatewayHandler) RegisterRoutes(mux *http.ServeMux) {
@@ -166,7 +182,7 @@ func (h *GatewayHandler) handleLeaderboard(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *GatewayHandler) handleSession(w http.ResponseWriter, r *http.Request) {
-	h.sessionProxy.ServeHTTP(w, r)
+	h.session.ServeHTTP(w, r)
 }
 
 func (h *GatewayHandler) handleReward(w http.ResponseWriter, r *http.Request) {

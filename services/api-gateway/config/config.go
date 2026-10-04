@@ -15,6 +15,7 @@ type Config struct {
 	TimerGRPCTarget       string
 	LeaderboardServiceURL string
 	SessionServiceURL     string
+	SessionGRPCTarget     string
 	RewardServiceURL      string
 	JWTSecret             string
 	JWTIssuer             string
@@ -94,6 +95,12 @@ func Load() *Config {
 		sessionURL = "http://localhost:8083"
 	}
 
+	// The gateway talks to Study Session over gRPC as well.
+	sessionTarget := os.Getenv("SESSION_GRPC_TARGET")
+	if sessionTarget == "" {
+		sessionTarget = "localhost:50052"
+	}
+
 	rewardURL := os.Getenv("REWARD_SERVICE_URL")
 	if rewardURL == "" {
 		rewardURL = "http://localhost:8085"
@@ -111,6 +118,7 @@ func Load() *Config {
 		TimerGRPCTarget:       timerTarget,
 		LeaderboardServiceURL: leaderboardURL,
 		SessionServiceURL:     sessionURL,
+		SessionGRPCTarget:     sessionTarget,
 		RewardServiceURL:      rewardURL,
 		JWTSecret:             os.Getenv("JWT_SECRET"),
 		JWTIssuer:             jwtIssuer,

@@ -20,7 +20,7 @@ func TestGatewayHandler_Health(t *testing.T) {
 		RewardServiceURL:      "http://localhost:8085",
 	}
 
-	h := handler.New(cfg, nil)
+	h := handler.New(cfg, nil, nil)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 
@@ -45,7 +45,7 @@ func TestGatewayHandler_Status(t *testing.T) {
 		RewardServiceURL:      "http://localhost:8085",
 	}
 
-	h := handler.New(cfg, nil)
+	h := handler.New(cfg, nil, nil)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 

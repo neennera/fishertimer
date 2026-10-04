@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	sessionv1 "github.com/neennera/fishertimer/proto/studysession/v1"
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/config"
 	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/handler"
@@ -31,8 +32,15 @@ func main() {
 	}
 	defer timerConn.Close()
 
+	// Study Session is reached over gRPC the same way.
+	sessionConn, err := grpc.NewClient(cfg.SessionGRPCTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("session grpc client: %s\n", err)
+	}
+	defer sessionConn.Close()
+
 	// 2. Instantiate Gateway Handler
-	h := handler.New(cfg, timerv1.NewStudyTimerServiceClient(timerConn))
+	h := handler.New(cfg, timerv1.NewStudyTimerServiceClient(timerConn), sessionv1.NewStudySessionServiceClient(sessionConn))
 
 	// 3. Setup Router & Server
 	mux := http.NewServeMux()
@@ -56,7 +64,7 @@ func main() {
 		log.Printf("  -> Account:     %s", cfg.AccountServiceURL)
 		log.Printf("  -> Timer:       %s (gRPC)", cfg.TimerGRPCTarget)
 		log.Printf("  -> Leaderboard: %s", cfg.LeaderboardServiceURL)
-		log.Printf("  -> Session:     %s", cfg.SessionServiceURL)
+		log.Printf("  -> Session:     %s (gRPC)", cfg.SessionGRPCTarget)
 		log.Printf("  -> Reward:      %s", cfg.RewardServiceURL)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen error: %s\n", err)
