@@ -22,6 +22,7 @@ const timerCallTimeout = 5 * time.Second
 // gRPC calls to the Study Timer service.
 //
 //	GET  /api/timer/state?session_id=&user_id=  -> GetTimer
+//	GET  /api/timer/room?session_id=            -> GetRoomTimers ({"timers": [...]})
 //	POST /api/timer/start   {session_id, user_id} -> StartTimer
 //	POST /api/timer/pause   {session_id, user_id} -> PauseTimer
 //	POST /api/timer/resume  {session_id, user_id} -> ResumeTimer
@@ -89,6 +90,29 @@ func (h *TimerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if action == "room" {
+		if r.Method != http.MethodGet {
+			writeJSONError(w, http.StatusMethodNotAllowed, "use GET")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), timerCallTimeout)
+		defer cancel()
+		resp, err := h.client.GetRoomTimers(ctx, &timerv1.GetRoomTimersRequest{
+			SessionId: r.URL.Query().Get("session_id"),
+		})
+		if err != nil {
+			writeTimerError(w, err)
+			return
+		}
+		timers := make([]timerResponse, 0, len(resp.GetTimers()))
+		for _, t := range resp.GetTimers() {
+			timers = append(timers, toTimerJSON(t))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"timers": timers})
+		return
+	}
+
 	call, ok := timerActions[action]
 	if !ok {
 		writeJSONError(w, http.StatusNotFound, "unknown timer endpoint")
@@ -113,19 +137,27 @@ func (h *TimerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func writeTimerResult(w http.ResponseWriter, resp *timerv1.TimerStateResponse, err error) {
 	if err != nil {
-		st, _ := status.FromError(err)
-		code := httpStatusFromGRPC(st.Code())
-		msg := st.Message()
-		if code >= http.StatusInternalServerError {
-			// Log the detail, but never show the browser internal addresses.
-			log.Printf("study-timer gRPC call failed: %v", err)
-			msg = "study timer service is unavailable"
-		}
-		writeJSONError(w, code, msg)
+		writeTimerError(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(timerResponse{
+	json.NewEncoder(w).Encode(toTimerJSON(resp))
+}
+
+func writeTimerError(w http.ResponseWriter, err error) {
+	st, _ := status.FromError(err)
+	code := httpStatusFromGRPC(st.Code())
+	msg := st.Message()
+	if code >= http.StatusInternalServerError {
+		// Log the detail, but never show the browser internal addresses.
+		log.Printf("study-timer gRPC call failed: %v", err)
+		msg = "study timer service is unavailable"
+	}
+	writeJSONError(w, code, msg)
+}
+
+func toTimerJSON(resp *timerv1.TimerStateResponse) timerResponse {
+	return timerResponse{
 		SessionID:        resp.GetSessionId(),
 		UserID:           resp.GetUserId(),
 		Status:           strings.TrimPrefix(resp.GetStatus().String(), "TIMER_STATUS_"),
@@ -136,7 +168,7 @@ func writeTimerResult(w http.ResponseWriter, resp *timerv1.TimerStateResponse, e
 		LastUpdated:      resp.GetLastUpdated(),
 		DurationSeconds:  resp.GetDurationSeconds(),
 		RemainingSeconds: resp.GetRemainingSeconds(),
-	})
+	}
 }
 
 // httpStatusFromGRPC maps the Study Timer's gRPC status to what the browser
