@@ -5,7 +5,7 @@
 // every frame, and so a button press can show its result immediately
 // (optimistically) before the server confirms it.
 
-import type { TimerAction, TimerState } from './timer.api';
+import type { StartOptions, TimerAction, TimerState, TimerStateName } from './timer.api';
 
 /** A timer state together with when it was true, in performance.now() ms. */
 export interface TimerReading {
@@ -15,7 +15,19 @@ export interface TimerReading {
   at: number;
 }
 
-export type TimerView = 'ready' | 'running' | 'paused' | 'done';
+/**
+ * What the panel shows. `finishing` is a running phase whose countdown hit
+ * zero, waiting for the server to complete it.
+ */
+export type TimerView =
+  | 'ready'
+  | 'focus'
+  | 'focus-paused'
+  | 'rest-ready'
+  | 'rest'
+  | 'rest-paused'
+  | 'finishing'
+  | 'closed';
 
 export function readingFrom(state: TimerState, at: number): TimerReading {
   return { state, remainingMs: state.remaining_seconds * 1000, at };
@@ -27,58 +39,81 @@ export function remainingAt(reading: TimerReading, now: number): number {
   return Math.max(reading.remainingMs - (now - reading.at), 0);
 }
 
-/** A running timer with nothing left is finished, not running. */
+const VIEW_OF_STATE: Record<TimerStateName, TimerView> = {
+  READY: 'ready',
+  WORK_RUNNING: 'focus',
+  WORK_PAUSED: 'focus-paused',
+  READY_FOR_REST: 'rest-ready',
+  REST_RUNNING: 'rest',
+  REST_PAUSED: 'rest-paused',
+  FINALIZED: 'closed',
+};
+
 export function viewOf(reading: TimerReading, now: number): TimerView {
-  switch (reading.state.status) {
-    case 'PAUSED':
-      return 'paused';
-    case 'RUNNING':
-      return remainingAt(reading, now) > 0 ? 'running' : 'done';
-    default:
-      return 'ready';
-  }
+  const view = VIEW_OF_STATE[reading.state.state] ?? 'ready';
+  if ((view === 'focus' || view === 'rest') && remainingAt(reading, now) === 0) return 'finishing';
+  return view;
 }
 
-/** The primary action for each view: the one big button. */
-export const PRIMARY_ACTION: Record<TimerView, TimerAction> = {
-  ready: 'start',
-  running: 'pause',
-  paused: 'resume',
-  done: 'start',
-};
+export function isActive(view: TimerView): boolean {
+  return view === 'focus' || view === 'focus-paused' || view === 'rest' || view === 'rest-paused';
+}
 
 /**
  * What the server will answer for `action`, predicted locally. Mirrors the
- * rules in services/study-timer/internal/domain/entity.go; the server's real
- * answer replaces it moments later. Returns null for a move the server would
- * reject, so the UI never shows a state that will be rolled back.
+ * rules in services/study-timer/internal/domain; the server's real answer
+ * replaces it moments later. Returns null for a move the server would
+ * refuse, so the UI never shows a state that will be rolled back.
  */
-export function predict(action: TimerAction, reading: TimerReading, now: number): TimerReading | null {
+export function predict(
+  action: TimerAction,
+  reading: TimerReading,
+  now: number,
+  options: StartOptions = {},
+): TimerReading | null {
   const view = viewOf(reading, now);
   const { state } = reading;
-  const workMs = state.work_minutes * 60_000;
+  const set = (name: TimerStateName, patch: Partial<TimerState>, remainingMs: number): TimerReading => ({
+    state: { ...state, ...patch, state: name },
+    remainingMs,
+    at: now,
+  });
+  const readyAgain = () =>
+    set('READY', { status: 'STOPPED', phase: 'WORK', duration_seconds: state.work_minutes * 60, cycle_id: '' }, state.work_minutes * 60_000);
 
   switch (action) {
-    case 'start':
-      if (view === 'running' || view === 'paused') return null;
-      return {
-        state: { ...state, status: 'RUNNING', phase: 'WORK', duration_seconds: workMs / 1000 },
-        remainingMs: workMs,
-        at: now,
-      };
+    case 'start': {
+      const phase = options.phase ?? 'WORK';
+      if (phase === 'REST' && view !== 'rest-ready') return null;
+      if (phase === 'WORK' && view !== 'ready' && view !== 'rest-ready') return null;
+      const minutes = options.minutes || (phase === 'REST' ? state.rest_minutes : state.work_minutes);
+      return set(
+        phase === 'REST' ? 'REST_RUNNING' : 'WORK_RUNNING',
+        { status: 'RUNNING', phase, duration_seconds: minutes * 60, paused_total_seconds: 0 },
+        minutes * 60_000,
+      );
+    }
     case 'pause':
-      if (view !== 'running') return null;
-      return { state: { ...state, status: 'PAUSED' }, remainingMs: remainingAt(reading, now), at: now };
+      if (view !== 'focus' && view !== 'rest') return null;
+      return set(view === 'focus' ? 'WORK_PAUSED' : 'REST_PAUSED', { status: 'PAUSED' }, remainingAt(reading, now));
     case 'resume':
-      if (view !== 'paused') return null;
-      return { state: { ...state, status: 'RUNNING' }, remainingMs: reading.remainingMs, at: now };
+      if (view !== 'focus-paused' && view !== 'rest-paused') return null;
+      return set(view === 'focus-paused' ? 'WORK_RUNNING' : 'REST_RUNNING', { status: 'RUNNING' }, reading.remainingMs);
+    case 'stop':
+      if (!isActive(view)) return null;
+      return readyAgain();
     case 'reset':
-      if (view === 'ready' && reading.remainingMs === workMs) return null;
-      return {
-        state: { ...state, status: 'STOPPED', phase: 'WORK', current_cycle: 0, duration_seconds: workMs / 1000 },
-        remainingMs: workMs,
-        at: now,
-      };
+      if (!isActive(view)) return null;
+      return set(
+        state.phase === 'REST' ? 'REST_RUNNING' : 'WORK_RUNNING',
+        { status: 'RUNNING', paused_total_seconds: 0 },
+        state.duration_seconds * 1000,
+      );
+    case 'skip-rest':
+      if (view !== 'rest-ready' && view !== 'rest' && view !== 'rest-paused') return null;
+      return readyAgain();
+    case 'complete':
+      return null; // only the server decides; never predicted
   }
 }
 
@@ -88,4 +123,9 @@ export function formatClock(remainingMs: number): string {
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+/** Clamps a duration choice into the server's allowed range. */
+export function clampMinutes(minutes: number, min: number, max: number): number {
+  return Math.min(Math.max(Math.round(minutes), min), max);
 }
