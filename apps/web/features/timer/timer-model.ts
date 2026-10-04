@@ -104,9 +104,10 @@ export function predict(
       return readyAgain();
     case 'reset':
       if (!isActive(view)) return null;
+      // Back to the full length, held paused until the user resumes.
       return set(
-        state.phase === 'REST' ? 'REST_RUNNING' : 'WORK_RUNNING',
-        { status: 'RUNNING', paused_total_seconds: 0 },
+        state.phase === 'REST' ? 'REST_PAUSED' : 'WORK_PAUSED',
+        { status: 'PAUSED', paused_total_seconds: 0 },
         state.duration_seconds * 1000,
       );
     case 'skip-rest':
