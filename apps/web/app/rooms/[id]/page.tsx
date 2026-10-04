@@ -142,8 +142,9 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <main className="flex flex-1 justify-center px-4 pt-6 pb-16 sm:pt-10">
-      <div className="grid w-full max-w-5xl items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-        <PixelPanel as="section" aria-labelledby="room-heading" className="flex flex-col gap-5">
+      <div className="grid w-full max-w-5xl content-start items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] xl:max-w-6xl xl:grid-cols-[minmax(0,1fr)_26rem]">
+        {/* At least as tall as the timer beside it; the dock takes the extra height. */}
+        <PixelPanel as="section" aria-labelledby="room-heading" className="flex flex-col gap-5 md:self-stretch">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <Link href="/rooms" className="font-label text-[10px] uppercase tracking-[0.12em] text-bark hover:text-ink">
@@ -175,7 +176,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         </PixelPanel>
 
         {/* The timer is what the user came for: first on phones. */}
-        <div className="order-first md:order-none md:sticky md:top-24">
+        <div className="order-first md:order-none">
           <TimerPanel owner={{ sessionId: id, userId: actor.userId }} />
         </div>
       </div>

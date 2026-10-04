@@ -134,6 +134,13 @@
   }
 }
 
+/* Wide screens: a bigger dock, so the anglers aren't lost in the scene. */
+@media (min-width: 1280px) {
+  :root {
+    --dock-px: 4px;
+  }
+}
+
 /* Below md. */
 @media (max-width: 767px) {
   :root {

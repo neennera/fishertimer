@@ -22,39 +22,41 @@ export function RoomDock({ participants, limit, timers, meId }: RoomDockProps) {
   const spots = Array.from({ length: Math.max(limit, participants.length) }, (_, i) => participants[i] ?? null);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="pixel-dock" aria-hidden="true">
-        <div className="pixel-dock__spots" style={{ "--spots": spots.length } as CSSProperties}>
-          {spots.map((p, i) => {
-            if (!p) {
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="pixel-dock flex-1" aria-hidden="true">
+        <div className="pixel-dock__scene">
+          <div className="pixel-dock__spots" style={{ "--spots": spots.length } as CSSProperties}>
+            {spots.map((p, i) => {
+              if (!p) {
+                return (
+                  <div key={`open-${i}`} className="pixel-angler pixel-angler--open" data-state="idle">
+                    <span className="pixel-angler__tag">open</span>
+                    <span className="pixel-angler__head" />
+                    <span className="pixel-angler__body" />
+                  </div>
+                );
+              }
+              const state = anglerState(timers[p.user_id]);
               return (
-                <div key={`open-${i}`} className="pixel-angler pixel-angler--open" data-state="idle">
-                  <span className="pixel-angler__tag">open</span>
+                <div
+                  key={p.user_id}
+                  className={cx("pixel-angler", p.user_id === meId && "pixel-angler--me")}
+                  data-state={state}
+                  style={{ "--angler": anglerColor(p.user_id) } as CSSProperties}
+                >
+                  <span className="pixel-angler__tag">{p.user_id === meId ? "You" : p.display_name || "Angler"}</span>
+                  <span className="pixel-angler__mark">{ANGLER_COPY[state].mark}</span>
+                  <span className="pixel-angler__hat" />
                   <span className="pixel-angler__head" />
-                  <span className="pixel-angler__body" />
+                  <span className="pixel-angler__body">{initials(p.display_name || "?")}</span>
+                  <span className="pixel-angler__rod" />
+                  <span className="pixel-angler__line" />
+                  <span className="pixel-angler__ripple" />
+                  <span className="pixel-angler__bobber" />
                 </div>
               );
-            }
-            const state = anglerState(timers[p.user_id]);
-            return (
-              <div
-                key={p.user_id}
-                className={cx("pixel-angler", p.user_id === meId && "pixel-angler--me")}
-                data-state={state}
-                style={{ "--angler": anglerColor(p.user_id) } as CSSProperties}
-              >
-                <span className="pixel-angler__tag">{p.user_id === meId ? "You" : p.display_name || "Angler"}</span>
-                <span className="pixel-angler__mark">{ANGLER_COPY[state].mark}</span>
-                <span className="pixel-angler__hat" />
-                <span className="pixel-angler__head" />
-                <span className="pixel-angler__body">{initials(p.display_name || "?")}</span>
-                <span className="pixel-angler__rod" />
-                <span className="pixel-angler__line" />
-                <span className="pixel-angler__ripple" />
-                <span className="pixel-angler__bobber" />
-              </div>
-            );
-          })}
+            })}
+          </div>
         </div>
       </div>
 

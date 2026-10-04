@@ -1540,6 +1540,164 @@
     color: var(--color-bark);
   }
 
+  /* Catch reveal stage: a slice of the lake. While the reward is on its
+     way the bobber twitches on the line; once it lands the fish leaps out
+     with a splash; with nothing caught the water is just calm. Geometry in
+     --px from the top: waterline at 30, 48 tall. Decoration (aria-hidden). */
+  .pixel-catch-stage {
+    --waterline: calc(var(--px) * 30);
+
+    position: relative;
+    height: calc(var(--px) * 48);
+    overflow: hidden;
+    clip-path: var(--pixclip);
+    background:
+      repeating-linear-gradient(
+          to bottom,
+          transparent 0 calc(var(--px) * 3),
+          color-mix(in srgb, var(--color-cream) 22%, transparent) calc(var(--px) * 3) calc(var(--px) * 4)
+        )
+        0 var(--waterline) / 100% calc(var(--px) * 12) no-repeat,
+      linear-gradient(
+        to bottom,
+        var(--color-sky-fill) 0,
+        color-mix(in srgb, var(--color-sky-fill) 55%, var(--color-cream)) var(--waterline),
+        var(--color-lake) var(--waterline),
+        var(--color-lake-dp) 100%
+      );
+  }
+  .pixel-catch-stage__line {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: var(--dock-line);
+    height: calc(var(--waterline) - var(--px) * 2);
+    background: color-mix(in srgb, var(--color-cream) 85%, transparent);
+  }
+  .pixel-catch-stage__bobber {
+    position: absolute;
+    left: calc(50% - var(--px) * 2);
+    top: calc(var(--waterline) - var(--px) * 3);
+    width: calc(var(--px) * 4);
+    height: calc(var(--px) * 5);
+    background: linear-gradient(to bottom, var(--color-rust) 50%, var(--color-cream) 50%);
+  }
+  .pixel-catch-stage[data-stage="waiting"] .pixel-catch-stage__bobber {
+    animation: pixel-bobber-dive 0.9s steps(2) infinite;
+    --u: var(--px);
+  }
+  .pixel-catch-stage[data-stage="caught"] .pixel-catch-stage__line,
+  .pixel-catch-stage[data-stage="caught"] .pixel-catch-stage__bobber {
+    visibility: hidden;
+  }
+  .pixel-catch-stage__fish {
+    --fish-size: 24;
+
+    position: absolute;
+    left: calc(50% - var(--px) * 12);
+    top: calc(var(--waterline) - var(--px) * 26);
+    animation: pixel-catch-leap 1.6s steps(8) both;
+  }
+  @keyframes pixel-catch-leap {
+    0% {
+      transform: translateY(calc(var(--px) * 30));
+    }
+    60% {
+      transform: translateY(calc(var(--px) * -4));
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  /* Two splash blocks either side of where the fish broke the surface. */
+  .pixel-catch-stage__splash {
+    position: absolute;
+    left: calc(50% - var(--px) * 16);
+    top: calc(var(--waterline) - var(--px) * 3);
+    width: calc(var(--px) * 3);
+    height: calc(var(--px) * 3);
+    visibility: hidden;
+    background: var(--color-cream);
+    box-shadow:
+      calc(var(--px) * -3) calc(var(--px) * -3) var(--color-cream),
+      calc(var(--px) * 29) 0 var(--color-cream),
+      calc(var(--px) * 32) calc(var(--px) * -3) var(--color-cream);
+  }
+  .pixel-catch-stage[data-stage="caught"] .pixel-catch-stage__splash {
+    visibility: visible;
+    animation: pixel-catch-splash 1.6s steps(4) both;
+  }
+  @keyframes pixel-catch-splash {
+    0%,
+    30% {
+      opacity: 0;
+    }
+    45% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* Rarity chip: rarer fish, warmer colour. */
+  .pixel-rarity[data-rarity="UNCOMMON"] {
+    --chip: var(--color-sage);
+    --chip-fg: var(--color-cream);
+  }
+  .pixel-rarity[data-rarity="RARE"] {
+    --chip: var(--color-lake);
+    --chip-fg: var(--color-cream);
+  }
+  .pixel-rarity[data-rarity="EPIC"] {
+    --chip: var(--color-amber);
+    --chip-fg: var(--color-cream);
+  }
+  .pixel-rarity[data-rarity="LEGENDARY"] {
+    --chip: var(--color-rust);
+    --chip-fg: var(--color-cream);
+  }
+
+  /* Focus minutes and fish count under the catch. */
+  .pixel-catch-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--px) * 2);
+  }
+  .pixel-catch-stats__item {
+    padding: calc(var(--px) * 3);
+    clip-path: var(--pixclip);
+    background: var(--color-tile);
+    text-align: center;
+  }
+  .pixel-catch-stats__item dt {
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-bark);
+  }
+  .pixel-catch-stats__item dd {
+    margin-top: var(--px);
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 9);
+    line-height: 1;
+  }
+  .pixel-catch-stats__item small {
+    margin-left: var(--px);
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3);
+    color: var(--color-bark);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-catch-stage__fish,
+    .pixel-catch-stage__splash,
+    .pixel-catch-stage[data-stage="waiting"] .pixel-catch-stage__bobber {
+      animation: none;
+    }
+  }
+
   /* Catch reveal: the line twitches while the reward is reeled in. */
   .pixel-catch__waiting {
     font-family: var(--font-display);
@@ -1678,16 +1836,28 @@
        data-state="idle"    rod up, no line in the water
      Geometry is in --u (one art pixel, --dock-px) from the top of the scene:
      pier deck from 36u, sitting on the waterline at 40u; 60u tall. Decoration only
-     (aria-hidden); the roster list below it carries the same information. */
+     (aria-hidden); the roster list below it carries the same information.
+     The frame can be taller than the scene (it fills the room panel); the
+     scene stays at the bottom and the extra height is open sky. */
   .pixel-dock {
     --u: var(--dock-px);
     --deck: calc(var(--u) * 36);
     --waterline: calc(var(--u) * 40);
+    --dock-sky: var(--color-sky-fill);
+    --dock-haze: color-mix(in srgb, var(--color-sky-fill) 55%, var(--color-cream));
 
-    position: relative;
-    height: calc(var(--u) * 60);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: calc(var(--u) * 60);
     overflow: hidden;
     clip-path: var(--pixclip);
+    background: var(--dock-sky);
+  }
+  .pixel-dock__scene {
+    position: relative;
+    flex: none;
+    height: calc(var(--u) * 60);
     background:
       /* deck: top edge, plank seams, boards */
       linear-gradient(var(--color-oak-lt), var(--color-oak-lt)) 0 var(--deck) / 100% var(--u) no-repeat,
@@ -1712,24 +1882,24 @@
           color-mix(in srgb, var(--color-cream) 22%, transparent) calc(var(--u) * 3) calc(var(--u) * 4)
         )
         0 var(--waterline) / 100% calc(var(--u) * 14) no-repeat,
-      /* sky, then lake */
+      /* daytime sky (the page's sky behind it), hazy at the horizon, then lake */
       linear-gradient(
         to bottom,
-        color-mix(in srgb, var(--color-sky) 45%, var(--color-cream)) 0,
-        var(--color-sky) var(--waterline),
+        var(--dock-sky) 0,
+        var(--dock-haze) var(--waterline),
         var(--color-lake) var(--waterline),
         var(--color-lake-dp) 100%
       );
   }
   /* The far shore: a hazy staircase treeline, its foot hidden behind the
      pier. Painted above the sky only, so it never covers the deck. */
-  .pixel-dock::before {
+  .pixel-dock__scene::before {
     content: "";
     position: absolute;
     inset-inline: 0;
     top: calc(var(--deck) - var(--u) * 12);
     height: calc(var(--u) * 12);
-    background: color-mix(in srgb, var(--color-forest) 55%, var(--color-sky));
+    background: color-mix(in srgb, var(--color-forest) 70%, var(--color-sky-fill));
     clip-path: polygon(
       0 100%, 0 50%, 4% 50%, 4% 20%, 6% 20%, 6% 55%, 14% 55%, 14% 30%, 16% 30%, 16% 60%,
       27% 60%, 27% 10%, 29% 10%, 29% 45%, 40% 45%, 40% 65%, 49% 65%, 49% 25%, 51% 25%,
