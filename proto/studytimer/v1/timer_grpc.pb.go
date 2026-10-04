@@ -39,8 +39,19 @@ const (
 // StudyTimerService runs one independent timer per participant per room
 // (UC-05). Every RPC that changes the timer returns its full state, so the
 // caller never has to issue a follow-up GetTimer.
+//
+// Lifecycle of one timer (UC-05), see TimerStateResponse.state:
+//
+//	READY -> WORK_RUNNING <-> WORK_PAUSED -> (complete) -> READY_FOR_REST
+//	READY_FOR_REST -> REST_RUNNING <-> REST_PAUSED -> (complete / skip) -> READY
+//
+// Stop discards the active cycle (no reward) and returns to READY. A timer is
+// opened by Study Session's participant.joined event and FINALIZED by
+// participant.left / session.ended; a finalized timer refuses every action.
 type StudyTimerServiceClient interface {
-	// Starts a new work cycle, or restarts one from the top.
+	// Starts a work cycle (phase WORK, the default) or a rest period (phase
+	// REST, only after a completed work cycle). duration_minutes 0 uses the
+	// user's saved setting. A duplicate start while a cycle is active is ignored.
 	StartTimer(ctx context.Context, in *StartTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
 	// Reads the timer's current state and remaining time.
 	GetTimer(ctx context.Context, in *GetTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
@@ -50,10 +61,14 @@ type StudyTimerServiceClient interface {
 	PauseTimer(ctx context.Context, in *PauseTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
 	// Continues a paused timer from where it was frozen.
 	ResumeTimer(ctx context.Context, in *ResumeTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
+	// Discards the active cycle without a reward (UC-05 S-4).
 	StopTimer(ctx context.Context, in *StopTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
-	// Discards the timer and returns it to its initial, stopped state.
+	// Restarts the active cycle from its full length.
 	ResetTimer(ctx context.Context, in *ResetTimerRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
+	// Completes the active cycle once its time is really up (server-checked,
+	// idempotent). The server also completes cycles on its own.
 	CompleteCycle(ctx context.Context, in *CompleteCycleRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
+	// Skips the rest period, running or not yet started.
 	SkipRest(ctx context.Context, in *SkipRestRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
 	UpdateTimerSetting(ctx context.Context, in *UpdateTimerSettingRequest, opts ...grpc.CallOption) (*TimerStateResponse, error)
 	TimerStatistics(ctx context.Context, in *TimerStatisticsRequest, opts ...grpc.CallOption) (*TimerStatisticsResponse, error)
@@ -184,8 +199,19 @@ func (c *studyTimerServiceClient) TimerStatistics(ctx context.Context, in *Timer
 // StudyTimerService runs one independent timer per participant per room
 // (UC-05). Every RPC that changes the timer returns its full state, so the
 // caller never has to issue a follow-up GetTimer.
+//
+// Lifecycle of one timer (UC-05), see TimerStateResponse.state:
+//
+//	READY -> WORK_RUNNING <-> WORK_PAUSED -> (complete) -> READY_FOR_REST
+//	READY_FOR_REST -> REST_RUNNING <-> REST_PAUSED -> (complete / skip) -> READY
+//
+// Stop discards the active cycle (no reward) and returns to READY. A timer is
+// opened by Study Session's participant.joined event and FINALIZED by
+// participant.left / session.ended; a finalized timer refuses every action.
 type StudyTimerServiceServer interface {
-	// Starts a new work cycle, or restarts one from the top.
+	// Starts a work cycle (phase WORK, the default) or a rest period (phase
+	// REST, only after a completed work cycle). duration_minutes 0 uses the
+	// user's saved setting. A duplicate start while a cycle is active is ignored.
 	StartTimer(context.Context, *StartTimerRequest) (*TimerStateResponse, error)
 	// Reads the timer's current state and remaining time.
 	GetTimer(context.Context, *GetTimerRequest) (*TimerStateResponse, error)
@@ -195,10 +221,14 @@ type StudyTimerServiceServer interface {
 	PauseTimer(context.Context, *PauseTimerRequest) (*TimerStateResponse, error)
 	// Continues a paused timer from where it was frozen.
 	ResumeTimer(context.Context, *ResumeTimerRequest) (*TimerStateResponse, error)
+	// Discards the active cycle without a reward (UC-05 S-4).
 	StopTimer(context.Context, *StopTimerRequest) (*TimerStateResponse, error)
-	// Discards the timer and returns it to its initial, stopped state.
+	// Restarts the active cycle from its full length.
 	ResetTimer(context.Context, *ResetTimerRequest) (*TimerStateResponse, error)
+	// Completes the active cycle once its time is really up (server-checked,
+	// idempotent). The server also completes cycles on its own.
 	CompleteCycle(context.Context, *CompleteCycleRequest) (*TimerStateResponse, error)
+	// Skips the rest period, running or not yet started.
 	SkipRest(context.Context, *SkipRestRequest) (*TimerStateResponse, error)
 	UpdateTimerSetting(context.Context, *UpdateTimerSettingRequest) (*TimerStateResponse, error)
 	TimerStatistics(context.Context, *TimerStatisticsRequest) (*TimerStatisticsResponse, error)

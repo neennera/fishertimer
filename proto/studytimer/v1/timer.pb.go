@@ -123,11 +123,15 @@ func (TimerPhase) EnumDescriptor() ([]byte, []int) {
 }
 
 type StartTimerRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	SessionId string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	UserId    string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// WORK when unspecified.
+	Phase TimerPhase `protobuf:"varint,3,opt,name=phase,proto3,enum=fishertimer.studytimer.v1.TimerPhase" json:"phase,omitempty"`
+	// 0 = the user's saved default for this phase.
+	DurationMinutes int32 `protobuf:"varint,4,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *StartTimerRequest) Reset() {
@@ -172,6 +176,20 @@ func (x *StartTimerRequest) GetUserId() string {
 		return x.UserId
 	}
 	return ""
+}
+
+func (x *StartTimerRequest) GetPhase() TimerPhase {
+	if x != nil {
+		return x.Phase
+	}
+	return TimerPhase_TIMER_PHASE_UNSPECIFIED
+}
+
+func (x *StartTimerRequest) GetDurationMinutes() int32 {
+	if x != nil {
+		return x.DurationMinutes
+	}
+	return 0
 }
 
 type GetTimerRequest struct {
@@ -666,8 +684,26 @@ type TimerStateResponse struct {
 	// Time left in the current phase, computed by the server at response time.
 	// Clients count down locally from this value and re-sync with GetTimer.
 	RemainingSeconds int32 `protobuf:"varint,10,opt,name=remaining_seconds,json=remainingSeconds,proto3" json:"remaining_seconds,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// READY | WORK_RUNNING | WORK_PAUSED | READY_FOR_REST | REST_RUNNING |
+	// REST_PAUSED | FINALIZED
+	State string `protobuf:"bytes,11,opt,name=state,proto3" json:"state,omitempty"`
+	// The active cycle, when there is one.
+	CycleId            string `protobuf:"bytes,12,opt,name=cycle_id,json=cycleId,proto3" json:"cycle_id,omitempty"`
+	StartedAt          string `protobuf:"bytes,13,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	PausedTotalSeconds int32  `protobuf:"varint,14,opt,name=paused_total_seconds,json=pausedTotalSeconds,proto3" json:"paused_total_seconds,omitempty"`
+	// Focus time from work cycles completed during this stay in the room.
+	FocusSeconds int32 `protobuf:"varint,15,opt,name=focus_seconds,json=focusSeconds,proto3" json:"focus_seconds,omitempty"`
+	// The most recently completed work cycle (for the reward reveal).
+	LastCompletedCycleId string `protobuf:"bytes,16,opt,name=last_completed_cycle_id,json=lastCompletedCycleId,proto3" json:"last_completed_cycle_id,omitempty"`
+	LastCompletedAt      string `protobuf:"bytes,17,opt,name=last_completed_at,json=lastCompletedAt,proto3" json:"last_completed_at,omitempty"`
+	// Allowed ranges (UC-05 E-1) and the pause limit (E-3), in minutes.
+	MinWorkMinutes  int32 `protobuf:"varint,18,opt,name=min_work_minutes,json=minWorkMinutes,proto3" json:"min_work_minutes,omitempty"`
+	MaxWorkMinutes  int32 `protobuf:"varint,19,opt,name=max_work_minutes,json=maxWorkMinutes,proto3" json:"max_work_minutes,omitempty"`
+	MinRestMinutes  int32 `protobuf:"varint,20,opt,name=min_rest_minutes,json=minRestMinutes,proto3" json:"min_rest_minutes,omitempty"`
+	MaxRestMinutes  int32 `protobuf:"varint,21,opt,name=max_rest_minutes,json=maxRestMinutes,proto3" json:"max_rest_minutes,omitempty"`
+	MaxPauseMinutes int32 `protobuf:"varint,22,opt,name=max_pause_minutes,json=maxPauseMinutes,proto3" json:"max_pause_minutes,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *TimerStateResponse) Reset() {
@@ -770,12 +806,97 @@ func (x *TimerStateResponse) GetRemainingSeconds() int32 {
 	return 0
 }
 
+func (x *TimerStateResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *TimerStateResponse) GetCycleId() string {
+	if x != nil {
+		return x.CycleId
+	}
+	return ""
+}
+
+func (x *TimerStateResponse) GetStartedAt() string {
+	if x != nil {
+		return x.StartedAt
+	}
+	return ""
+}
+
+func (x *TimerStateResponse) GetPausedTotalSeconds() int32 {
+	if x != nil {
+		return x.PausedTotalSeconds
+	}
+	return 0
+}
+
+func (x *TimerStateResponse) GetFocusSeconds() int32 {
+	if x != nil {
+		return x.FocusSeconds
+	}
+	return 0
+}
+
+func (x *TimerStateResponse) GetLastCompletedCycleId() string {
+	if x != nil {
+		return x.LastCompletedCycleId
+	}
+	return ""
+}
+
+func (x *TimerStateResponse) GetLastCompletedAt() string {
+	if x != nil {
+		return x.LastCompletedAt
+	}
+	return ""
+}
+
+func (x *TimerStateResponse) GetMinWorkMinutes() int32 {
+	if x != nil {
+		return x.MinWorkMinutes
+	}
+	return 0
+}
+
+func (x *TimerStateResponse) GetMaxWorkMinutes() int32 {
+	if x != nil {
+		return x.MaxWorkMinutes
+	}
+	return 0
+}
+
+func (x *TimerStateResponse) GetMinRestMinutes() int32 {
+	if x != nil {
+		return x.MinRestMinutes
+	}
+	return 0
+}
+
+func (x *TimerStateResponse) GetMaxRestMinutes() int32 {
+	if x != nil {
+		return x.MaxRestMinutes
+	}
+	return 0
+}
+
+func (x *TimerStateResponse) GetMaxPauseMinutes() int32 {
+	if x != nil {
+		return x.MaxPauseMinutes
+	}
+	return 0
+}
+
 type TimerStatisticsResponse struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	TotalSessions     int32                  `protobuf:"varint,2,opt,name=total_sessions,json=totalSessions,proto3" json:"total_sessions,omitempty"`
 	TotalFocusMinutes int32                  `protobuf:"varint,3,opt,name=total_focus_minutes,json=totalFocusMinutes,proto3" json:"total_focus_minutes,omitempty"`
 	LastActive        string                 `protobuf:"bytes,4,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
+	CyclesCompleted   int32                  `protobuf:"varint,5,opt,name=cycles_completed,json=cyclesCompleted,proto3" json:"cycles_completed,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -836,6 +957,13 @@ func (x *TimerStatisticsResponse) GetLastActive() string {
 		return x.LastActive
 	}
 	return ""
+}
+
+func (x *TimerStatisticsResponse) GetCyclesCompleted() int32 {
+	if x != nil {
+		return x.CyclesCompleted
+	}
+	return 0
 }
 
 type GetRoomTimersRequest struct {
@@ -930,11 +1058,13 @@ var File_studytimer_v1_timer_proto protoreflect.FileDescriptor
 
 const file_studytimer_v1_timer_proto_rawDesc = "" +
 	"\n" +
-	"\x19studytimer/v1/timer.proto\x12\x19fishertimer.studytimer.v1\"K\n" +
+	"\x19studytimer/v1/timer.proto\x12\x19fishertimer.studytimer.v1\"\xb3\x01\n" +
 	"\x11StartTimerRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"I\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12;\n" +
+	"\x05phase\x18\x03 \x01(\x0e2%.fishertimer.studytimer.v1.TimerPhaseR\x05phase\x12)\n" +
+	"\x10duration_minutes\x18\x04 \x01(\x05R\x0fdurationMinutes\"I\n" +
 	"\x0fGetTimerRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
@@ -970,7 +1100,7 @@ const file_studytimer_v1_timer_proto_rawDesc = "" +
 	"\fwork_minutes\x18\x03 \x01(\x05R\vworkMinutes\x12!\n" +
 	"\frest_minutes\x18\x04 \x01(\x05R\vrestMinutes\"1\n" +
 	"\x16TimerStatisticsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xaf\x03\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x8d\a\n" +
 	"\x12TimerStateResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x17\n" +
@@ -983,13 +1113,27 @@ const file_studytimer_v1_timer_proto_rawDesc = "" +
 	"\flast_updated\x18\b \x01(\tR\vlastUpdated\x12)\n" +
 	"\x10duration_seconds\x18\t \x01(\x05R\x0fdurationSeconds\x12+\n" +
 	"\x11remaining_seconds\x18\n" +
-	" \x01(\x05R\x10remainingSeconds\"\xaa\x01\n" +
+	" \x01(\x05R\x10remainingSeconds\x12\x14\n" +
+	"\x05state\x18\v \x01(\tR\x05state\x12\x19\n" +
+	"\bcycle_id\x18\f \x01(\tR\acycleId\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\r \x01(\tR\tstartedAt\x120\n" +
+	"\x14paused_total_seconds\x18\x0e \x01(\x05R\x12pausedTotalSeconds\x12#\n" +
+	"\rfocus_seconds\x18\x0f \x01(\x05R\ffocusSeconds\x125\n" +
+	"\x17last_completed_cycle_id\x18\x10 \x01(\tR\x14lastCompletedCycleId\x12*\n" +
+	"\x11last_completed_at\x18\x11 \x01(\tR\x0flastCompletedAt\x12(\n" +
+	"\x10min_work_minutes\x18\x12 \x01(\x05R\x0eminWorkMinutes\x12(\n" +
+	"\x10max_work_minutes\x18\x13 \x01(\x05R\x0emaxWorkMinutes\x12(\n" +
+	"\x10min_rest_minutes\x18\x14 \x01(\x05R\x0eminRestMinutes\x12(\n" +
+	"\x10max_rest_minutes\x18\x15 \x01(\x05R\x0emaxRestMinutes\x12*\n" +
+	"\x11max_pause_minutes\x18\x16 \x01(\x05R\x0fmaxPauseMinutes\"\xd5\x01\n" +
 	"\x17TimerStatisticsResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12%\n" +
 	"\x0etotal_sessions\x18\x02 \x01(\x05R\rtotalSessions\x12.\n" +
 	"\x13total_focus_minutes\x18\x03 \x01(\x05R\x11totalFocusMinutes\x12\x1f\n" +
 	"\vlast_active\x18\x04 \x01(\tR\n" +
-	"lastActive\"5\n" +
+	"lastActive\x12)\n" +
+	"\x10cycles_completed\x18\x05 \x01(\x05R\x0fcyclesCompleted\"5\n" +
 	"\x14GetRoomTimersRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"^\n" +
@@ -1054,36 +1198,37 @@ var file_studytimer_v1_timer_proto_goTypes = []any{
 	(*GetRoomTimersResponse)(nil),     // 15: fishertimer.studytimer.v1.GetRoomTimersResponse
 }
 var file_studytimer_v1_timer_proto_depIdxs = []int32{
-	0,  // 0: fishertimer.studytimer.v1.TimerStateResponse.status:type_name -> fishertimer.studytimer.v1.TimerStatus
-	1,  // 1: fishertimer.studytimer.v1.TimerStateResponse.phase:type_name -> fishertimer.studytimer.v1.TimerPhase
-	12, // 2: fishertimer.studytimer.v1.GetRoomTimersResponse.timers:type_name -> fishertimer.studytimer.v1.TimerStateResponse
-	2,  // 3: fishertimer.studytimer.v1.StudyTimerService.StartTimer:input_type -> fishertimer.studytimer.v1.StartTimerRequest
-	3,  // 4: fishertimer.studytimer.v1.StudyTimerService.GetTimer:input_type -> fishertimer.studytimer.v1.GetTimerRequest
-	14, // 5: fishertimer.studytimer.v1.StudyTimerService.GetRoomTimers:input_type -> fishertimer.studytimer.v1.GetRoomTimersRequest
-	4,  // 6: fishertimer.studytimer.v1.StudyTimerService.PauseTimer:input_type -> fishertimer.studytimer.v1.PauseTimerRequest
-	5,  // 7: fishertimer.studytimer.v1.StudyTimerService.ResumeTimer:input_type -> fishertimer.studytimer.v1.ResumeTimerRequest
-	6,  // 8: fishertimer.studytimer.v1.StudyTimerService.StopTimer:input_type -> fishertimer.studytimer.v1.StopTimerRequest
-	7,  // 9: fishertimer.studytimer.v1.StudyTimerService.ResetTimer:input_type -> fishertimer.studytimer.v1.ResetTimerRequest
-	8,  // 10: fishertimer.studytimer.v1.StudyTimerService.CompleteCycle:input_type -> fishertimer.studytimer.v1.CompleteCycleRequest
-	9,  // 11: fishertimer.studytimer.v1.StudyTimerService.SkipRest:input_type -> fishertimer.studytimer.v1.SkipRestRequest
-	10, // 12: fishertimer.studytimer.v1.StudyTimerService.UpdateTimerSetting:input_type -> fishertimer.studytimer.v1.UpdateTimerSettingRequest
-	11, // 13: fishertimer.studytimer.v1.StudyTimerService.TimerStatistics:input_type -> fishertimer.studytimer.v1.TimerStatisticsRequest
-	12, // 14: fishertimer.studytimer.v1.StudyTimerService.StartTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 15: fishertimer.studytimer.v1.StudyTimerService.GetTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	15, // 16: fishertimer.studytimer.v1.StudyTimerService.GetRoomTimers:output_type -> fishertimer.studytimer.v1.GetRoomTimersResponse
-	12, // 17: fishertimer.studytimer.v1.StudyTimerService.PauseTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 18: fishertimer.studytimer.v1.StudyTimerService.ResumeTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 19: fishertimer.studytimer.v1.StudyTimerService.StopTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 20: fishertimer.studytimer.v1.StudyTimerService.ResetTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 21: fishertimer.studytimer.v1.StudyTimerService.CompleteCycle:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 22: fishertimer.studytimer.v1.StudyTimerService.SkipRest:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	12, // 23: fishertimer.studytimer.v1.StudyTimerService.UpdateTimerSetting:output_type -> fishertimer.studytimer.v1.TimerStateResponse
-	13, // 24: fishertimer.studytimer.v1.StudyTimerService.TimerStatistics:output_type -> fishertimer.studytimer.v1.TimerStatisticsResponse
-	14, // [14:25] is the sub-list for method output_type
-	3,  // [3:14] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	1,  // 0: fishertimer.studytimer.v1.StartTimerRequest.phase:type_name -> fishertimer.studytimer.v1.TimerPhase
+	0,  // 1: fishertimer.studytimer.v1.TimerStateResponse.status:type_name -> fishertimer.studytimer.v1.TimerStatus
+	1,  // 2: fishertimer.studytimer.v1.TimerStateResponse.phase:type_name -> fishertimer.studytimer.v1.TimerPhase
+	12, // 3: fishertimer.studytimer.v1.GetRoomTimersResponse.timers:type_name -> fishertimer.studytimer.v1.TimerStateResponse
+	2,  // 4: fishertimer.studytimer.v1.StudyTimerService.StartTimer:input_type -> fishertimer.studytimer.v1.StartTimerRequest
+	3,  // 5: fishertimer.studytimer.v1.StudyTimerService.GetTimer:input_type -> fishertimer.studytimer.v1.GetTimerRequest
+	14, // 6: fishertimer.studytimer.v1.StudyTimerService.GetRoomTimers:input_type -> fishertimer.studytimer.v1.GetRoomTimersRequest
+	4,  // 7: fishertimer.studytimer.v1.StudyTimerService.PauseTimer:input_type -> fishertimer.studytimer.v1.PauseTimerRequest
+	5,  // 8: fishertimer.studytimer.v1.StudyTimerService.ResumeTimer:input_type -> fishertimer.studytimer.v1.ResumeTimerRequest
+	6,  // 9: fishertimer.studytimer.v1.StudyTimerService.StopTimer:input_type -> fishertimer.studytimer.v1.StopTimerRequest
+	7,  // 10: fishertimer.studytimer.v1.StudyTimerService.ResetTimer:input_type -> fishertimer.studytimer.v1.ResetTimerRequest
+	8,  // 11: fishertimer.studytimer.v1.StudyTimerService.CompleteCycle:input_type -> fishertimer.studytimer.v1.CompleteCycleRequest
+	9,  // 12: fishertimer.studytimer.v1.StudyTimerService.SkipRest:input_type -> fishertimer.studytimer.v1.SkipRestRequest
+	10, // 13: fishertimer.studytimer.v1.StudyTimerService.UpdateTimerSetting:input_type -> fishertimer.studytimer.v1.UpdateTimerSettingRequest
+	11, // 14: fishertimer.studytimer.v1.StudyTimerService.TimerStatistics:input_type -> fishertimer.studytimer.v1.TimerStatisticsRequest
+	12, // 15: fishertimer.studytimer.v1.StudyTimerService.StartTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 16: fishertimer.studytimer.v1.StudyTimerService.GetTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	15, // 17: fishertimer.studytimer.v1.StudyTimerService.GetRoomTimers:output_type -> fishertimer.studytimer.v1.GetRoomTimersResponse
+	12, // 18: fishertimer.studytimer.v1.StudyTimerService.PauseTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 19: fishertimer.studytimer.v1.StudyTimerService.ResumeTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 20: fishertimer.studytimer.v1.StudyTimerService.StopTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 21: fishertimer.studytimer.v1.StudyTimerService.ResetTimer:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 22: fishertimer.studytimer.v1.StudyTimerService.CompleteCycle:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 23: fishertimer.studytimer.v1.StudyTimerService.SkipRest:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	12, // 24: fishertimer.studytimer.v1.StudyTimerService.UpdateTimerSetting:output_type -> fishertimer.studytimer.v1.TimerStateResponse
+	13, // 25: fishertimer.studytimer.v1.StudyTimerService.TimerStatistics:output_type -> fishertimer.studytimer.v1.TimerStatisticsResponse
+	15, // [15:26] is the sub-list for method output_type
+	4,  // [4:15] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_studytimer_v1_timer_proto_init() }
