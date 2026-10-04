@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SessionHeader } from "../components/SessionHeader";
-import { PixelButton } from "../components/ui/PixelButton";
 import { PixelPanel } from "../components/ui/PixelPanel";
 
 const FEATURES = [
@@ -59,7 +58,9 @@ export default function Home() {
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <PixelButton>Start Studying</PixelButton>
+            <Link href="/rooms" className="pixel-btn">
+              Start Studying
+            </Link>
             <Link href="/timer" className="underline underline-offset-4">
               ⏱️ Try the study timer
             </Link>
