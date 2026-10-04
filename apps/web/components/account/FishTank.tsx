@@ -74,7 +74,7 @@ export function countFishCaught(items: RewardSummaryItem[]) {
   return caughtSpecies(items).reduce((sum, { count }) => sum + count, 0);
 }
 
-function FishArt({ sprite, still = false }: { sprite: FishSprite; still?: boolean }) {
+export function FishArt({ sprite, still = false }: { sprite: FishSprite; still?: boolean }) {
   const strip = sprite.src !== undefined && (sprite.frames ?? 1) > 1;
   const style = (
     sprite.src
