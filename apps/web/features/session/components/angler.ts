@@ -5,18 +5,26 @@ import type { TimerState } from '../../timer/timer.api';
 export type AnglerState = 'focus' | 'paused' | 'caught' | 'rest' | 'idle';
 
 export function anglerState(timer: TimerState | undefined): AnglerState {
-  if (!timer) return 'idle';
-  if (timer.status === 'PAUSED') return 'paused';
-  if (timer.status !== 'RUNNING') return 'idle';
-  if (timer.remaining_seconds > 0) return timer.phase === 'REST' ? 'rest' : 'focus';
-  // The phase ran out and nobody has completed it yet.
-  return timer.phase === 'WORK' ? 'caught' : 'idle';
+  switch (timer?.state) {
+    case 'WORK_RUNNING':
+      // Ran out but not completed yet: the line goes taut.
+      return timer.remaining_seconds > 0 ? 'focus' : 'caught';
+    case 'WORK_PAUSED':
+    case 'REST_PAUSED':
+      return 'paused';
+    case 'READY_FOR_REST':
+      return 'caught'; // just finished a block
+    case 'REST_RUNNING':
+      return 'rest';
+    default:
+      return 'idle';
+  }
 }
 
 export const ANGLER_COPY: Record<AnglerState, { chip: string; chipClass: string; mark: string }> = {
   focus: { chip: 'Focusing', chipClass: 'pixel-chip--running', mark: '' },
   paused: { chip: 'Paused', chipClass: 'pixel-chip--paused', mark: '' },
-  caught: { chip: 'Block done', chipClass: 'pixel-chip--done', mark: '!' },
+  caught: { chip: 'Caught one!', chipClass: 'pixel-chip--done', mark: '!' },
   rest: { chip: 'On a break', chipClass: 'pixel-chip--rest', mark: 'z' },
   idle: { chip: 'Ready', chipClass: '', mark: '' },
 };

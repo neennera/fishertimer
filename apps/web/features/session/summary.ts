@@ -3,8 +3,8 @@
 //
 // No service keeps per-room statistics, so the summary is put together here:
 // - cycles and focus time come from the user's own timer for this room, read
-//   just before leaving (Study Timer keeps one timer per participant per
-//   room, and its current_cycle counts completed work cycles);
+//   just before leaving (Study Timer counts the work cycles completed during
+//   this stay: current_cycle and focus_seconds);
 // - rewards are the user's catches from Reward with awarded_at inside the
 //   stay (joined_at .. left_at).
 
@@ -44,8 +44,8 @@ const RARITY_ORDER: RewardRarity[] = ['LEGENDARY', 'EPIC', 'RARE', 'UNCOMMON', '
 
 /** True while a work cycle is running or paused: leaving would forfeit it. */
 export function workInProgress(timer: TimerState | null): boolean {
-  if (!timer || timer.phase !== 'WORK') return false;
-  return timer.status === 'PAUSED' || (timer.status === 'RUNNING' && timer.remaining_seconds > 0);
+  if (!timer) return false;
+  return timer.state === 'WORK_PAUSED' || (timer.state === 'WORK_RUNNING' && timer.remaining_seconds > 0);
 }
 
 /** The user's catches between `from` and `to`, grouped by fish. */
@@ -88,12 +88,11 @@ export async function buildSummary(args: {
 }): Promise<SessionSummary> {
   const joined = new Date(args.joinedAt);
   const left = args.leftAt ? new Date(args.leftAt) : new Date();
-  const completedCycles = args.timer?.current_cycle ?? 0;
   return {
     roomName: args.roomName,
     stayMinutes: Math.max(0, Math.round((left.getTime() - joined.getTime()) / 60_000)),
-    completedCycles,
-    focusMinutes: completedCycles * (args.timer?.work_minutes ?? 0),
+    completedCycles: args.timer?.current_cycle ?? 0,
+    focusMinutes: Math.round((args.timer?.focus_seconds ?? 0) / 60),
     // A little slack after left_at: a cycle that completed just before
     // leaving may be awarded a moment later.
     fish: await fishCaughtBetween(args.userId, joined, new Date(left.getTime() + 30_000)),

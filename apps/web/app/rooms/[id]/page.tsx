@@ -138,7 +138,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     );
   }
 
-  const others = participants.length - 1;
+  const others = participants.filter((p) => p.user_id !== actor.userId).length;
 
   return (
     <main className="flex flex-1 justify-center px-4 pt-6 pb-16 sm:pt-10">
@@ -153,7 +153,9 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                 {room.name}
               </h1>
               <p className="mt-2 text-sm text-bark">
-                {room.participant_limit === 1
+                {room.status === "ENDED"
+                  ? "This room has closed."
+                  : room.participant_limit === 1
                   ? "A solo dock. Just you and the water."
                   : others === 0
                     ? `Waiting for anglers · ${room.participant_count}/${room.participant_limit} spots`
