@@ -31,7 +31,7 @@ Timers live in PostgreSQL `timer_db` (`timers`, `cycles`, `timer_settings`, `pro
 | `GetRoomTimers` | Every open timer in a room (others' states, idle detection in Study Session). |
 | `PauseTimer` / `ResumeTimer` | Freeze / continue the active cycle. |
 | `StopTimer` | Discard the active cycle, no reward (S-4). |
-| `ResetTimer` | Restart the active cycle from its full length. |
+| `ResetTimer` | Put the active cycle back to its full length, paused until resumed. |
 | `CompleteCycle` | Complete the active cycle if its time is really up (server-checked, idempotent). |
 | `SkipRest` | Skip a running or not-yet-started rest period. |
 | `UpdateTimerSetting` | Save default work / rest lengths. |

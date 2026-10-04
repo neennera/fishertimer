@@ -184,13 +184,25 @@ func TestPauseResumeAndPauseLimit(t *testing.T) {
 	}
 }
 
-func TestReset_RestartsActiveCycle(t *testing.T) {
+func TestReset_RewindsActiveCycleAndHoldsIt(t *testing.T) {
 	f := newFixture()
+	ctx := context.Background()
 	f.start(t, domain.PhaseWork, 25)
 	f.advance(20 * time.Minute)
-	v, err := f.uc.ResetTimer(context.Background(), room, alice)
-	if err != nil || v.RemainingSeconds != 25*60 || v.State != domain.StateWorkRunning {
+	v, err := f.uc.ResetTimer(ctx, room, alice)
+	if err != nil || v.RemainingSeconds != 25*60 || v.State != domain.StateWorkPaused {
 		t.Fatalf("reset = %+v, %v", v, err)
+	}
+	f.advance(5 * time.Minute)
+	if v, _ = f.uc.GetTimer(ctx, room, alice); v.RemainingSeconds != 25*60 {
+		t.Fatalf("reset timer kept counting: %+v", v)
+	}
+	if v, err = f.uc.ResumeTimer(ctx, room, alice); err != nil || v.State != domain.StateWorkRunning {
+		t.Fatalf("resume after reset = %+v, %v", v, err)
+	}
+	f.advance(10 * time.Minute)
+	if v, _ = f.uc.GetTimer(ctx, room, alice); v.RemainingSeconds != 15*60 {
+		t.Fatalf("after resume = %+v", v)
 	}
 }
 

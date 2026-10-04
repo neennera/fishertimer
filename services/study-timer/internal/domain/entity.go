@@ -186,12 +186,14 @@ func (c *Cycle) Resume(now time.Time) error {
 	return nil
 }
 
-// Restart begins the active cycle again from its full length.
+// Restart puts the active cycle back to its full length and holds it there,
+// paused, until the user resumes it.
 func (c *Cycle) Restart(now time.Time) error {
 	if !c.Active() {
 		return ErrInvalidState
 	}
-	c.Status, c.StartedAt, c.PausedAt, c.PausedTotalSec = CycleRunning, now, nil, 0
+	at := now
+	c.Status, c.StartedAt, c.PausedAt, c.PausedTotalSec = CyclePaused, now, &at, 0
 	return nil
 }
 
