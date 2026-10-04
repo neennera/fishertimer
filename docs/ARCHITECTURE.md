@@ -96,7 +96,7 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | **API Gateway** | 8000 | `services/api-gateway` | HTTP / REST in; HTTP proxy + gRPC client out | - | Client entry point. Reverse-proxies Account, Leaderboard and Reward over HTTP; translates `/api/timer/*` REST into Study Timer gRPC calls and `/api/session/*` REST into Study Session gRPC calls (acting as the signed-in user). Verifies the account service's session JWT and forwards `X-User-Id` / `X-User-Role` / `X-Display-Name` to downstream services (passthrough only — does not itself reject unauthenticated requests). |
 | **Account** | 8082 | `services/account` | HTTP / REST | Account DB (`account_db`) | Google OAuth (SignIn, SignUp, SignOut), user profiles, personal stats dashboard aggregation. |
 | **Study Session** | 50052 (gRPC), 8083 (HTTP) | `services/study-session` | gRPC / HTTP / AMQP Publisher | Session DB (`session_db`) | Room lifecycles (create/join/leave/end), atomic capacity, one room per user, presence heartbeats, 24h / disconnect / idle auto-removal. Publishes `session.*` events to RabbitMQ through a transactional outbox. |
-| **Study Timer** | 50051 (gRPC), 8084 (HTTP) | `services/study-timer` | gRPC / HTTP / AMQP Consumer | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. Consumes async session events via RabbitMQ. |
+| **Study Timer** | 50051 (gRPC), 8084 (HTTP) | `services/study-timer` | gRPC / HTTP / AMQP Consumer | Timer DB (`timer_db`) | One timer per participant per room (UC-05 state machine on `timers` / `cycles`), server-timestamp countdowns, a sweeper that completes due cycles, discards long pauses and retries AwardReward (once per `cycle_id`). Opens / finalizes timers from RabbitMQ session events (consumer reconnects on its own). |
 | **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB (`reward_db`) | Gamified fish drops, rarity table buffed by session participants, user inventory. |
 | **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
 | **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. |
@@ -115,7 +115,9 @@ As defined in `docs/phase1/microservice.md`:
 +---------------+-----------------------------+----------+------------------------------------------------+
 | Account       | StudyTimer.TimerStatistics()| gRPC     | Aggregate total sessions and focus time        |
 | Account       | Reward.ViewRewards()        | REST     | Render earned fish collection on profile       |
-| Study Timer   | Reward.AwardReward()        | REST     | Grant reward to user upon CompleteCycle        |
+| Study Timer   | Reward.AwardReward()        | REST     | One call per completed work cycle (cycle_id,   |
+|               |                             |          | work_duration, participant_count), retried     |
+| Study Timer   | StudySession.GetParticipants| gRPC     | Participant count for the reward (UC-09 S-2)   |
 | Leaderboard   | Reward.ViewAllRewards()     | REST     | Fetches all earned rewards for ranking (S-3)   |
 | Leaderboard   | Reward.GetLastUpdate()      | REST     | Checks reward mutation timestamp (S-1 cache)   |
 | Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
@@ -126,7 +128,8 @@ As defined in `docs/phase1/microservice.md`:
 | API Gateway   | StudySession.{Create,Join,  | gRPC     | Browser REST /api/session/* translated to gRPC |
 |               |   Leave,Heartbeat,Get*}     |          | (SESSION_GRPC_TARGET, default localhost:50052) |
 | API Gateway   | StudyTimer.{Start,Get,Pause,| gRPC     | Browser REST /api/timer/* translated to gRPC   |
-|               |   Resume,Reset,GetRoom}     |          | (TIMER_GRPC_TARGET, default localhost:50051)   |
+|               |   Resume,Stop,Reset,Complete|          | (TIMER_GRPC_TARGET, default localhost:50051)   |
+|               |   SkipRest,Settings,GetRoom}|          |                                                |
 +---------------+-----------------------------+----------+------------------------------------------------+
 ```
 
@@ -194,6 +197,7 @@ Detailed database schemas, 3NF relations, and DBML definitions are maintained in
     - `services/study-timer/database/schemas/001_create_timer_tables.sql` (Phase 1 legacy: `timer_settings`, `timer_sessions`, `timer_cycles`)
     - `services/study-timer/database/schemas/003_phase2_timer_and_events.sql` (Phase 2 3NF: `timers`, `cycles`, `processed_events`)
     - `services/study-timer/database/schemas/004_timer_sessions_per_participant.sql` (one `timer_sessions` row per participant per room, keyed by `(study_session_id, user_id)`)
+    - `services/study-timer/database/schemas/005_phase2_timer_w2.sql` (sweeper indexes; the service now runs on `timers` / `cycles`, Phase 1 tables deprecated)
     - `services/study-timer/database/seeds/001_temp_w1_active_timer_seed.sql` (Phase 2 mock seed: temporary test fixture for isolated local testing, waiting for Study Session Service Role A integration in W2)
   - Reward (`reward_db`, Port 27017):
     - `services/reward/database/schemas/001_create_reward_collections.js` (3NF collections: `reward_items`, `user_rewards`)
