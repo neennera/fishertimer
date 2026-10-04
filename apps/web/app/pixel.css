@@ -1482,6 +1482,77 @@
     color: var(--color-bark);
   }
 
+  /* Phase track: Focus -> Break, the current one lit (lake for focus, sage
+     for the break) so work and rest never look alike. */
+  .pixel-phase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--px);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pixel-phase__step {
+    padding: calc(var(--px) * 1.5) calc(var(--px) * 2);
+    clip-path: var(--pixclip);
+    background: var(--color-cream-2);
+    color: var(--color-bark);
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3.2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    transition: background 0.2s linear, color 0.2s linear;
+  }
+  .pixel-phase__step--work {
+    background: var(--color-lake);
+    color: var(--color-cream);
+  }
+  .pixel-phase__step--rest {
+    background: var(--color-sage);
+    color: var(--color-cream);
+  }
+
+  /* A break fills the progress trough in sage, and tints the panel's edge. */
+  .pixel-progress[data-phase="REST"] .pixel-progress__fill {
+    background: var(--color-sage);
+  }
+  .pixel-timer[data-phase="REST"] {
+    box-shadow:
+      inset 0 0 0 var(--px) color-mix(in srgb, var(--color-sage) 55%, transparent),
+      inset 0 calc(var(--px) * -1) 0 rgb(107 75 53 / 0.14);
+  }
+
+  /* - 25 min + */
+  .pixel-stepper__value {
+    min-width: calc(var(--px) * 24);
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 8);
+    line-height: 1;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .pixel-stepper__unit {
+    font-family: var(--font-label);
+    font-size: calc(var(--px) * 3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-bark);
+  }
+
+  /* Catch reveal: the line twitches while the reward is reeled in. */
+  .pixel-catch__waiting {
+    font-family: var(--font-display);
+    font-size: calc(var(--px) * 7);
+    text-align: center;
+    animation: pixel-catch-tug 0.9s steps(2) infinite;
+  }
+  @keyframes pixel-catch-tug {
+    50% {
+      transform: translateY(var(--px));
+    }
+  }
+
   /* --- Study rooms ---------------------------------------------------------
      /rooms (the lake's room list) and /rooms/[id] (one room). */
 
@@ -1945,7 +2016,8 @@
   /* Session summary: the haul after leaving. */
   .pixel-haul {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(calc(var(--px) * 30), 1fr));
+    /* Wide enough for the 16-pixel fish and a two-word name beside it. */
+    grid-template-columns: repeat(auto-fill, minmax(calc(var(--px) * 60), 1fr));
     gap: calc(var(--px) * 2);
   }
 }
