@@ -29,7 +29,7 @@ func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient, sessio
 	return &GatewayHandler{
 		cfg:          cfg,
 		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account"),
-		timer:        NewTimerHandler(timerClient),
+		timer:        NewTimerHandler(timerClient, cfg.Env != "production"),
 		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard"),
 		session:      NewSessionHandler(sessionClient, cfg.Env != "production"),
 		rewardProxy:  createReverseProxy(cfg.RewardServiceURL, "/api/v1/reward"),

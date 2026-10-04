@@ -14,15 +14,17 @@ import (
 
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/handler"
+	"github.com/neennera/fishertimer/services/api-gateway/internal/adapter/middleware"
 )
 
 // fakeTimerClient records the last call and returns a canned result. RPCs the
 // tests do not use fall through to the embedded nil interface and panic.
 type fakeTimerClient struct {
 	timerv1.StudyTimerServiceClient
-	lastCall string
-	lastIDs  [2]string
-	err      error
+	lastCall  string
+	lastIDs   [2]string
+	lastStart *timerv1.StartTimerRequest
+	err       error
 }
 
 func (f *fakeTimerClient) reply(call, sessionID, userID string) (*timerv1.TimerStateResponse, error) {
@@ -41,6 +43,7 @@ func (f *fakeTimerClient) reply(call, sessionID, userID string) (*timerv1.TimerS
 }
 
 func (f *fakeTimerClient) StartTimer(ctx context.Context, in *timerv1.StartTimerRequest, _ ...grpc.CallOption) (*timerv1.TimerStateResponse, error) {
+	f.lastStart = in
 	return f.reply("StartTimer", in.GetSessionId(), in.GetUserId())
 }
 
@@ -60,6 +63,18 @@ func (f *fakeTimerClient) ResetTimer(ctx context.Context, in *timerv1.ResetTimer
 	return f.reply("ResetTimer", in.GetSessionId(), in.GetUserId())
 }
 
+func (f *fakeTimerClient) StopTimer(ctx context.Context, in *timerv1.StopTimerRequest, _ ...grpc.CallOption) (*timerv1.TimerStateResponse, error) {
+	return f.reply("StopTimer", in.GetSessionId(), in.GetUserId())
+}
+
+func (f *fakeTimerClient) CompleteCycle(ctx context.Context, in *timerv1.CompleteCycleRequest, _ ...grpc.CallOption) (*timerv1.TimerStateResponse, error) {
+	return f.reply("CompleteCycle", in.GetSessionId(), in.GetUserId())
+}
+
+func (f *fakeTimerClient) SkipRest(ctx context.Context, in *timerv1.SkipRestRequest, _ ...grpc.CallOption) (*timerv1.TimerStateResponse, error) {
+	return f.reply("SkipRest", in.GetSessionId(), in.GetUserId())
+}
+
 func serve(h http.Handler, method, target, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -69,14 +84,17 @@ func serve(h http.Handler, method, target, body string) *httptest.ResponseRecord
 
 func TestTimerHandler_ActionsCallMatchingRPC(t *testing.T) {
 	for action, rpc := range map[string]string{
-		"start":  "StartTimer",
-		"pause":  "PauseTimer",
-		"resume": "ResumeTimer",
-		"reset":  "ResetTimer",
+		"start":     "StartTimer",
+		"pause":     "PauseTimer",
+		"resume":    "ResumeTimer",
+		"reset":     "ResetTimer",
+		"stop":      "StopTimer",
+		"complete":  "CompleteCycle",
+		"skip-rest": "SkipRest",
 	} {
 		t.Run(action, func(t *testing.T) {
 			client := &fakeTimerClient{}
-			rec := serve(handler.NewTimerHandler(client), http.MethodPost, "/api/timer/"+action,
+			rec := serve(handler.NewTimerHandler(client, true), http.MethodPost, "/api/timer/"+action,
 				`{"session_id":"demo","user_id":"u1"}`)
 
 			if rec.Code != http.StatusOK {
@@ -91,7 +109,7 @@ func TestTimerHandler_ActionsCallMatchingRPC(t *testing.T) {
 
 func TestTimerHandler_StateReadsQueryAndSimplifiesEnums(t *testing.T) {
 	client := &fakeTimerClient{}
-	rec := serve(handler.NewTimerHandler(client), http.MethodGet, "/api/timer/state?session_id=demo&user_id=u1", "")
+	rec := serve(handler.NewTimerHandler(client, true), http.MethodGet, "/api/timer/state?session_id=demo&user_id=u1", "")
 
 	if client.lastCall != "GetTimer" || client.lastIDs != [2]string{"demo", "u1"} {
 		t.Fatalf("called %s with %v", client.lastCall, client.lastIDs)
@@ -120,7 +138,7 @@ func TestTimerHandler_MapsGRPCErrorsToHTTP(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.code.String(), func(t *testing.T) {
 			client := &fakeTimerClient{err: status.Error(tc.code, "boom")}
-			rec := serve(handler.NewTimerHandler(client), http.MethodPost, "/api/timer/pause", `{}`)
+			rec := serve(handler.NewTimerHandler(client, true), http.MethodPost, "/api/timer/pause", `{"session_id":"s","user_id":"u"}`)
 
 			if rec.Code != tc.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
@@ -144,10 +162,32 @@ func TestTimerHandler_RejectsBadRequests(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := serve(handler.NewTimerHandler(&fakeTimerClient{}), tc.method, tc.target, tc.body)
+			rec := serve(handler.NewTimerHandler(&fakeTimerClient{}, true), tc.method, tc.target, tc.body)
 			if rec.Code != tc.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
 			}
 		})
+	}
+}
+
+func TestTimerHandler_IdentityAndStartOptions(t *testing.T) {
+	client := &fakeTimerClient{}
+	h := handler.NewTimerHandler(client, false)
+
+	// Production without a session: refused before reaching the service.
+	if rec := serve(h, http.MethodPost, "/api/timer/start", `{"session_id":"s","user_id":"spoof"}`); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("no session = %d, want 401", rec.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/timer/start",
+		strings.NewReader(`{"session_id":"s","user_id":"spoof","phase":"rest","duration_minutes":10}`))
+	req.Header.Set(middleware.HeaderUserID, "u-real")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || client.lastIDs != [2]string{"s", "u-real"} {
+		t.Fatalf("start = %d as %v, want the verified user", rec.Code, client.lastIDs)
+	}
+	if client.lastStart.GetPhase() != timerv1.TimerPhase_TIMER_PHASE_REST || client.lastStart.GetDurationMinutes() != 10 {
+		t.Fatalf("start request = %+v", client.lastStart)
 	}
 }
