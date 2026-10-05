@@ -11,6 +11,8 @@ export interface RankEntry {
   display_name: string;
   rank: number;
   reward_count: number;
+  /** Sum of the per-tier score of every catch in the period. */
+  score: number;
   period: LeaderboardPeriod;
 }
 
