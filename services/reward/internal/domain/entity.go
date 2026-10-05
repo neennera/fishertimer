@@ -8,6 +8,9 @@ import (
 var (
 	ErrNotFound = errors.New("reward: resource not found")
 	ErrInvalid  = errors.New("reward: invalid input")
+	// ErrAlreadyAwarded means rewards for this cycle are already stored:
+	// another request for the same cycle_id inserted them first.
+	ErrAlreadyAwarded = errors.New("reward: cycle already awarded")
 )
 
 // Categories, matching reward_items.category's Mongo schema validator.

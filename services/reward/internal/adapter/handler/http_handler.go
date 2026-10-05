@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/neennera/fishertimer/services/reward/internal/domain"
 	"github.com/neennera/fishertimer/services/reward/internal/usecase"
 )
 
@@ -80,11 +82,50 @@ func (h *HTTPHandler) GetLastUpdate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// awardRequest is POST /api/v1/reward/award. The cycle length in minutes
+// comes as work_minutes (preferred) or work_duration (what Study Timer
+// sends). Both are pointers so a missing value is told apart from 0. Unknown
+// fields such as Study Timer's "reason" are ignored.
 type awardRequest struct {
-	UserID string `json:"user_id"`
-	Reason string `json:"reason"`
+	UserID           string `json:"user_id"`
+	SessionID        string `json:"session_id"`
+	CycleID          string `json:"cycle_id"`
+	WorkMinutes      *int   `json:"work_minutes"`
+	WorkDuration     *int   `json:"work_duration"`
+	ParticipantCount int    `json:"participant_count"`
+	DisplayName      string `json:"display_name"`
 }
 
+// workMinutes returns the cycle length from whichever field was sent. ok is
+// false when neither was sent or both were sent with different values.
+func (req awardRequest) workMinutes() (minutes int, ok bool, conflict bool) {
+	switch {
+	case req.WorkMinutes != nil && req.WorkDuration != nil:
+		if *req.WorkMinutes != *req.WorkDuration {
+			return 0, false, true
+		}
+		return *req.WorkMinutes, true, false
+	case req.WorkMinutes != nil:
+		return *req.WorkMinutes, true, false
+	case req.WorkDuration != nil:
+		return *req.WorkDuration, true, false
+	}
+	return 0, false, false
+}
+
+type awardResponse struct {
+	CycleID        string                  `json:"cycle_id"`
+	AlreadyAwarded bool                    `json:"already_awarded"`
+	Rewards        []domain.UnlockedReward `json:"rewards"`
+}
+
+const (
+	awardRequiredFields = "user_id, cycle_id and work_minutes (or work_duration) >= 0 are required"
+	awardConflictingLen = "work_minutes and work_duration differ; send one, or the same value in both"
+)
+
+// AwardReward draws the rewards for a completed work cycle. 201 when rewards
+// were stored, 200 when the cycle was already awarded or earned nothing.
 func (h *HTTPHandler) AwardReward(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -97,20 +138,44 @@ func (h *HTTPHandler) AwardReward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.UserID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
+	minutes, ok, conflict := req.workMinutes()
+	if conflict {
+		http.Error(w, awardConflictingLen, http.StatusBadRequest)
+		return
+	}
+	if req.UserID == "" || req.CycleID == "" || !ok || minutes < 0 {
+		http.Error(w, awardRequiredFields, http.StatusBadRequest)
 		return
 	}
 
-	reward, err := h.uc.AwardReward(r.Context(), req.UserID, req.Reason)
+	result, err := h.uc.AwardReward(r.Context(), usecase.AwardInput{
+		UserID:           req.UserID,
+		SessionID:        req.SessionID,
+		CycleID:          req.CycleID,
+		WorkMinutes:      minutes,
+		ParticipantCount: req.ParticipantCount,
+		DisplayName:      req.DisplayName,
+	})
+	if errors.Is(err, domain.ErrInvalid) {
+		http.Error(w, awardRequiredFields, http.StatusBadRequest)
+		return
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	status := http.StatusOK
+	if !result.AlreadyAwarded && len(result.Rewards) > 0 {
+		status = http.StatusCreated
+	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(reward)
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(awardResponse{
+		CycleID:        result.CycleID,
+		AlreadyAwarded: result.AlreadyAwarded,
+		Rewards:        result.Rewards,
+	})
 }
 
 func (h *HTTPHandler) Health(w http.ResponseWriter, r *http.Request) {
