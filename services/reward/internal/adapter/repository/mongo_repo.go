@@ -134,6 +134,9 @@ func (r *MongoRepository) ListByUser(ctx context.Context, userID string) ([]doma
 			item.Rarity = d.Item.Rarity
 			item.BaseWeight = d.Item.BaseWeight
 			item.ScoreValue = d.Item.ScoreValue
+			if item.ScoreValue == 0 {
+				item.ScoreValue = domain.ScoreForRarity(d.Item.Rarity)
+			}
 			item.AssetURL = d.Item.AssetURL
 		}
 		rewards = append(rewards, item)

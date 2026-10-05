@@ -26,6 +26,25 @@ const (
 	RarityLegendary = "LEGENDARY"
 )
 
+// ScoreForRarity is the leaderboard score system: each rarity tier is worth a
+// different number of points. It mirrors the score_value seeded into
+// reward_items (database/schemas/002_seed_reward_items.js) and is the fallback
+// when a catalog row has none.
+func ScoreForRarity(rarity string) int {
+	switch rarity {
+	case RarityLegendary:
+		return 250
+	case RarityEpic:
+		return 100
+	case RarityRare:
+		return 50
+	case RarityUncommon:
+		return 25
+	default:
+		return 10
+	}
+}
+
 // UnlockedReward is one catch/drop: a user_rewards row joined with its
 // reward_items catalog details.
 type UnlockedReward struct {
