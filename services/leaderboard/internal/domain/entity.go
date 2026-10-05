@@ -16,6 +16,7 @@ type RankEntry struct {
 	DisplayName string `json:"display_name"`
 	Rank        int    `json:"rank"`
 	RewardCount int    `json:"reward_count"`
+	Score       int    `json:"score"`
 	Period      string `json:"period"`
 }
 
