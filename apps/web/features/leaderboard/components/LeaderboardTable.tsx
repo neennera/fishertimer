@@ -22,6 +22,8 @@ export interface LeaderboardTableProps {
   currentUserName?: string | null;
   /** Fallback score for the user if unranked or fetched from reward service. */
   currentUserScore?: number | null;
+  /** Ranking period; switching periods resets to page 1 (0-indexed 0). */
+  period?: string;
 }
 
 /**
@@ -37,10 +39,16 @@ export function LeaderboardTable({
   currentUserId,
   currentUserName,
   currentUserScore,
+  period,
 }: LeaderboardTableProps) {
 
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(entries.length / LEADERBOARD_PAGE_SIZE));
+
+  // When switching period (weekly, monthly, all-time), always reset to page 1
+  useEffect(() => {
+    setPage(0);
+  }, [period]);
 
   // The list can shrink (period switch / refresh); never sit past the end.
   useEffect(() => {

@@ -162,6 +162,7 @@ export default function LeaderboardPage() {
                 currentUserId={user.user_id}
                 currentUserName={user.display_name}
                 currentUserScore={displayScore}
+                period={period}
               />
             )}
           </div>
