@@ -235,3 +235,161 @@ func (r *PostgresRepository) dailyFocusLast30Days(ctx context.Context, userID st
 	}
 	return daily, nil
 }
+
+func (r *PostgresRepository) GetRoomTimers(ctx context.Context, sessionID string) ([]*domain.TimerState, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT user_id::text FROM timers WHERE session_id = $1 AND status = 'OPEN'
+		UNION
+		SELECT user_id::text FROM timer_sessions WHERE timer_session_id = $1`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var timers []*domain.TimerState
+	var userIDs []string
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+		userIDs = append(userIDs, uid)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, uid := range userIDs {
+		t, err := r.GetTimer(ctx, sessionID, uid)
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		}
+		if t != nil {
+			timers = append(timers, t)
+		}
+	}
+	return timers, nil
+}
+
+func (r *PostgresRepository) IsEventProcessed(ctx context.Context, eventID string) (bool, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM processed_events WHERE event_id = $1`, eventID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *PostgresRepository) FinalizeParticipantTimer(ctx context.Context, sessionID, userID, eventID, eventType string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Idempotency Check: insert event_id. If duplicate, return nil immediately.
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO processed_events (event_id, event_type)
+		VALUES ($1, $2)
+		ON CONFLICT (event_id) DO NOTHING`, eventID, eventType)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return nil
+	}
+
+	now := time.Now().UTC()
+
+	// 2. Discard in-progress cycles
+	_, err = tx.ExecContext(ctx, `
+		UPDATE cycles
+		SET status = 'DISCARDED', ended_at = $1
+		WHERE timer_id IN (
+			SELECT timer_id FROM timers WHERE session_id = $2 AND user_id = $3
+		) AND status IN ('RUNNING', 'PAUSED')`, now, sessionID, userID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Mark timer as FINALIZED
+	_, err = tx.ExecContext(ctx, `
+		UPDATE timers
+		SET status = 'FINALIZED', finalized_at = $1
+		WHERE session_id = $2 AND user_id = $3 AND status = 'OPEN'`, now, sessionID, userID)
+	if err != nil {
+		return err
+	}
+
+	// 4. Update legacy timer_sessions table
+	_, err = tx.ExecContext(ctx, `
+		UPDATE timer_sessions
+		SET status = 'STOPPED', completed_at = $1
+		WHERE timer_session_id = $2 AND user_id = $3`, now, sessionID, userID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *PostgresRepository) FinalizeSessionTimers(ctx context.Context, sessionID, eventID, eventType string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Idempotency Check
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO processed_events (event_id, event_type)
+		VALUES ($1, $2)
+		ON CONFLICT (event_id) DO NOTHING`, eventID, eventType)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return nil
+	}
+
+	now := time.Now().UTC()
+
+	// 2. Discard all in-progress cycles in this session
+	_, err = tx.ExecContext(ctx, `
+		UPDATE cycles
+		SET status = 'DISCARDED', ended_at = $1
+		WHERE timer_id IN (
+			SELECT timer_id FROM timers WHERE session_id = $2
+		) AND status IN ('RUNNING', 'PAUSED')`, now, sessionID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Mark all timers in session as FINALIZED
+	_, err = tx.ExecContext(ctx, `
+		UPDATE timers
+		SET status = 'FINALIZED', finalized_at = $1
+		WHERE session_id = $2 AND status = 'OPEN'`, now, sessionID)
+	if err != nil {
+		return err
+	}
+
+	// 4. Update legacy timer_sessions table
+	_, err = tx.ExecContext(ctx, `
+		UPDATE timer_sessions
+		SET status = 'STOPPED', completed_at = $1
+		WHERE timer_session_id = $2`, now, sessionID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

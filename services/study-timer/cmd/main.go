@@ -18,10 +18,12 @@ import (
 
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/study-timer/config"
+	timerAMQP "github.com/neennera/fishertimer/services/study-timer/internal/adapter/amqp"
 	"github.com/neennera/fishertimer/services/study-timer/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/study-timer/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/study-timer/internal/adapter/repository"
 	"github.com/neennera/fishertimer/services/study-timer/internal/usecase"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -46,7 +48,35 @@ func main() {
 		reflection.Register(grpcServer)
 	}
 
-	// 4. Setup Router & Server
+	// 4. Setup RabbitMQ Connection, Topology & Consumer Worker
+	amqpConn, err := amqp.Dial(cfg.RabbitMQURL)
+	if err != nil {
+		log.Printf("study-timer: warning: rabbitmq unreachable (%v) at %s. Running without message queue", err, cfg.RabbitMQURL)
+	} else {
+		defer amqpConn.Close()
+		log.Printf("study-timer: connected to RabbitMQ at %s", cfg.RabbitMQURL)
+
+		amqpCh, err := amqpConn.Channel()
+		if err != nil {
+			log.Fatalf("study-timer: cannot open rabbitmq channel: %v", err)
+		}
+		defer amqpCh.Close()
+
+		if err := timerAMQP.DeclareTopology(amqpCh); err != nil {
+			log.Fatalf("study-timer: cannot declare rabbitmq topology: %v", err)
+		}
+
+		consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+		defer cancelConsumer()
+		consumer := timerAMQP.NewConsumer(amqpCh, uc)
+		go func() {
+			if err := consumer.Start(consumerCtx); err != nil {
+				log.Printf("study-timer: consumer error: %v", err)
+			}
+		}()
+	}
+
+	// 5. Setup Router & Server
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 

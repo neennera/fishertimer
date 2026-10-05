@@ -12,15 +12,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **[infra]**: Added RabbitMQ (`rabbitmq:3-management-alpine` on ports 5672 and 15672) and Adminer DB GUI (port 8080) to `docker-compose.yml`.
+- **[events]**: Created shared contracts module `pkg/events` with JSON event structs (`ParticipantJoined`, `ParticipantLeft`, `SessionEnded`) and topology constants (`fisher.session`, `fisher.session.dlx`, `timer.session-events`, `timer.session-events.dlq`). Added `./pkg/events` to `go.work`.
+- **[study-timer]**: Added schema migration `003_phase2_timer_and_events.sql` creating `processed_events` for idempotency, `timers` (OPEN/FINALIZED), and `cycles` (RUNNING/PAUSED/DISCARDED/COMPLETED).
+- **[study-timer]**: Added temporary testing seed script `001_temp_w1_active_timer_seed.sql` for seeding an open timer and running work cycle.
+- **[study-timer]**: Implemented AMQP topology auto-declarer (`internal/adapter/amqp/topology.go`) and consumer worker (`consumer.go`) with manual Ack/Nack, prefetch 10, and DLQ routing.
+- **[study-timer]**: Extended gRPC interface with `GetRoomTimers` RPC in `proto/studytimer/v1/timer.proto` to fetch all active participant timers for a given room.
+- **[study-timer]**: Added mock event publisher CLI test tool `scripts/publish_mock_event.go`.
+- **[docs]**: Created `database-design-with-rabbitmq.md` at workspace root detailing Phase 2 3NF schema and RabbitMQ topology.
 - **[reward]**: Added `003_seed_user_rewards.js` to seed 41 user catches across 5 demo users (`user1` to `user5`) for Leaderboard and FishTank demonstrations in MongoDB.
 - **[reward]**: Added `GET /api/v1/reward/all-rewards` and `GET /api/v1/reward/last-update` endpoints for Leaderboard cache validation (S-1) and ranking computation (S-3).
 - **[web]**: Added Leaderboard feature (`apps/web/app/leaderboard/page.tsx`, `features/leaderboard/`) with Weekly, Monthly, and All-Time period tabs, cache status indicators, and current-user highlighting.
+- **[reward]**: Added `internal/domain/calculation.go` with the reward maths: one reward per full 15 work minutes, a group buff of `1 + 0.25 x (participants - 1)` (max 5 participants) that boosts every non-COMMON weight, and `DrawRewards`, which picks each reward by weight (repeats allowed). Tests in `calculation_test.go`. Not wired into `AwardReward` yet.
 - **[reward]**: Added `domain.ScoreForRarity` (Common 10, Uncommon 25, Rare 50, Epic 100, Legendary 250) as the fish score system; the Mongo repository falls back to it when a catalog row has no `score_value`.
 - **[reward]**: Added `database/schemas/004_seed_current_user_month.js`: seeds this month's mock catches for the signed-in account (`SEED_USER_ID`, `SEED_DISPLAY_NAME`) plus 9 `seed-angler-*` competitors; re-seeding first deletes their old `user_rewards`.
 - **[web]**: Added `/dev` page and dev-only `POST /api/dev/seed` route (docker exec into the reward Mongo container) to run the 004 seed with one click. Returns 404 in production.
 - **[web]**: Header shows fish sprites beside the wordmark, plus small "admin page" and "dev page" links.
 
 ### Changed
+
 - **[leaderboard]**: Rankings are now the sum of each catch's tier score (ties: earliest catch, then user id). `RankEntry` has a new `score` field; `FishReward` carries `score_value`.
 - **[web]**: `/leaderboard` requires a signed-in user (redirects to `/signin`; the demo `LureQueen` user is gone), uses the scene background, defaults to Monthly, and drops the cache panel and "Last synced". Summary tiles are Current Leader and Your Ranking. The table pages 5 rows at a time with an always-visible `<` / `>` pager, highlights ranks 1-3 in one colour, and pins the viewer's own row (or an "Unranked" row) under a divider. Period tabs are compact and share a row with Refresh. The top Back/Account links are removed.
 - **[web]**: Home page (`/`) uses the scene background and clickable feature cards (Study Timer, FishTank Rewards, Leaderboard; Study Sessions is "Coming soon"). Styleguide and Admin Portal links removed.
@@ -29,8 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[reward]**: Configured `cmd/main.go` to connect to MongoDB when available and gracefully fall back to the 5-user in-memory seeded store for isolated local development without Docker.
 - **[web]**: Merged Home page (`apps/web/app/page.tsx`) navigation links to include both the Study Timer (`/timer`) and Leaderboard (`/leaderboard`).
 - **[web]**: Kept full production implementation of `/account` from `main` using `ProfileShell`, `ProfileSections`, and live session management.
+- **[reward]**: `POST /api/v1/reward/award` now really awards rewards (replaces the fake "Golden Salmon" stub). New request `{ user_id, session_id, cycle_id, work_minutes, participant_count, display_name? }`, response `{ cycle_id, already_awarded, rewards }`. Draws one reward per 15 work minutes from `reward_items` and stores one `user_rewards` row per draw. Safe to retry: the same `cycle_id` returns the stored rewards instead of awarding twice (rows get an `_id` derived from the cycle, so no schema change is needed). **Breaking:** study-timer's current `{ user_id, reason }` payload now gets a 400 until it sends the new fields.
+- **[reward]**: Changed drop weights to COMMON 30, UNCOMMON 25, RARE 12, EPIC 6, LEGENDARY 3 (was 50 / 25 / 10 / 4 / 1) in `002_seed_reward_items.js` and `memory_repo.go`. Re-run 002 on an existing volume to apply. Updated `database/README.md` to match.
 
 ### Fixed
+
 - **[leaderboard]**: Fixed empty ranking issue where `user_rewards` was unseeded after `pnpm db:reset`, causing Leaderboard to cache an empty response into Redis.
 - **[study-timer]**: The Postgres repository now persists the live timer progress (`phase`, `running_since`, `elapsed_ms` on `timer_sessions`, added by `database/schemas/002_add_timer_progress.sql`) so remaining time survives reloads with the timestamp-based timer; phase is read from its own column instead of being inferred from the last completed cycle. `TimerStatistics` over gRPC maps `total_sessions` from `SessionsJoined`. Existing local databases need `pnpm db:reset` to pick up the new columns.
 - **[web]**: `/timer`'s fixed demo owner uses placeholder UUIDs instead of `demo`, since `timer_db` keys timers by UUID.
@@ -52,12 +66,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
 
 ### Fixed
+
 - **[study-timer]**: `CompleteCycle` awarded a reward and counted a cycle after rest phases too; only a completed work phase now does (UC-05 S-2). The in-memory repository returned shared pointers, letting concurrent requests race on one timer; it now stores copies and reports a missing timer as `ErrNotFound`.
 
 ### Fixed
+
 - **[reward]**: `database/schemas/001_create_reward_collections.js` had a unique index on `user_rewards (user_id, item_id)`, and `MongoRepository.Award` upserted with `$setOnInsert` against it - so catching the same fish species a second time silently no-opped instead of being recorded. Dropped the unique constraint (kept the plain compound index for query performance) and switched `Award` to a plain `InsertOne`, so `user_rewards` is a log of every catch rather than a one-time "has unlocked" flag; `GetUserInventory`/`GET /api/v1/reward/rewards` now lists repeat catches as separate entries. `BADGE`/`SKIN` items being granted only once, if desired, is left as an application-layer rule for whoever implements `AwardReward`'s item-selection logic, not a database constraint.
 
 ### Removed
+
 - **[admin]**: Removed `BanUser`, `UnbanUser`, `VerifyBanStatus`, `MonitorTimerStatus`, and moderation report operations.
 - **[reward]**: Removed `ClaimReward` and `TrackProgression` operations.
 - **[leaderboard]**: Removed standalone `FilterByPeriod` operation in favor of cached period filtering in `ViewLeaderboard`.
@@ -65,10 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[auth]**: Decommissioned Auth Service as an independent microservice, folding identity management into Account Service.
 
 ### Changed
+
 - **[docs]**: Synced architecture docs with the gRPC timer: `docs/ARCHITECTURE.md` (Gateway -> Timer edge is gRPC :50051, timer ports 50051/8084, gateway role, new Gateway -> StudyTimer row in the communication matrix, `grpc_handler.go` in the layer template, `proto` module and `pnpm proto:gen`), root `README.md` and skill 0 (Go 1.25+), and the study-timer / api-gateway READMEs (RPC table, REST-to-gRPC mapping, grpcurl and curl examples).
 - **[api-gateway]**: `/api/timer/*` now reaches Study Timer over **gRPC** instead of reverse-proxying HTTP, matching the microservice design (Gateway -> gRPC -> Study Timer). `TimerHandler` translates `GET /api/timer/state` and `POST /api/timer/{start,pause,resume,reset}` (JSON `{session_id, user_id}`) into `GetTimer` / `StartTimer` / `PauseTimer` / `ResumeTimer` / `ResetTimer`, returns the same snake_case JSON shape as the Timer's HTTP API with short enum names (`RUNNING`, `WORK`), and maps gRPC codes to HTTP (400 / 409 / 404 / 503 / 504 / 502). Server-side failures are logged and return a generic message so internal addresses never reach the browser. Config `TimerServiceURL` (`TIMER_SERVICE_URL`) is replaced by `TimerGRPCTarget` (`TIMER_GRPC_TARGET`, default `localhost:50051`); `TIMER_GRPC_PORT` and `TIMER_GRPC_TARGET` are listed in `turbo.json` `globalEnv`.
 
 ### Added
+
 - **[reward]**: Seed `reward_items` with the 15 fish that have web sprites (`services/reward/database/schemas/002_seed_reward_items.js`, idempotent); new Koi, Octopus, Seahorse, Globefish and Ghostfish sprites, and the Dungeness crab, added to the web sprite map.
 - **[web]**: Redesigned `/timer` for smoother use. Presses apply instantly (optimistic, reconciled with the server; queued so double presses never flicker); the countdown and a new progress bar advance every animation frame; controls keep a fixed layout across states; clear `Ready / Focusing / Paused / Done` states; Space / R shortcuts; countdown in the tab title; state changes announced to screen readers. Adds a CSS-drawn lakeside scene (`.pixel-scene`) and timer surfaces (`.pixel-chip`, `.pixel-clock`, `.pixel-progress`, `.pixel-kbd`) to `pixel.css`, built only from tokens and `--px`.
 - **[web]**: `/timer` page with a working study timer (UC-05 demo, not yet linked to a signed-in user or room — it uses a fixed demo owner with placeholder UUIDs). `features/timer/` holds `timer.api.ts` (the only place that calls the backend, via `apiFetch` -> gateway REST -> Study Timer gRPC), `useStudyTimer` (counts down locally from the server's `remaining_seconds` and re-syncs on tab focus and when the countdown hits zero, so the server stays the source of truth) and `TimerPanel` (countdown plus Start / Pause / Resume / Reset, showing only the buttons valid for the current state). Linked from the home page.
@@ -173,6 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ### Changed
+
 - **[web]**: Replaced the Turborepo starter `layout.tsx`, `page.tsx` and `globals.css`; the app is no longer titled "Create Next App".
 - **[web]**: Rewrote the sign-in / sign-up code (`lib/auth.ts`, `lib/client-api.ts`, `lib/mocks/auth.mock.ts`) to match the real account service API:
   - Sign-in now redirects the browser to `/api/auth/google/login`; the backend sends it back to `/welcome` (new account) or `/signin` (existing account, or `?auth_error=`). `handleAuthCallback()` is replaced by `readAuthError()`.
@@ -182,6 +202,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Disabled buttons are now gray (new `--color-stone`, `--color-stone-dk`, `--color-stone-ink` tokens) instead of beige hex values hard-coded in `pixel.css`, and no longer show a variant's hover colour.
 
 ### Fixed
+
 - **[web]**: `globals.css` used `overflow-x: hidden` on `html`/`body`, which made `body` its own scroll container and broke sticky positioning; it now uses `overflow-x: clip`.
 - **[web]**: Link classes (`.pixel-link`, Tailwind's `underline`) had no effect: an unlayered `a` reset in `globals.css` overrode them. It now sits in `@layer base`.
 - **[web]**: Fixed `pnpm lint` failure in `apps/web/next.config.js` — added a Node globals override in `apps/web/eslint.config.js` so `process` is recognized, and declared the 7 gateway service URL env vars (`AUTH_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `SESSION_SERVICE_URL`, `TIMER_SERVICE_URL`, `REWARD_SERVICE_URL`, `LEADERBOARD_SERVICE_URL`, `ADMIN_SERVICE_URL`) in `turbo.json`'s `build` task so Turborepo hashes them correctly and `turbo/no-undeclared-env-vars` stops flagging them.
@@ -190,6 +211,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-09-11
 
 ### Added
+
 - Initialized Turborepo monorepo orchestrated with `pnpm` workspaces.
 - Created microservices skeletons for 7 services with default port allocations:
   - `auth` (8081)
@@ -212,6 +234,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-09-22
 
 ### Added
+
 - **[web]**: Added a mock-backed auth data layer for UC-06 (Sign In & Sign Up):
   - `lib/auth.ts`: `signInWithGoogle()`, `handleAuthCallback()`, `completeFirstTimeSetup()` and `getSession()`, routed through `lib/client-api.ts`'s `clientApiFetch()`. Toggled by `NEXT_PUBLIC_USE_MOCKS` (see `.env.example`) — no component may import `fetch` or `lib/mocks/` directly.
   - `lib/mocks/auth.mock.ts`: canned responses covering the 7 sign-in / first-time-setup wireframe states (default, consent denied, code exchange failed, account creation failed, and the three first-time setup states).

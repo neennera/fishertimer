@@ -11,6 +11,7 @@ type Config struct {
 	Env              string
 	DatabaseURL      string
 	RewardServiceURL string
+	RabbitMQURL      string
 }
 
 func Load() *Config {
@@ -49,11 +50,17 @@ func Load() *Config {
 		rewardURL = "http://localhost:8085"
 	}
 
+	rabbitURL := os.Getenv("RABBITMQ_URL")
+	if rabbitURL == "" {
+		rabbitURL = "amqp://admin:adminpassword@localhost:5672/"
+	}
+
 	return &Config{
 		Port:             port,
 		GRPCPort:         grpcPort,
 		Env:              env,
 		DatabaseURL:      dbURL,
 		RewardServiceURL: rewardURL,
+		RabbitMQURL:      rabbitURL,
 	}
 }

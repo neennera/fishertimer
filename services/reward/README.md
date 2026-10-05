@@ -12,13 +12,45 @@ It supports dual persistence:
 ## Ports & Endpoints
 
 - **Default Port**: `8085`
-- **Internal Routes**:
-  - `GET /health` — Service health check.
-  - `GET /api/v1/reward/status` — Layer status check.
-  - `POST /api/v1/reward/award` — Awards a fish reward to a user (`{ user_id, reason }`).
-  - `GET /api/v1/reward/rewards?user_id={id}` — Returns fish rewards for a specific user, joining `user_rewards` with `reward_items`.
-  - `GET /api/v1/reward/all-rewards` — Returns all rewards across all users (consumed by Leaderboard for rankings).
-  - `GET /api/v1/reward/last-update` — Returns `{ "reward_last_update": "<RFC3339>" }` timestamp for Leaderboard cache validation.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Service health check. |
+| `GET` | `/api/v1/reward/status` | Layer status check. |
+| `POST` | `/api/v1/reward/award` | Draws and stores the rewards for one completed work cycle. See below. |
+| `GET` | `/api/v1/reward/rewards?user_id={id}` | Rewards for one user, joining `user_rewards` with `reward_items`. |
+| `GET` | `/api/v1/reward/all-rewards` | All rewards across all users (consumed by Leaderboard for rankings). |
+| `GET` | `/api/v1/reward/last-update` | `{ "reward_last_update": "<RFC3339>" }`, for Leaderboard cache validation. |
+
+### `POST /api/v1/reward/award`
+
+Request:
+
+```json
+{
+  "user_id": "uuid",
+  "session_id": "uuid",
+  "cycle_id": "uuid",
+  "work_minutes": 60,
+  "participant_count": 3,
+  "display_name": "optional, stored on each row"
+}
+```
+
+- `user_id`, `cycle_id` and the cycle length in minutes (>= 0) are required; otherwise `400` with a message listing them.
+- The cycle length is `work_minutes` (preferred). `work_duration` (minutes) is accepted for compatibility with Study Timer, which sends that name. Send either one; if both are sent with different values the request is rejected with `400`. Unknown fields, such as Study Timer's `reason`, are ignored. `participant_count` defaults to 1 and is clamped to 1..5. `session_id` is accepted but not stored.
+- One reward per full 15 work minutes; under 15 earns nothing and stores nothing. Each reward is drawn by weight from `reward_items`, with the group buff applied to non-COMMON items (`internal/domain/calculation.go`).
+- Idempotent per `cycle_id`: a retry, including a concurrent one, stores nothing and returns the rewards already stored, with `already_awarded: true`. Each row's `_id` is derived from `cycle_id` and its draw number, so Mongo's unique `_id` index rejects a duplicate award; no extra index or field is needed.
+
+Response (`201` when rewards were stored, `200` when already awarded or nothing was earned):
+
+```json
+{
+  "cycle_id": "uuid",
+  "already_awarded": false,
+  "rewards": [{ "user_reward_id": "…", "item_id": "…", "item_name": "Koi", "rarity": "EPIC", "...": "same fields as /rewards" }]
+}
+```
 
 ---
 

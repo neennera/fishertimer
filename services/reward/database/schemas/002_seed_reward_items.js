@@ -12,13 +12,15 @@
 
 db = db.getSiblingDB('reward_db');
 
-// Per rarity: relative drop weight and leaderboard points.
+// Per rarity: relative drop weight and leaderboard points. These are the base
+// weights and reward values of Table 2 in the project description (UC-09);
+// internal/domain/calculation_test.go checks the maths against the same numbers.
 const TIERS = {
-  COMMON: { base_weight: 50, score_value: NumberInt(10) },
+  COMMON: { base_weight: 30, score_value: NumberInt(10) },
   UNCOMMON: { base_weight: 25, score_value: NumberInt(25) },
-  RARE: { base_weight: 10, score_value: NumberInt(50) },
-  EPIC: { base_weight: 4, score_value: NumberInt(100) },
-  LEGENDARY: { base_weight: 1, score_value: NumberInt(250) },
+  RARE: { base_weight: 12, score_value: NumberInt(50) },
+  EPIC: { base_weight: 6, score_value: NumberInt(100) },
+  LEGENDARY: { base_weight: 3, score_value: NumberInt(250) },
 };
 
 const FISH = [
