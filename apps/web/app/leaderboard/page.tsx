@@ -23,6 +23,7 @@ export default function LeaderboardPage() {
   const { user, signingOut, handleSignOut } = useSignedInUser();
   const { data, loading, error, period, setPeriod, refresh } = useLeaderboard('monthly');
   const [userRewardScore, setUserRewardScore] = useState<number | null>(null);
+  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
   const rawRankings = data?.rankings ?? [];
 
@@ -40,11 +41,43 @@ export default function LeaderboardPage() {
     };
   }, [user?.user_id]);
 
+  // Fetch avatar for users in ranking who don't have avatar_url
+  useEffect(() => {
+    if (rawRankings.length === 0) return;
+    let cancelled = false;
+    const missingUserIds = rawRankings
+      .map((r) => r.user_id)
+      .filter((uid) => uid && !userAvatars[uid] && (!user || uid !== user.user_id));
+
+    // Fetch in batches of up to 15
+    const toFetch = Array.from(new Set(missingUserIds)).slice(0, 15);
+    toFetch.forEach((uid) => {
+      import('../../lib/profile').then(({ getPublicProfile }) => {
+        getPublicProfile(uid).then((prof) => {
+          if (!cancelled && prof?.avatar_url) {
+            setUserAvatars((prev) => ({ ...prev, [uid]: prof.avatar_url }));
+          }
+        }).catch(() => {});
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawRankings, userAvatars, user]);
+
   const rankings = rawRankings.map((entry) => {
-    if (user && entry.user_id === user.user_id && entry.score === 0 && userRewardScore != null && userRewardScore > 0) {
-      return { ...entry, score: userRewardScore };
-    }
-    return entry;
+    const isMe = user && entry.user_id === user.user_id;
+    const avatar = entry.avatar_url || (isMe ? user.avatar_url : userAvatars[entry.user_id]);
+    const score = (isMe && entry.score === 0 && userRewardScore != null && userRewardScore > 0)
+      ? userRewardScore
+      : entry.score;
+
+    return {
+      ...entry,
+      avatar_url: avatar,
+      score,
+    };
   });
 
   const topAngler = rankings.length > 0 ? rankings[0] : null;
@@ -162,6 +195,7 @@ export default function LeaderboardPage() {
                 currentUserId={user.user_id}
                 currentUserName={user.display_name}
                 currentUserScore={displayScore}
+                currentUserAvatarUrl={user.avatar_url}
                 period={period}
               />
             )}

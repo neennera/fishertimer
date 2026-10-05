@@ -24,6 +24,8 @@ export interface LeaderboardTableProps {
   currentUserScore?: number | null;
   /** Ranking period; switching periods resets to page 1 (0-indexed 0). */
   period?: string;
+  /** Current user's avatar url if available. */
+  currentUserAvatarUrl?: string | null;
 }
 
 /**
@@ -40,6 +42,7 @@ export function LeaderboardTable({
   currentUserName,
   currentUserScore,
   period,
+  currentUserAvatarUrl,
 }: LeaderboardTableProps) {
 
   const [page, setPage] = useState(0);
@@ -143,6 +146,7 @@ export function LeaderboardTable({
                 entry={{
                   user_id: currentUserId,
                   display_name: currentUserName ?? currentUserId,
+                  avatar_url: currentUserAvatarUrl ?? undefined,
                   rank: 0,
                   reward_count: 0,
                   score: currentUserScore ?? 0,
@@ -168,6 +172,7 @@ function Row({
   onClick?: () => void;
   clickable?: boolean;
 }) {
+  const [failedAvatar, setFailedAvatar] = useState(false);
   const podium = RANK_BADGES[entry.rank];
   const initials = (entry.display_name || entry.user_id)
     .split(' ')
@@ -175,6 +180,8 @@ function Row({
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+  const showAvatar = Boolean(entry.avatar_url && !failedAvatar);
 
   return (
     <li
@@ -229,7 +236,7 @@ function Row({
       {/* Avatar & name */}
       <div className="flex-1 flex items-center gap-3 min-w-0" role="cell">
         <span
-          className="w-9 h-9 shrink-0 flex items-center justify-center font-label font-bold text-xs"
+          className="w-9 h-9 shrink-0 flex items-center justify-center font-label font-bold text-xs overflow-hidden"
           style={{
             clipPath: 'var(--pixclip)',
             background: isMe
@@ -241,7 +248,18 @@ function Row({
           }}
           aria-hidden="true"
         >
-          {initials}
+          {showAvatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={entry.avatar_url!}
+              alt=""
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={() => setFailedAvatar(true)}
+            />
+          ) : (
+            initials
+          )}
         </span>
 
         <div className="flex flex-col min-w-0">
