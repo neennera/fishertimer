@@ -20,6 +20,8 @@ export interface LeaderboardTableProps {
   currentUserId?: string | null;
   /** Shown on the pinned badge when the user has no ranking yet. */
   currentUserName?: string | null;
+  /** Fallback score for the user if unranked or fetched from reward service. */
+  currentUserScore?: number | null;
 }
 
 /**
@@ -30,7 +32,12 @@ export interface LeaderboardTableProps {
  * - Below a divider, the user's own position is always pinned to the bottom.
  * - E-1 empty state: renders a friendly message, not an error screen.
  */
-export function LeaderboardTable({ entries, currentUserId, currentUserName }: LeaderboardTableProps) {
+export function LeaderboardTable({
+  entries,
+  currentUserId,
+  currentUserName,
+  currentUserScore,
+}: LeaderboardTableProps) {
 
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(entries.length / LEADERBOARD_PAGE_SIZE));
@@ -42,7 +49,15 @@ export function LeaderboardTable({ entries, currentUserId, currentUserName }: Le
 
   const current = Math.min(page, pageCount - 1);
   const visible = entries.slice(current * LEADERBOARD_PAGE_SIZE, (current + 1) * LEADERBOARD_PAGE_SIZE);
-  const me = currentUserId != null ? entries.find((e) => e.user_id === currentUserId) : undefined;
+  const meIndex = currentUserId != null ? entries.findIndex((e) => e.user_id === currentUserId) : -1;
+  const me = meIndex !== -1 ? entries[meIndex] : undefined;
+
+  const handleGoToMyPage = () => {
+    if (meIndex !== -1) {
+      const targetPage = Math.floor(meIndex / LEADERBOARD_PAGE_SIZE);
+      setPage(targetPage);
+    }
+  };
 
   return (
     <div role="table" aria-label="Leaderboard rankings" className="flex flex-col gap-2">
@@ -108,7 +123,12 @@ export function LeaderboardTable({ entries, currentUserId, currentUserName }: Le
           />
           <ol className="flex flex-col" aria-label="Your ranking">
             {me ? (
-              <Row entry={me} isMe />
+              <Row
+                entry={me}
+                isMe
+                onClick={handleGoToMyPage}
+                clickable={page !== Math.floor(meIndex / LEADERBOARD_PAGE_SIZE)}
+              />
             ) : (
               <Row
                 isMe
@@ -117,7 +137,7 @@ export function LeaderboardTable({ entries, currentUserId, currentUserName }: Le
                   display_name: currentUserName ?? currentUserId,
                   rank: 0,
                   reward_count: 0,
-                  score: 0,
+                  score: currentUserScore ?? 0,
                   period: 'monthly',
                 }}
               />
@@ -127,10 +147,19 @@ export function LeaderboardTable({ entries, currentUserId, currentUserName }: Le
       )}
     </div>
   );
-
 }
 
-function Row({ entry, isMe }: { entry: RankEntry; isMe: boolean }) {
+function Row({
+  entry,
+  isMe,
+  onClick,
+  clickable = false,
+}: {
+  entry: RankEntry;
+  isMe: boolean;
+  onClick?: () => void;
+  clickable?: boolean;
+}) {
   const podium = RANK_BADGES[entry.rank];
   const initials = (entry.display_name || entry.user_id)
     .split(' ')
@@ -143,10 +172,13 @@ function Row({ entry, isMe }: { entry: RankEntry; isMe: boolean }) {
     <li
       role="row"
       aria-label={`Rank ${entry.rank}: ${entry.display_name}, ${entry.score} points`}
+      onClick={clickable ? onClick : undefined}
       className={cx(
         'pixel-panel flex items-center gap-3 px-4 py-3 transition-transform duration-75',
         isMe && 'leaderboard-row--me',
+        clickable && 'cursor-pointer hover:opacity-90 active:scale-[0.99]',
       )}
+      title={clickable ? 'Click to jump to your page in the table' : undefined}
       style={
         isMe
           ? {

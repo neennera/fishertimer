@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '../../components/Header';
 import { ParallaxScene } from '../../components/ui/ParallaxScene';
@@ -7,6 +8,7 @@ import { PixelPanel } from '../../components/ui/PixelPanel';
 import { PixelButton } from '../../components/ui/PixelButton';
 import { useSignedInUser } from '../../components/profile/ProfileShell';
 import { SIGNIN_SCENE_LAYERS } from '../../lib/scenes/signin-scene';
+import { getRewards } from '../../lib/profile';
 import { PeriodTabs } from '../../features/leaderboard/components/PeriodTabs';
 import { LeaderboardTable } from '../../features/leaderboard/components/LeaderboardTable';
 import { useLeaderboard } from '../../features/leaderboard/hooks/useLeaderboard';
@@ -20,10 +22,34 @@ import { useLeaderboard } from '../../features/leaderboard/hooks/useLeaderboard'
 export default function LeaderboardPage() {
   const { user, signingOut, handleSignOut } = useSignedInUser();
   const { data, loading, error, period, setPeriod, refresh } = useLeaderboard('monthly');
+  const [userRewardScore, setUserRewardScore] = useState<number | null>(null);
 
-  const rankings = data?.rankings ?? [];
+  const rawRankings = data?.rankings ?? [];
+
+  // Fetch user rewards score as fallback if leaderboard has score = 0 or unranked
+  useEffect(() => {
+    if (!user?.user_id) return;
+    let cancelled = false;
+    getRewards(user.user_id).then((res) => {
+      if (!cancelled && res.status === 'ok') {
+        setUserRewardScore(res.data.total_score);
+      }
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user_id]);
+
+  const rankings = rawRankings.map((entry) => {
+    if (user && entry.user_id === user.user_id && entry.score === 0 && userRewardScore != null && userRewardScore > 0) {
+      return { ...entry, score: userRewardScore };
+    }
+    return entry;
+  });
+
   const topAngler = rankings.length > 0 ? rankings[0] : null;
   const myEntry = user ? rankings.find((r) => r.user_id === user.user_id) : undefined;
+  const displayScore = myEntry?.score || (userRewardScore ?? 0);
 
   // Nothing to show until we know who is looking (signed-out -> redirect).
   if (!user) {
@@ -101,7 +127,7 @@ export default function LeaderboardPage() {
             >
               <span className="font-label text-[10px] uppercase text-bark">Your Ranking</span>
               <span className="font-numeric text-lg text-ink truncate mt-0.5">
-                {myEntry ? `#${myEntry.rank} of ${rankings.length}` : 'Unranked'}
+                {myEntry ? `#${myEntry.rank} of ${rankings.length} (${displayScore} pts)` : `Unranked (${displayScore} pts)`}
               </span>
             </div>
           </div>
@@ -135,10 +161,11 @@ export default function LeaderboardPage() {
                 entries={rankings}
                 currentUserId={user.user_id}
                 currentUserName={user.display_name}
+                currentUserScore={displayScore}
               />
-
             )}
           </div>
+
 
           {/* ── Bottom Action Navigation ─ */}
           <div className="mt-6 pt-4 border-t border-[var(--color-rule)] flex flex-wrap items-center justify-between gap-3">
