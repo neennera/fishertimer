@@ -15,19 +15,19 @@ func seedCatch(id, userID, displayName, itemName, rarity string, awardedAt time.
 	switch rarity {
 	case domain.RarityLegendary:
 		score = 250
-		weight = 1
+		weight = 3
 	case domain.RarityEpic:
 		score = 100
-		weight = 4
+		weight = 6
 	case domain.RarityRare:
 		score = 50
-		weight = 10
+		weight = 12
 	case domain.RarityUncommon:
 		score = 25
 		weight = 25
 	default:
 		score = 10
-		weight = 50
+		weight = 30
 	}
 
 	sprite := "Bass.png"
