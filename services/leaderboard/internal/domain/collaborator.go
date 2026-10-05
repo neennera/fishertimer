@@ -13,6 +13,7 @@ type FishReward struct {
 	DisplayName string    `json:"display_name"`
 	Species     string    `json:"species"`
 	Rarity      string    `json:"rarity"`
+	ScoreValue  int       `json:"score_value"`
 	AwardedAt   time.Time `json:"awarded_at"`
 }
 

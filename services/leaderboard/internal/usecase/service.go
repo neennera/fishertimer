@@ -106,8 +106,29 @@ func (s *service) ViewLeaderboard(ctx context.Context, period string) (*domain.C
 	return result, nil
 }
 
-// computeRanking implements S-3: fetch all rewards, filter by period, aggregate per user,
-// sort descending by count, break ties by earliest AwardedAt.
+// tierScore is the points one catch is worth. The reward service sends
+// score_value per catch (set by rarity tier); the rarity table is only a
+// fallback for rows that arrive without one.
+func tierScore(r domain.FishReward) int {
+	if r.ScoreValue > 0 {
+		return r.ScoreValue
+	}
+	switch r.Rarity {
+	case "LEGENDARY":
+		return 250
+	case "EPIC":
+		return 100
+	case "RARE":
+		return 50
+	case "UNCOMMON":
+		return 25
+	default:
+		return 10
+	}
+}
+
+// computeRanking implements S-3: fetch all rewards, filter by period, sum the
+// tier score per user, sort descending by score, break ties by earliest AwardedAt.
 func (s *service) computeRanking(ctx context.Context, period string) ([]domain.RankEntry, error) {
 	allRewards, err := s.rewardClient.ViewAllRewards(ctx)
 	if err != nil {
@@ -116,16 +137,15 @@ func (s *service) computeRanking(ctx context.Context, period string) ([]domain.R
 
 	start := periodStart(period)
 
-	// Aggregate: count rewards per user within the period window.
 	type userAgg struct {
 		displayName string
 		count       int
+		score       int
 		earliest    time.Time // earliest AwardedAt this period (for tie-break, E-4)
 	}
 	agg := make(map[string]*userAgg)
 
 	for _, r := range allRewards {
-		// E-4 tie-break: use AwardedAt; skip zero-time rewards to be safe.
 		if !start.IsZero() && r.AwardedAt.Before(start) {
 			continue
 		}
@@ -137,38 +157,33 @@ func (s *service) computeRanking(ctx context.Context, period string) ([]domain.R
 		}
 		a := agg[r.UserID]
 		a.count++
+		a.score += tierScore(r)
 		if r.AwardedAt.Before(a.earliest) {
 			a.earliest = r.AwardedAt
 		}
-		// Keep display name from most recent entry if seed has it populated.
 		if r.DisplayName != "" {
 			a.displayName = r.DisplayName
 		}
 	}
 
-	// Build sortable slice.
 	type sortable struct {
-		userID      string
-		displayName string
-		count       int
-		earliest    time.Time
+		userID string
+		*userAgg
 	}
-	var rows []sortable
+	rows := make([]sortable, 0, len(agg))
 	for uid, a := range agg {
-		rows = append(rows, sortable{
-			userID:      uid,
-			displayName: a.displayName,
-			count:       a.count,
-			earliest:    a.earliest,
-		})
+		rows = append(rows, sortable{userID: uid, userAgg: a})
 	}
 
-	// S-3 sort: descending by count; ascending earliest for tie-break (E-4).
+	// S-3 sort: descending by score; ascending earliest, then id, for tie-break (E-4).
 	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].count != rows[j].count {
-			return rows[i].count > rows[j].count
+		if rows[i].score != rows[j].score {
+			return rows[i].score > rows[j].score
 		}
-		return rows[i].earliest.Before(rows[j].earliest)
+		if !rows[i].earliest.Equal(rows[j].earliest) {
+			return rows[i].earliest.Before(rows[j].earliest)
+		}
+		return rows[i].userID < rows[j].userID
 	})
 
 	entries := make([]domain.RankEntry, 0, len(rows))
@@ -178,9 +193,11 @@ func (s *service) computeRanking(ctx context.Context, period string) ([]domain.R
 			DisplayName: row.displayName,
 			Rank:        rank + 1,
 			RewardCount: row.count,
+			Score:       row.score,
 			Period:      period,
 		})
 	}
 
 	return entries, nil
 }
+

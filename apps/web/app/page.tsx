@@ -1,80 +1,101 @@
 import Link from "next/link";
 import { SessionHeader } from "../components/SessionHeader";
+import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelButton } from "../components/ui/PixelButton";
 import { PixelPanel } from "../components/ui/PixelPanel";
+import { SIGNIN_SCENE_LAYERS } from "../lib/scenes/signin-scene";
 
 const FEATURES = [
   {
     emoji: "⏱️",
     title: "Study Timer",
-    description: "Focus & rest cycles synced via API Gateway",
+    description: "Focus and rest cycles to keep you on track",
+    href: "/timer",
   },
   {
     emoji: "👥",
     title: "Study Sessions",
-    description: "Join & create study rooms with peers",
+    description: "Join and create study rooms with peers",
+    href: null, // no page yet
   },
   {
     emoji: "🐟",
     title: "FishTank Rewards",
-    description: "Earn fish rewards upon ending sessions",
+    description: "Earn fish by finishing focus sessions",
+    href: "/account",
   },
   {
     emoji: "🏆",
     title: "Leaderboard",
-    description: "Weekly & all-time focus rankings",
+    description: "See how your fish score ranks",
+    href: "/leaderboard",
   },
 ];
 
-/**
- * Placeholder home. Once the auth branch lands this redirects to /account
- * when a session exists and /signin when it doesn't (UC-06).
- */
+const CARD =
+  "pixel-panel flex h-full flex-col gap-1 p-4 text-left transition-transform duration-75";
+
+/** Home: the scene background plus one clickable card per feature. */
 export default function Home() {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
+      <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
       <SessionHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-12">
+      <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
         <PixelPanel>
           <h1
             className="font-display leading-tight"
             style={{ fontSize: "calc(var(--px) * 10)" }}
           >
-            🎣 Fisher Timer — Student Portal
+            🎣 Fisher Timer
           </h1>
           <p className="mt-2 text-bark">
-            Frontend Website (Client page) — communicating via API Gateway
-            (Port 8080).
+            Study in focused sessions, catch fish, climb the leaderboard.
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {FEATURES.map(({ emoji, title, description }) => (
-              <PixelPanel as="article" key={title}>
-                <h3 className="font-display">
-                  {emoji} {title}
-                </h3>
-                <p className="mt-1 text-bark">{description}</p>
-              </PixelPanel>
-            ))}
+            {FEATURES.map(({ emoji, title, description, href }) => {
+              const body = (
+                <>
+                  <span className="text-3xl" aria-hidden="true">
+                    {emoji}
+                  </span>
+                  <h2 className="font-display">{title}</h2>
+                  <p className="text-bark">{description}</p>
+                  <span className="mt-auto pt-2 font-label text-xs text-bark">
+                    {href ? "Open →" : "Coming soon"}
+                  </span>
+                </>
+              );
+              return href ? (
+                <Link
+                  key={title}
+                  href={href}
+                  className={`${CARD} hover:-translate-y-0.5 focus-visible:-translate-y-0.5`}
+                  style={{ background: "var(--color-cream-2)" }}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div
+                  key={title}
+                  className={`${CARD} opacity-60`}
+                  style={{ background: "var(--color-cream-2)" }}
+                  aria-disabled="true"
+                >
+                  {body}
+                </div>
+              );
+            })}
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-4">
-            <PixelButton>Start Studying</PixelButton>
-            <Link href="/timer" className="underline underline-offset-4">
-              ⏱️ Try the study timer
-            </Link>
-            <Link href="/leaderboard" className="underline underline-offset-4">
-              🏆 View Leaderboard
-            </Link>
-            <Link href="/admin" className="underline underline-offset-4">
-              🛡️ Switch to Admin Portal
-            </Link>
-            <Link href="/styleguide" className="underline underline-offset-4">
-              View the styleguide
+          <div className="mt-6">
+            <Link href="/timer">
+              <PixelButton>Start Studying</PixelButton>
             </Link>
           </div>
         </PixelPanel>
       </main>
-    </>
+    </div>
   );
 }

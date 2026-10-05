@@ -68,6 +68,24 @@ Both the in-memory repository and MongoDB init scripts contain a pre-configured 
 
 ---
 
+## Fish Score System
+
+Each catch is worth points by rarity tier (`score_value` on `reward_items`, fallback `domain.ScoreForRarity`). The Leaderboard sums these per user.
+
+| Tier | Score |
+|------|-------|
+| COMMON | 10 |
+| UNCOMMON | 25 |
+| RARE | 50 |
+| EPIC | 100 |
+| LEGENDARY | 250 |
+
+## Seeding the signed-in user
+
+`database/schemas/004_seed_current_user_month.js` seeds this month's catches for your real account plus 9 mock competitors (`seed-angler-*`), deleting their old `user_rewards` first. Easiest: open `/dev` in the web app (dev only) and click the button. See [`database/README.md`](./database/README.md) for the manual command.
+
+---
+
 ## Configuration & Environment Variables
 
 | Variable | Description | Default |
