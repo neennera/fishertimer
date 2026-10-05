@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[reward]**: Added `003_seed_user_rewards.js` to seed 41 user catches across 5 demo users (`user1` to `user5`) for Leaderboard and FishTank demonstrations in MongoDB.
 - **[reward]**: Added `GET /api/v1/reward/all-rewards` and `GET /api/v1/reward/last-update` endpoints for Leaderboard cache validation (S-1) and ranking computation (S-3).
 - **[web]**: Added Leaderboard feature (`apps/web/app/leaderboard/page.tsx`, `features/leaderboard/`) with Weekly, Monthly, and All-Time period tabs, cache status indicators, and current-user highlighting.
+- **[reward]**: Added `internal/domain/calculation.go` with the reward maths: one reward per full 15 work minutes, a group buff of `1 + 0.25 x (participants - 1)` (max 5 participants) that boosts every non-COMMON weight, and `DrawRewards`, which picks each reward by weight (repeats allowed). Tests in `calculation_test.go`. Not wired into `AwardReward` yet.
 
 ### Changed
 - **[reward]**: Unified `domain.UnlockedReward` entity to support both the 3NF database schema (items/user drops) for the Account service and leaderboard fields (`ID`, `DisplayName`, `Species`, `AwardedAt`) with `type FishReward = UnlockedReward` for backwards compatibility.
@@ -30,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[reward]**: Configured `cmd/main.go` to connect to MongoDB when available and gracefully fall back to the 5-user in-memory seeded store for isolated local development without Docker.
 - **[web]**: Merged Home page (`apps/web/app/page.tsx`) navigation links to include both the Study Timer (`/timer`) and Leaderboard (`/leaderboard`).
 - **[web]**: Kept full production implementation of `/account` from `main` using `ProfileShell`, `ProfileSections`, and live session management.
+- **[reward]**: `POST /api/v1/reward/award` now really awards rewards (replaces the fake "Golden Salmon" stub). New request `{ user_id, session_id, cycle_id, work_minutes, participant_count, display_name? }`, response `{ cycle_id, already_awarded, rewards }`. Draws one reward per 15 work minutes from `reward_items` and stores one `user_rewards` row per draw. Safe to retry: the same `cycle_id` returns the stored rewards instead of awarding twice (rows get an `_id` derived from the cycle, so no schema change is needed). **Breaking:** study-timer's current `{ user_id, reason }` payload now gets a 400 until it sends the new fields.
+- **[reward]**: Changed drop weights to COMMON 30, UNCOMMON 25, RARE 12, EPIC 6, LEGENDARY 3 (was 50 / 25 / 10 / 4 / 1) in `002_seed_reward_items.js` and `memory_repo.go`. Re-run 002 on an existing volume to apply. Updated `database/README.md` to match.
 
 ### Fixed
 - **[leaderboard]**: Fixed empty ranking issue where `user_rewards` was unseeded after `pnpm db:reset`, causing Leaderboard to cache an empty response into Redis.
