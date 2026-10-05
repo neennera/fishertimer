@@ -140,32 +140,109 @@ func generateSeedRewards() []domain.UnlockedReward {
 	}
 }
 
+// fishCatalogue mirrors database/schemas/002_seed_reward_items.js: one FISH
+// item per sprite, with the same per-rarity weights and score values.
+func fishCatalogue() []domain.RewardItem {
+	tiers := map[string]struct {
+		weight float64
+		score  int
+	}{
+		domain.RarityCommon:    {30, 10},
+		domain.RarityUncommon:  {25, 25},
+		domain.RarityRare:      {12, 50},
+		domain.RarityEpic:      {6, 100},
+		domain.RarityLegendary: {3, 250},
+	}
+	fish := []struct{ name, rarity, sprite string }{
+		{"Anchovy", domain.RarityCommon, "Anchovy.png"},
+		{"Goldfish", domain.RarityCommon, "Goldfish.png"},
+		{"Bass", domain.RarityCommon, "Bass.png"},
+		{"Catfish", domain.RarityCommon, "Catfish.png"},
+		{"Clownfish", domain.RarityCommon, "Clownfish.png"},
+		{"Blue Tang", domain.RarityUncommon, "Surgeonfish.png"},
+		{"Angelfish", domain.RarityUncommon, "Angelfish.png"},
+		{"Rainbow Trout", domain.RarityRare, "Rainbow Trout.png"},
+		{"Pufferfish", domain.RarityRare, "Pufferfish.png"},
+		{"Dungeness Crab", domain.RarityRare, "Crab - Dungeness.png"},
+		{"Koi", domain.RarityEpic, "Koi.png"},
+		{"Octopus", domain.RarityEpic, "Octopus.png"},
+		{"Seahorse", domain.RarityEpic, "Seahorse.png"},
+		{"Globefish", domain.RarityLegendary, "Globefish.png"},
+		{"Ghostfish", domain.RarityLegendary, "Ghostfish.png"},
+	}
+
+	items := make([]domain.RewardItem, len(fish))
+	for i, f := range fish {
+		items[i] = domain.RewardItem{
+			ID:         fmt.Sprintf("fish-%02d", i+1),
+			ItemName:   f.name,
+			Category:   domain.CategoryFish,
+			Rarity:     f.rarity,
+			BaseWeight: tiers[f.rarity].weight,
+			ScoreValue: tiers[f.rarity].score,
+			AssetURL:   "/sprites/fish/" + f.sprite,
+		}
+	}
+	return items
+}
+
 // lastUpdate tracks when rewards were last mutated (for leaderboard cache invalidation).
 var lastUpdate = time.Now().UTC()
 
 type InMemoryRepository struct {
-	mu      sync.RWMutex
-	rewards []domain.UnlockedReward
+	mu        sync.RWMutex
+	catalogue []domain.RewardItem
+	rewards   []domain.UnlockedReward
+	nextID    int
 }
 
 func NewInMemory() *InMemoryRepository {
-	return &InMemoryRepository{rewards: generateSeedRewards()}
+	return &InMemoryRepository{catalogue: fishCatalogue(), rewards: generateSeedRewards()}
 }
 
-func (repo *InMemoryRepository) Award(ctx context.Context, r *domain.UnlockedReward) error {
+func (repo *InMemoryRepository) ListItems(ctx context.Context) ([]domain.RewardItem, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+	return append([]domain.RewardItem(nil), repo.catalogue...), nil
+}
+
+func (repo *InMemoryRepository) ListByCycle(ctx context.Context, cycleID string) ([]domain.UnlockedReward, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+	var out []domain.UnlockedReward
+	for _, r := range repo.rewards {
+		if r.CycleID == cycleID {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+// AwardMany rejects a second award for a cycle_id, matching what the Mongo
+// adapter's deterministic _ids do, and stores nothing in that case.
+func (repo *InMemoryRepository) AwardMany(ctx context.Context, rewards []domain.UnlockedReward) error {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
-	if r.AwardedAt.IsZero() {
-		r.AwardedAt = time.Now().UTC()
+
+	for _, r := range rewards {
+		for _, existing := range repo.rewards {
+			if existing.CycleID == r.CycleID {
+				return domain.ErrAlreadyAwarded
+			}
+		}
 	}
-	if r.UserRewardID == "" {
-		r.UserRewardID = fmt.Sprintf("r-%d", time.Now().UnixNano())
+
+	now := time.Now().UTC()
+	for i := range rewards {
+		if rewards[i].AwardedAt.IsZero() {
+			rewards[i].AwardedAt = now
+		}
+		repo.nextID++
+		rewards[i].UserRewardID = fmt.Sprintf("r-%d", repo.nextID)
+		rewards[i].ID = rewards[i].UserRewardID
 	}
-	if r.ID == "" {
-		r.ID = r.UserRewardID
-	}
-	repo.rewards = append(repo.rewards, *r)
-	lastUpdate = time.Now().UTC()
+	repo.rewards = append(repo.rewards, rewards...)
+	lastUpdate = now
 	return nil
 }
 
@@ -184,5 +261,7 @@ func (repo *InMemoryRepository) ListByUser(ctx context.Context, userID string) (
 // GetLastUpdate returns the timestamp of the most recent reward mutation.
 // The leaderboard service calls this to decide whether its cache is stale.
 func (repo *InMemoryRepository) GetLastUpdate(ctx context.Context) (time.Time, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
 	return lastUpdate, nil
 }
