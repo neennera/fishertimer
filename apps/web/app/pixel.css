@@ -522,6 +522,16 @@
     color: #fff;
   }
 
+  .pixel-badge--ok {
+    background: var(--color-lake);
+  }
+  .pixel-badge--muted {
+    background: var(--color-stone-dk);
+  }
+  .pixel-badge--wood {
+    background: var(--color-oak);
+  }
+
   /* --- Stat tile ---------------------------------------------------------- */
   /* Sub-panel. */
   .pixel-tile {

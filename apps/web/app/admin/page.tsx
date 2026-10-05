@@ -1,59 +1,92 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import styles from '../page.module.css';
+import { Header } from '../../components/Header';
+import { ParallaxScene } from '../../components/ui/ParallaxScene';
+import { ADMIN_SCENE_LAYERS } from '../../lib/scenes/admin-scene';
+import { PixelPanel } from '../../components/ui/PixelPanel';
+import { PixelButton } from '../../components/ui/PixelButton';
+import { listSessions } from '../../features/admin/admin.api';
+import { StatusBadge } from '../../features/admin/components/StatusBadge';
+import { formatDateTime } from '../../features/admin/components/format';
+import type { AdminSession } from '../../features/admin/types';
+import { SessionHeader } from "../../components/SessionHeader";
 
+/** Admin — list study sessions, with a link to each session's detail + members. */
 export default function AdminPage() {
+  const [sessions, setSessions] = useState<AdminSession[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listSessions()
+      .then(setSessions)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load sessions'));
+  }, []);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '2.5rem' }}>🛡️</span>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.8rem' }}>
-              Fisher Timer — Admin Moderation Portal
-            </h1>
-            <p style={{ margin: '0.25rem 0 0 0', color: '#888' }}>
-              Frontend Website (Admin Page) — Direct connection to Admin Service (Port 8087)
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen">
+      <ParallaxScene layers={ADMIN_SCENE_LAYERS} />
+      <SessionHeader />
+      <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
+        <PixelPanel>
+          {/* <div className="mb-5 pb-3 border-b border-[var(--color-rule)]">
+            <Link href="/" className="text-bark hover:text-ink font-label text-sm">
+              ← Back to Study Room
+            </Link>
+          </div> */}
 
-        <div
-          style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            width: '100%',
-            maxWidth: '650px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-          }}
-        >
-          <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.75rem' }}>
-            <h3 style={{ margin: 0 }}>Direct Service Communication</h3>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#aaa' }}>
-              As designed in the architecture diagram, the Admin Website does <strong>not</strong> go through the API Gateway. It connects directly to <code>services/admin</code> (Port 8087).
-            </p>
-          </div>
+          <h1 className="font-display leading-tight" style={{ fontSize: 'calc(var(--px) * 10)' }}>
+            Admin — Sessions
+          </h1>
+          <p className="mt-1 text-bark font-body text-sm">
+            {sessions ? `${sessions.length} active sessions` : 'Loading…'}
+          </p>
 
-          <div>
-            <h4 style={{ margin: '0 0 0.5rem 0' }}>Admin Operations</h4>
-            <ul style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: '1.8' }}>
-              <li><strong>ViewActiveSessions:</strong> Inspect live study room states.</li>
-              <li><strong>ViewParticipants:</strong> List participants currently in an active room.</li>
-              <li><strong>MonitorTimerStatus:</strong> Real-time timer inspection across participants.</li>
-              <li><strong>ReviewReport & BanUser:</strong> Moderate users and update ban flags directly in Account Service.</li>
-              <li><strong>KickParticipant:</strong> Command Study Session service to kick participants.</li>
-            </ul>
-          </div>
-        </div>
+          {error && (
+            <div className="pixel-alert mt-4" role="alert">
+              ⚠️ {error}
+            </div>
+          )}
 
-        <div className={styles.ctas}>
-          <Link href="/" className={styles.secondary}>
-            ← Return to Client Portal
-          </Link>
-        </div>
+          <ul className="mt-5 flex flex-col gap-2.5" aria-busy={!sessions}>
+            {!sessions &&
+              !error &&
+              [1, 2, 3].map((i) => (
+                <li
+                  key={i}
+                  className="pixel-tile animate-pulse"
+                  style={{ height: '4.5rem' }}
+                  aria-hidden="true"
+                />
+              ))}
+
+            {sessions?.map((s) => (
+              <li
+                key={s.session_id}
+                className="pixel-tile flex flex-wrap items-center justify-between gap-3 text-left"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-numeric text-base text-ink truncate">{s.title}</span>
+                    <StatusBadge active={s.is_active} />
+                  </div>
+                  <div className="font-label text-[11px] text-bark mt-1">
+                    Host {s.host_name} · 👥 {s.participant_count}/{s.max_participants} · Started{' '}
+                    {formatDateTime(s.created_at)}
+                  </div>
+                </div>
+                <Link href={`/admin/sessions/${s.session_id}`}>
+                  <PixelButton variant="ghost">View detail →</PixelButton>
+                </Link>
+              </li>
+            ))}
+
+            {sessions?.length === 0 && (
+              <li className="text-bark font-body text-sm">No active sessions right now.</li>
+            )}
+          </ul>
+        </PixelPanel>
       </main>
     </div>
   );
