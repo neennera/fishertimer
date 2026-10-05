@@ -15,8 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[reward]**: Added `003_seed_user_rewards.js` to seed 41 user catches across 5 demo users (`user1` to `user5`) for Leaderboard and FishTank demonstrations in MongoDB.
 - **[reward]**: Added `GET /api/v1/reward/all-rewards` and `GET /api/v1/reward/last-update` endpoints for Leaderboard cache validation (S-1) and ranking computation (S-3).
 - **[web]**: Added Leaderboard feature (`apps/web/app/leaderboard/page.tsx`, `features/leaderboard/`) with Weekly, Monthly, and All-Time period tabs, cache status indicators, and current-user highlighting.
+- **[reward]**: Added `domain.ScoreForRarity` (Common 10, Uncommon 25, Rare 50, Epic 100, Legendary 250) as the fish score system; the Mongo repository falls back to it when a catalog row has no `score_value`.
+- **[reward]**: Added `database/schemas/004_seed_current_user_month.js`: seeds this month's mock catches for the signed-in account (`SEED_USER_ID`, `SEED_DISPLAY_NAME`) plus 9 `seed-angler-*` competitors; re-seeding first deletes their old `user_rewards`.
+- **[web]**: Added `/dev` page and dev-only `POST /api/dev/seed` route (docker exec into the reward Mongo container) to run the 004 seed with one click. Returns 404 in production.
+- **[web]**: Header shows fish sprites beside the wordmark, plus small "admin page" and "dev page" links.
 
 ### Changed
+- **[leaderboard]**: Rankings are now the sum of each catch's tier score (ties: earliest catch, then user id). `RankEntry` has a new `score` field; `FishReward` carries `score_value`.
+- **[web]**: `/leaderboard` requires a signed-in user (redirects to `/signin`; the demo `LureQueen` user is gone), uses the scene background, defaults to Monthly, and drops the cache panel and "Last synced". Summary tiles are Current Leader and Your Ranking. The table pages 5 rows at a time with an always-visible `<` / `>` pager, highlights ranks 1-3 in one colour, and pins the viewer's own row (or an "Unranked" row) under a divider. Period tabs are compact and share a row with Refresh. The top Back/Account links are removed.
+- **[web]**: Home page (`/`) uses the scene background and clickable feature cards (Study Timer, FishTank Rewards, Leaderboard; Study Sessions is "Coming soon"). Styleguide and Admin Portal links removed.
 - **[reward]**: Unified `domain.UnlockedReward` entity to support both the 3NF database schema (items/user drops) for the Account service and leaderboard fields (`ID`, `DisplayName`, `Species`, `AwardedAt`) with `type FishReward = UnlockedReward` for backwards compatibility.
 - **[reward]**: Implemented MongoDB repository lookup joining `user_rewards` with `reward_items` supporting all-reward listing (`userID == ""`) and `GetLastUpdate` sorted by `awarded_at: -1`.
 - **[reward]**: Configured `cmd/main.go` to connect to MongoDB when available and gracefully fall back to the 5-user in-memory seeded store for isolated local development without Docker.

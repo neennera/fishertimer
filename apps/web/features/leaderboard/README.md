@@ -23,10 +23,11 @@ features/leaderboard/
 ## Routes & Pages
 
 - **`/leaderboard`**: Main leaderboard view ([`app/leaderboard/page.tsx`](../../app/leaderboard/page.tsx))
-  - Displays summary stat tiles (Ranked Anglers, Current Leader, Cache Status).
-  - Period tabs switcher (`weekly`, `monthly`, `all-time`).
+  - Signed-in only (redirects to `/signin`); scene background shared with the auth pages.
+  - Summary tiles: Current Leader and Your Ranking.
+  - Compact period tabs (`weekly`, `monthly`, `all-time`; default `monthly`) on the same row as Refresh.
+  - Table: 5 rows per page, always-visible `<` / `>` pager, ranks 1-3 share one highlight, viewer's row in blue when on the page, and the viewer's position (or "Unranked") pinned under a divider.
   - Skeleton loading states and empty period handling.
-  - Links to `/` (Study Room) and `/account` (User Profile).
 
 ---
 
