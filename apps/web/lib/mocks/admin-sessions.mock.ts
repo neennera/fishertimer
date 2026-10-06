@@ -1,6 +1,6 @@
 // Mock admin data (session_db shape). Timestamps are relative to runtime.
 
-import type { AdminParticipant, AdminSessionDetail } from '../../features/admin/types';
+import type { AdminLog, AdminParticipant, AdminSessionDetail } from '../../features/admin/types';
 
 const MIN = 60_000;
 const ago = (minutes: number) => new Date(Date.now() - minutes * MIN).toISOString();
@@ -69,4 +69,41 @@ export const MOCK_ADMIN_SESSIONS: AdminSessionDetail[] = [
     participant('user3', 'LureQueen', 1500, { host: true, leftMinAgo: 1380 }),
     participant('user1', 'BobberBoss', 1490, { leftMinAgo: 1400 }),
   ]),
+];
+
+/** The signed-in admin until the account service exposes roles. */
+export const MOCK_ADMIN = { id: 'admin1', name: 'ModeratorMo' };
+
+// Newest first, like the real query (ORDER BY created_at DESC).
+export const MOCK_ADMIN_LOGS: AdminLog[] = [
+  {
+    log_id: 'log-3',
+    admin_id: MOCK_ADMIN.id,
+    admin_name: MOCK_ADMIN.name,
+    action: 'FORCE_CLOSE_SESSION',
+    target_id: 'a1f0c6e2-0004-4a10-9c11-000000000004',
+    target_label: 'Late Night Coding',
+    reason: 'Session ran past quiet hours',
+    created_at: ago(95),
+  },
+  {
+    log_id: 'log-2',
+    admin_id: MOCK_ADMIN.id,
+    admin_name: MOCK_ADMIN.name,
+    action: 'KICK_USER',
+    target_id: 'user4',
+    target_label: 'NetNinja',
+    reason: 'Spamming the room',
+    created_at: ago(140),
+  },
+  {
+    log_id: 'log-1',
+    admin_id: MOCK_ADMIN.id,
+    admin_name: MOCK_ADMIN.name,
+    action: 'FORCE_CLOSE_SESSION',
+    target_id: 'a1f0c6e2-0005-4a10-9c11-000000000005',
+    target_label: 'Thesis Writing Sprint',
+    reason: null,
+    created_at: ago(1380),
+  },
 ];

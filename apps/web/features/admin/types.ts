@@ -25,3 +25,19 @@ export interface AdminParticipant {
 export interface AdminSessionDetail extends AdminSession {
   participants: AdminParticipant[];
 }
+
+/** admin_db.admin_logs — with the names the UI shows beside the raw IDs. */
+export type AdminLogAction = 'KICK_USER' | 'FORCE_CLOSE_SESSION';
+
+export interface AdminLog {
+  log_id: string;
+  admin_id: string;
+  admin_name: string;
+  action: AdminLogAction;
+  /** Session ID for FORCE_CLOSE_SESSION, user ID for KICK_USER. */
+  target_id: string;
+  /** Session title or member name, resolved for display. */
+  target_label: string;
+  reason: string | null;
+  created_at: string;
+}

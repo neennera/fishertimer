@@ -3,14 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Header } from '../../../../components/Header';
+import { SessionHeader } from '../../../../components/SessionHeader';
 import { ParallaxScene } from '../../../../components/ui/ParallaxScene';
 import { ADMIN_SCENE_LAYERS } from '../../../../lib/scenes/admin-scene';
 import { PixelPanel } from '../../../../components/ui/PixelPanel';
 import { PixelBadge } from '../../../../components/ui/PixelBadge';
 import { PixelButton } from '../../../../components/ui/PixelButton';
+import { PixelInput } from '../../../../components/ui/PixelInput';
 import { PixelModal } from '../../../../components/ui/PixelModal';
 import { endSession, getSession, kickParticipant } from '../../../../features/admin/admin.api';
+import { AdminNav } from '../../../../features/admin/components/AdminNav';
 import { StatusBadge } from '../../../../features/admin/components/StatusBadge';
 import { formatDateTime } from '../../../../features/admin/components/format';
 import type { AdminParticipant, AdminSessionDetail } from '../../../../features/admin/types';
@@ -22,6 +24,8 @@ export default function AdminSessionDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [kickTarget, setKickTarget] = useState<AdminParticipant | null>(null);
+  const [kickReason, setKickReason] = useState('');
+  const [endReason, setEndReason] = useState('');
   const [kicking, setKicking] = useState(false);
   const [kickError, setKickError] = useState<string | null>(null);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
@@ -38,6 +42,7 @@ export default function AdminSessionDetailPage() {
     if (!kicking) {
       setKickTarget(null);
       setKickError(null);
+      setKickReason('');
     }
   }
 
@@ -46,13 +51,14 @@ export default function AdminSessionDetailPage() {
     setKicking(true);
     setKickError(null);
     try {
-      const updated = await kickParticipant(id, kickTarget.user_id);
+      const updated = await kickParticipant(id, kickTarget.user_id, kickReason);
       if (!updated) {
         setKickError('Member is no longer in this session.');
         return;
       }
       setSession(updated);
       setKickTarget(null);
+      setKickReason('');
     } catch (e: unknown) {
       setKickError(e instanceof Error ? e.message : 'Failed to kick member');
     } finally {
@@ -64,6 +70,7 @@ export default function AdminSessionDetailPage() {
     if (!ending) {
       setConfirmingEnd(false);
       setEndError(null);
+      setEndReason('');
     }
   }
 
@@ -71,13 +78,14 @@ export default function AdminSessionDetailPage() {
     setEnding(true);
     setEndError(null);
     try {
-      const updated = await endSession(id);
+      const updated = await endSession(id, endReason);
       if (!updated) {
         setEndError('This session has already ended.');
         return;
       }
       setSession(updated);
       setConfirmingEnd(false);
+      setEndReason('');
     } catch (e: unknown) {
       setEndError(e instanceof Error ? e.message : 'Failed to close session');
     } finally {
@@ -88,14 +96,14 @@ export default function AdminSessionDetailPage() {
   return (
     <div className="min-h-screen">
       <ParallaxScene layers={ADMIN_SCENE_LAYERS} />
-      <Header />
+      <SessionHeader />
       <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
         <PixelPanel>
-          <div className="mb-5 pb-3 border-b border-[var(--color-rule)]">
-            <Link href="/admin" className="text-bark hover:text-ink font-label text-sm">
-              ← All sessions
-            </Link>
-          </div>
+          <AdminNav active="sessions" />
+          <Link href="/admin" className="text-bark hover:text-ink font-label text-sm">
+            ← All sessions
+          </Link>
+          <div className="mb-5" />
 
           {error && (
             <div className="pixel-alert" role="alert">
@@ -115,7 +123,7 @@ export default function AdminSessionDetailPage() {
                 <h1 className="font-display leading-tight" style={{ fontSize: 'calc(var(--px) * 9)' }}>
                   {session.title}
                 </h1>
-                <StatusBadge active={session.is_active} />
+                {/* <StatusBadge active={session.is_active} /> */}
                 {session.is_active && (
                   <PixelButton
                     variant="danger"
@@ -156,7 +164,7 @@ export default function AdminSessionDetailPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-numeric text-sm text-ink truncate">{p.display_name}</span>
                       {p.is_host && <PixelBadge className="pixel-badge--wood">HOST</PixelBadge>}
-                      {p.is_banned && <PixelBadge>BANNED</PixelBadge>}
+                      {/* {p.is_banned && <PixelBadge>BANNED</PixelBadge>} */}
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-label text-[11px] text-bark">
@@ -186,7 +194,18 @@ export default function AdminSessionDetailPage() {
         <p className="font-body text-sm">
           Remove <strong>{kickTarget?.display_name}</strong> from this session? They will be
           disconnected from the room immediately.
+          {session?.participant_count === 1 && (
+            <> They are the last member, so the session will also be closed.</>
+          )}
         </p>
+        <PixelInput
+          label="Reason (optional)"
+          className="mt-3"
+          value={kickReason}
+          onChange={(e) => setKickReason(e.target.value)}
+          maxLength={200}
+          disabled={kicking}
+        />
         {kickError && (
           <div className="pixel-alert mt-3" role="alert">
             ⚠️ {kickError}
@@ -207,6 +226,14 @@ export default function AdminSessionDetailPage() {
           Close <strong>{session?.title}</strong>? Everyone still in the room will be
           disconnected and the session cannot be reopened.
         </p>
+        <PixelInput
+          label="Reason (optional)"
+          className="mt-3"
+          value={endReason}
+          onChange={(e) => setEndReason(e.target.value)}
+          maxLength={200}
+          disabled={ending}
+        />
         {endError && (
           <div className="pixel-alert mt-3" role="alert">
             ⚠️ {endError}

@@ -8,6 +8,7 @@ import { ADMIN_SCENE_LAYERS } from '../../lib/scenes/admin-scene';
 import { PixelPanel } from '../../components/ui/PixelPanel';
 import { PixelButton } from '../../components/ui/PixelButton';
 import { listSessions } from '../../features/admin/admin.api';
+import { AdminNav } from '../../features/admin/components/AdminNav';
 import { StatusBadge } from '../../features/admin/components/StatusBadge';
 import { formatDateTime } from '../../features/admin/components/format';
 import type { AdminSession } from '../../features/admin/types';
@@ -30,11 +31,7 @@ export default function AdminPage() {
       <SessionHeader />
       <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
         <PixelPanel>
-          {/* <div className="mb-5 pb-3 border-b border-[var(--color-rule)]">
-            <Link href="/" className="text-bark hover:text-ink font-label text-sm">
-              ← Back to Study Room
-            </Link>
-          </div> */}
+          <AdminNav active="sessions" />
 
           <h1 className="font-display leading-tight" style={{ fontSize: 'calc(var(--px) * 10)' }}>
             Admin — Sessions
@@ -69,7 +66,7 @@ export default function AdminPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-numeric text-base text-ink truncate">{s.title}</span>
-                    <StatusBadge active={s.is_active} />
+                    {/* <StatusBadge active={s.is_active} /> */}
                   </div>
                   <div className="font-label text-[11px] text-bark mt-1">
                     Host {s.host_name} · 👥 {s.participant_count}/{s.max_participants} · Started{' '}
