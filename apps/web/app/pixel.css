@@ -792,6 +792,30 @@
   }
 
 
+  /* Fish food (useFishSwim's feed()): one art pixel, or two wide with
+     [data-big], sprinkled in at the surface. Behind the front layer and the
+     nearest fish. */
+  .pixel-tank-food {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9;
+    width: var(--px);
+    height: var(--px);
+    background: var(--color-amber);
+    pointer-events: none;
+    will-change: transform;
+  }
+  .pixel-tank-food[data-big] {
+    width: calc(var(--px) * 2);
+  }
+  .pixel-tank-food[data-food="1"] {
+    background: var(--color-gold);
+  }
+  .pixel-tank-food[data-food="2"] {
+    background: var(--color-rust);
+  }
+
   /* --- Rarity ----------------------------------------------------------------
      [data-rarity] sets the tier colour for the tile ribbon and legend dot. */
   [data-rarity] {
@@ -929,6 +953,20 @@
     }
   }
 
+  /* Sort keys on the left, the feed key on the right. */
+  .pixel-fish-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--px) * 3);
+  }
+  /* Feeding is all motion: nothing to show without it. */
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-fish-feed {
+      display: none;
+    }
+  }
   .pixel-fish-sort {
     display: flex;
     flex-wrap: wrap;

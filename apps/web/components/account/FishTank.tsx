@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { cx } from "../../lib/cx";
 import { fishSprite, type FishSprite } from "../../lib/fish-sprites";
 import type { RewardRarity, RewardSummaryItem } from "../../lib/profile-types";
@@ -27,7 +33,12 @@ interface CaughtSpecies {
 // Lowest first. Points mirror ScoreForRarity in the reward service
 // (services/reward/internal/domain/entity.go): keep the two in step.
 // tankWeight: how much more likely a catch of that rarity is to swim.
-const RARITIES: { rarity: RewardRarity; label: string; points: number; tankWeight: number }[] = [
+const RARITIES: {
+  rarity: RewardRarity;
+  label: string;
+  points: number;
+  tankWeight: number;
+}[] = [
   { rarity: "COMMON", label: "Common", points: 10, tankWeight: 1 },
   { rarity: "UNCOMMON", label: "Uncommon", points: 25, tankWeight: 2 },
   { rarity: "RARE", label: "Rare", points: 50, tankWeight: 3 },
@@ -59,7 +70,9 @@ function sortSpecies(species: CaughtSpecies[], sort: SortKey): CaughtSpecies[] {
     return [...species].sort((a, b) => b.count - a.count);
   }
   if (sort === "rarity") {
-    return [...species].sort((a, b) => rarityRank(b.rarity) - rarityRank(a.rarity));
+    return [...species].sort(
+      (a, b) => rarityRank(b.rarity) - rarityRank(a.rarity),
+    );
   }
   return species;
 }
@@ -112,7 +125,12 @@ function tankFish(species: CaughtSpecies[], seed: number): TankFish[] {
     // More than MAX_TANK_FISH of one species can never all be picked.
     for (let n = 0; n < Math.min(count, MAX_TANK_FISH); n++) {
       // Efraimidis-Spirakis: the largest random^(1/weight) keys win.
-      drawn.push({ key: `${key}-${n}`, rarity, sprite, draw: random() ** (1 / weight) });
+      drawn.push({
+        key: `${key}-${n}`,
+        rarity,
+        sprite,
+        draw: random() ** (1 / weight),
+      });
     }
   }
   return drawn
@@ -174,7 +192,9 @@ function FishArt({
         <span
           className="pixel-fish-art__glare"
           style={
-            sprite.src ? ({ "--fish-mask": `url("${sprite.src}")` } as CSSProperties) : undefined
+            sprite.src
+              ? ({ "--fish-mask": `url("${sprite.src}")` } as CSSProperties)
+              : undefined
           }
         />
       )}
@@ -198,9 +218,12 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
   const tiles = useMemo(() => sortSpecies(species, sort), [species, sort]);
   const tilesRef = useRef<HTMLUListElement>(null);
   const shuffleTiles = useTileShuffle(tilesRef, sort);
-  const starts = useMemo(() => swimmers.map((_, index) => restSpot(index)), [swimmers]);
+  const starts = useMemo(
+    () => swimmers.map((_, index) => restSpot(index)),
+    [swimmers],
+  );
   const waterRef = useRef<HTMLDivElement>(null);
-  useFishSwim(waterRef, starts);
+  const feed = useFishSwim(waterRef, starts);
   const { bubbles, remove: removeBubble, onTankClick } = useBubbles(waterRef);
 
   return (
@@ -211,7 +234,10 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
           {FISHTANK_LAYERS.map((layer) => (
             <div
               key={layer.src}
-              className={cx("pixel-tank__layer", layer.front && "pixel-tank__layer--front")}
+              className={cx(
+                "pixel-tank__layer",
+                layer.front && "pixel-tank__layer--front",
+              )}
               style={
                 {
                   backgroundImage: `url("${layer.src}")`,
@@ -239,7 +265,10 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
           {bubbles.map((bubble) => (
             <span
               key={bubble.id}
-              className={cx("pixel-tank-bubble", `pixel-tank-bubble--${bubble.size}`)}
+              className={cx(
+                "pixel-tank-bubble",
+                `pixel-tank-bubble--${bubble.size}`,
+              )}
               style={
                 {
                   "--bubble-left": bubble.left,
@@ -274,36 +303,62 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
         <p className="text-center text-sm text-bark">{emptyMessage}</p>
       ) : (
         <>
-          <div className="pixel-fish-sort" role="group" aria-label="Sort fish">
-            <span className="pixel-fish-sort__label" aria-hidden="true">
-              Sort
-            </span>
-            {SORTS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                className={cx("pixel-btn pixel-btn--sm", sort !== key && "pixel-btn--ghost")}
-                aria-pressed={sort === key}
-                onClick={() => {
-                  if (key !== sort) {
-                    shuffleTiles();
-                    setSort(key);
-                  }
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="pixel-fish-controls">
+            <div
+              className="pixel-fish-sort"
+              role="group"
+              aria-label="Sort fish"
+            >
+              <span className="pixel-fish-sort__label" aria-hidden="true">
+                Sort
+              </span>
+              {SORTS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={cx(
+                    "pixel-btn pixel-btn--sm",
+                    sort !== key && "pixel-btn--ghost",
+                  )}
+                  aria-pressed={sort === key}
+                  onClick={() => {
+                    if (key !== sort) {
+                      shuffleTiles();
+                      setSort(key);
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="pixel-btn pixel-btn--sm pixel-btn--ghost pixel-fish-feed"
+              onClick={feed}
+            >
+              Feed
+            </button>
           </div>
-          <ul ref={tilesRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <ul
+            ref={tilesRef}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
+          >
             {tiles.map(({ key, name, count, rarity, sprite }) => (
-              <li key={key} className="pixel-tile pixel-fish-card" data-rarity={rarity} data-tile={key}>
+              <li
+                key={key}
+                className="pixel-tile pixel-fish-card"
+                data-rarity={rarity}
+                data-tile={key}
+              >
                 <FishArt sprite={sprite} rarity={rarity} still />
                 <span className="pixel-fish-card__text">
                   <span className="pixel-fish-card__name">{name}</span>
                   <span className="pixel-fish-card__count">×{count}</span>
                 </span>
-                <span className="pixel-fish-card__ribbon">{rarityLabel(rarity)}</span>
+                <span className="pixel-fish-card__ribbon">
+                  {rarityLabel(rarity)}
+                </span>
               </li>
             ))}
           </ul>
@@ -312,7 +367,9 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
               <li key={rarity} data-rarity={rarity}>
                 <span className="pixel-rarity-legend__dot" aria-hidden="true" />
                 <span>{label}</span>
-                <span className="pixel-rarity-legend__points">{points} pts</span>
+                <span className="pixel-rarity-legend__points">
+                  {points} pts
+                </span>
               </li>
             ))}
           </ul>
