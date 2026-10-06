@@ -15,7 +15,7 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 1. **Synchronized Study Rooms:** Users join virtual rooms with peer presence while retaining control over their independent work/break timers.
 2. **Gamification & Rewards:** Completing focus cycles awards fish items with varying rarity, buffed by active room presence.
 3. **Dashboards & Leaderboards:** Personal statistics, streaks, and global rankings.
-4. **Real-Time Moderation:** Live monitoring of rooms and moderation actions (kick/ban).
+4. **Real-Time Moderation:** Live monitoring of rooms and moderation actions (kick / force-close).
 
 ---
 

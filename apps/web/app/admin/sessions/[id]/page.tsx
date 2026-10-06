@@ -164,7 +164,6 @@ export default function AdminSessionDetailPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-numeric text-sm text-ink truncate">{p.display_name}</span>
                       {p.is_host && <PixelBadge className="pixel-badge--wood">HOST</PixelBadge>}
-                      {/* {p.is_banned && <PixelBadge>BANNED</PixelBadge>} */}
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-label text-[11px] text-bark">

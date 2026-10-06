@@ -2,7 +2,7 @@
   "name": "@fishertimer/account-service",
   "version": "0.1.0",
   "private": true,
-  "description": "User profile management, user statistics, and ban states",
+  "description": "User profile management and user statistics",
   "scripts": {
     "dev": "go run cmd/main.go",
     "build": "go build -o bin/server cmd/main.go",

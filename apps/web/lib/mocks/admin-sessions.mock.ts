@@ -9,13 +9,12 @@ function participant(
   user_id: string,
   display_name: string,
   joinedMinAgo: number,
-  opts: { host?: boolean; banned?: boolean; leftMinAgo?: number } = {},
+  opts: { host?: boolean; leftMinAgo?: number } = {},
 ): AdminParticipant {
   return {
     user_id,
     display_name,
     is_host: opts.host ?? false,
-    is_banned: opts.banned ?? false,
     joined_at: ago(joinedMinAgo),
     left_at: opts.leftMinAgo === undefined ? null : ago(opts.leftMinAgo),
   };
@@ -55,7 +54,7 @@ export const MOCK_ADMIN_SESSIONS: AdminSessionDetail[] = [
     participant('user5', 'TackleTom', 20),
     participant('user6', 'SpoolSam', 15),
     participant('user7', 'HookedHana', 9),
-    participant('user8', 'TroubleTrout', 6, { banned: true }),
+    participant('user8', 'TroubleTrout', 6),
   ]),
   session('a1f0c6e2-0003-4a10-9c11-000000000003', 'Calculus Study Group', 4, 12, null, [
     participant('user9', 'CastAway', 12, { host: true }),

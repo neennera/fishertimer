@@ -17,7 +17,6 @@ export interface AdminParticipant {
   user_id: string;
   display_name: string;
   is_host: boolean;
-  is_banned: boolean;
   joined_at: string;
   left_at: string | null;
 }
