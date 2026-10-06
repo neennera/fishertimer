@@ -55,6 +55,41 @@ Table timer_settings {
   updated_at timestamptz [not null]
 }
 
+Table timers {
+  timer_id uuid [pk]
+  session_id uuid [not null, note: 'Refers logically to session_db.study_sessions(session_id)']
+  user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  status varchar(20) [not null, default: 'OPEN', note: 'OPEN | FINALIZED']
+  opened_at timestamptz [not null]
+  finalized_at timestamptz
+
+  indexes {
+    (session_id, user_id) [unique]
+  }
+}
+
+Table cycles {
+  cycle_id uuid [pk]
+  timer_id uuid [not null]
+  type varchar(10) [not null, note: 'WORK | REST']
+  status varchar(20) [not null, note: 'RUNNING | PAUSED | COMPLETED | SKIPPED | DISCARDED']
+  duration_sec int [not null, note: 'Interval duration in seconds']
+  started_at timestamptz [not null]
+  paused_at timestamptz
+  paused_total_sec int [not null, default: 0]
+  ended_at timestamptz
+  reward_status varchar(10) [not null, default: 'NONE', note: 'NONE | PENDING | SENT']
+}
+
+Table processed_events {
+  event_id varchar(64) [pk, note: 'Idempotency key from RabbitMQ events']
+  event_type varchar(50) [not null]
+  processed_at timestamptz [not null]
+}
+
+Ref: timers.timer_id < cycles.timer_id
+
+// Legacy Phase 1 timer tables (retained for backward compatibility)
 Table timer_sessions {
   timer_session_id uuid [pk]
   user_id uuid [not null, note: 'Refers to account_db.users(user_id)']

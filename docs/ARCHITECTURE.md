@@ -37,6 +37,14 @@ graph TD
         AdminDB[("Admin DB<br/>(PostgreSQL)")]
     end
 
+    subgraph Event Broker & Message Queue
+        RabbitMQ["RabbitMQ 3 (Topic Exchange)<br/>Exchange: fisher.session (Port: 5672 / 15672)"]
+    end
+
+    subgraph Database Management UI
+        Adminer["Adminer Web GUI<br/>Port: 8080"]
+    end
+
     %% Client routing via API Gateway
     ClientWeb -->|REST API| Gateway
     Gateway -->|REST API| Account
@@ -56,6 +64,10 @@ graph TD
     Timer -.->|AwardReward() on CompleteCycle| Reward
     Leaderboard -.->|Fetch Rewards / ViewRewards()| Reward
 
+    %% Asynchronous Event-Driven Messaging (RabbitMQ)
+    Session -.->|Publish session.participant.left / session.ended| RabbitMQ
+    RabbitMQ -.->|Consume timer.session-events queue| Timer
+
     %% Service Database & Cache connections
     Account --> AccountDB
     Session --> SessionDB
@@ -63,6 +75,12 @@ graph TD
     Reward --> RewardDB
     Leaderboard --> LeaderboardCache
     Admin --> AdminDB
+
+    %% DB Inspection UI
+    Adminer -.-> AccountDB
+    Adminer -.-> SessionDB
+    Adminer -.-> TimerDB
+    Adminer -.-> AdminDB
 ```
 
 ---
@@ -77,11 +95,13 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | **Admin Web** | 3000 | `apps/web/admin` | HTTP / WS | - | Admin moderation portal, direct connection to Admin Service. |
 | **API Gateway** | 8000 | `services/api-gateway` | HTTP / REST in; HTTP proxy + gRPC client out | - | Client entry point. Reverse-proxies Account, Leaderboard, Session and Reward over HTTP; translates `/api/timer/*` REST into Study Timer gRPC calls. Verifies the account service's session JWT and forwards `X-User-Id` / `X-User-Role` / `X-Display-Name` to downstream services (passthrough only — does not itself reject unauthenticated requests). |
 | **Account** | 8082 | `services/account` | HTTP / REST | Account DB (`account_db`) | Google OAuth (SignIn, SignUp, SignOut), user profiles, personal stats dashboard aggregation. |
-| **Study Session** | 8083 | `services/study-session` | gRPC / HTTP / WS | Session DB (`session_db`) | Room lifecycles (create/join/leave/end), roster limits, active participant listings for admin. |
-| **Study Timer** | 50051 (gRPC), 8084 (HTTP) | `services/study-timer` | gRPC / HTTP | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. |
+| **Study Session** | 8083 | `services/study-session` | gRPC / HTTP / WS | Session DB (`session_db`) | Room lifecycles (create/join/leave/end), roster limits, active participant listings for admin. Publishes events to RabbitMQ. |
+| **Study Timer** | 50051 (gRPC), 8084 (HTTP) | `services/study-timer` | gRPC / HTTP / AMQP Consumer | Timer DB (`timer_db`) | Isolated user focus timers, work/break cycle execution, triggers AwardReward upon CompleteCycle. Consumes async session events via RabbitMQ. |
 | **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB (`reward_db`) | Gamified fish drops, rarity table buffed by session participants, user inventory. |
 | **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
 | **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. |
+| **RabbitMQ** | 5672 (AMQP), 15672 (UI) | Infrastructure (`docker-compose.yml`) | AMQP 0-9-1 | In-Memory / Mnesia Queue | Message broker for asynchronous inter-service events (`fisher.session` exchange, dead-letter DLX/DLQ). |
+| **Adminer** | 8080 | Infrastructure (`docker-compose.yml`) | HTTP | - | Lightweight web-based database management GUI for local inspection of PostgreSQL databases. |
 
 ---
 
@@ -100,8 +120,9 @@ As defined in `docs/phase1/microservice.md`:
 | Leaderboard   | Reward.GetLastUpdate()      | REST     | Checks reward mutation timestamp (S-1 cache)   |
 | Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
 | Admin         | StudySession.EndSession()   | gRPC     | Command to close/end active study session room |
+| Study Session | StudyTimer.SessionEvents    | RabbitMQ | Async events (participant.left, session.ended) |
 | API Gateway   | StudyTimer.{Start,Get,Pause,| gRPC     | Browser REST /api/timer/* translated to gRPC   |
-|               |   Resume,Reset}Timer()      |          | (TIMER_GRPC_TARGET, default localhost:50051)   |
+|               |   Resume,Reset,GetRoom}     |          | (TIMER_GRPC_TARGET, default localhost:50051)   |
 +---------------+-----------------------------+----------+------------------------------------------------+
 ```
 
@@ -114,7 +135,7 @@ Every Go microservice conforms to the following layer boundaries:
 ```
 services/<service-name>/
 ├── cmd/
-│   └── main.go                  # Composition root: wires dependencies & starts HTTP server
+│   └── main.go                  # Composition root: wires dependencies & starts HTTP/gRPC servers
 ├── config/
 │   └── config.go                # Strongly typed environment variable loader
 ├── internal/
@@ -128,8 +149,12 @@ services/<service-name>/
 │       ├── handler/             # Driving adapters: HTTP / REST and gRPC handlers over the same usecase
 │       │   ├── http_handler.go
 │       │   └── grpc_handler.go  # (services that expose gRPC, e.g. study-timer)
-│       └── repository/          # Database access (Supabase, Mongo, in-memory mocks)
-│           └── memory_repo.go
+│       ├── amqp/                # Message broker adapters (RabbitMQ topology, consumers, producers)
+│       │   ├── topology.go
+│       │   └── consumer.go
+│       └── repository/          # Database access (PostgreSQL, Mongo, in-memory mocks)
+│           ├── memory_repo.go
+│           └── postgres_repo.go
 ```
 
 **Golden Rule of Clean Architecture:**
@@ -141,9 +166,12 @@ Dependencies point **inwards**. The `domain` layer has zero dependencies on fram
 
 Domain data structures shared across services and the web client are maintained in:
 - `packages/shared-types/src/index.ts` (TypeScript interfaces for Frontend & API consumers)
+- `pkg/events/` (Go shared events module: `github.com/neennera/fishertimer/pkg/events` in `go.work`)
+  - Shared AMQP message schemas: `ParticipantJoined`, `ParticipantLeft`, `SessionEnded`
+  - RabbitMQ exchange constants (`fisher.session`), dead-letter exchange (`fisher.session.dlx`), queues (`timer.session-events`), routing keys (`session.participant.joined`, `session.participant.left`, `session.ended`), and bindings (`session.#`).
 - Standard Protobuf definitions for Go inter-service contracts:
   - `proto/studysession/v1/session.proto` (Study Session gRPC contracts)
-  - `proto/studytimer/v1/timer.proto` (Study Timer gRPC contracts)
+  - `proto/studytimer/v1/timer.proto` (Study Timer gRPC contracts: `StartTimer`, `GetTimer`, `PauseTimer`, `ResumeTimer`, `ResetTimer`, `GetRoomTimers`, `GetTimerStatistics`)
   - `proto/` is its own Go module (`github.com/neennera/fishertimer/proto`) in `go.work`. Generated `*.pb.go` files are committed; regenerate with `pnpm proto:gen` after editing a `.proto`. Consumers require it with `replace ... => ../../proto` so they also build with `GOWORK=off`.
 
 ---
@@ -154,13 +182,18 @@ Detailed database schemas, 3NF relations, and DBML definitions are maintained in
 - [`docs/database/schema.dbml`](database/schema.dbml): Authoritative DBML specification.
 - [`docs/database/README.md`](database/README.md): Detailed database documentation, port allocations, and service schema references.
 - Schema DDL files:
-  - Account (`account_db`): `services/account/database/schemas/001_create_users_table.sql`
-  - Study Session (`session_db`): `services/study-session/database/schemas/001_create_study_sessions_tables.sql`
-  - Study Timer (`timer_db`): `services/study-timer/database/schemas/001_create_timer_tables.sql`
-  - Reward (`reward_db`):
+  - Account (`account_db`, Port 5432): `services/account/database/schemas/001_create_users_table.sql`
+  - Study Session (`session_db`, Port 5433): `services/study-session/database/schemas/001_create_study_sessions_tables.sql`
+  - Study Timer (`timer_db`, Port 5434):
+    - `services/study-timer/database/schemas/001_create_timer_tables.sql` (Phase 1 legacy: `timer_settings`, `timer_sessions`, `timer_cycles`)
+    - `services/study-timer/database/schemas/003_phase2_timer_and_events.sql` (Phase 2 3NF: `timers`, `cycles`, `processed_events`)
+    - `services/study-timer/database/seeds/001_temp_w1_active_timer_seed.sql` (Phase 2 mock seed: temporary test fixture for isolated local testing, waiting for Study Session Service Role A integration in W2)
+  - Reward (`reward_db`, Port 27017):
     - `services/reward/database/schemas/001_create_reward_collections.js` (3NF collections: `reward_items`, `user_rewards`)
     - `services/reward/database/schemas/002_seed_reward_items.js` (Seeds 15 fish sprite catalog items)
     - `services/reward/database/schemas/003_seed_user_rewards.js` (Seeds 41 user catches for 5 demo users)
-  - Admin Moderation (`admin_db`): `services/admin/database/schemas/001_create_admin_logs_table.sql`
+  - Admin Moderation (`admin_db`, Port 5435): `services/admin/database/schemas/001_create_admin_logs_table.sql`
   - Leaderboard: In-memory Redis cache (`redis://localhost:6379`)
+  - Message Queue: RabbitMQ 3 (`amqp://localhost:5672`, Management UI `http://localhost:15672`)
+  - Database Management UI: Adminer (`http://localhost:8080`)
 

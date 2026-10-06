@@ -27,6 +27,7 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 | **Frontend** | Next.js 16 (React 19) + TailwindCSS | Fast SSR/SEO, component modularity (ADR-001, ADR-002). |
 | **Backend** | Go (Golang) 1.25+ | Extreme concurrency, low memory footprint, Clean Architecture (ADR-003). |
 | **Database** | PostgreSQL (Supabase) + MongoDB + Redis | Polyglot persistence: Relational in PostgreSQL, JSON items in MongoDB, high-speed rankings in Redis (ADR-004). |
+| **Message Broker** | RabbitMQ 3 | Event-driven asynchronous messaging (`fisher.session` topic exchange) between Study Session and Study Timer. |
 | **Auth** | Google OAuth + JWT (in Account Service) | Low friction, frictionless student sign-on (ADR-005). |
 | **Deployment**| Render (Dockerized) | Microservice deployment with low DevOps overhead (ADR-006). |
 
@@ -37,11 +38,16 @@ Fisher Timer is a community-based study timer platform with a gamified fishing t
 - **`apps/web`**: The user-facing web application. Feature-sliced structure (`features/timer`, `features/session`, etc.).
 - **`services/*`**: 6 independent Go microservices:
   - `account` (8082): Google OAuth authentication, user profiles & statistics.
-  - `study-session` (8083): Rooms & capacity limits (gRPC/HTTP).
-  - `study-timer` (8084): Work/break interval execution, reward triggering (gRPC/HTTP).
+  - `study-session` (8083): Rooms & capacity limits (gRPC/HTTP). Publishes session events to RabbitMQ.
+  - `study-timer` (50051 gRPC, 8084 HTTP): Work/break interval execution, reward triggering, RabbitMQ event consumer.
   - `reward` (8085): Fish drops & rarity progression.
   - `leaderboard` (8086): Read-optimized rankings cached in Redis.
   - `admin` (8087): Moderation & live room inspection.
+- **`pkg/*`**: Shared Go packages:
+  - `events`: Shared AMQP event contracts (`ParticipantLeft`, `SessionEnded`), topic exchange (`fisher.session`), and routing keys.
+- **`proto/*`**: Shared Protocol Buffer definitions & generated Go code:
+  - `proto/studysession/v1/session.proto`
+  - `proto/studytimer/v1/timer.proto`
 - **`packages/*`**: Shared libraries:
   - `shared-types`: Common TypeScript interfaces and models.
   - `ui`: Shared design system components.

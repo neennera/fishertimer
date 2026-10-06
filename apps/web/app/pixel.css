@@ -704,7 +704,7 @@
   .pixel-tank__water[data-live] .pixel-fish {
     top: 0;
   }
-  /* Phones: smaller fish, first 8 only (tankFish orders species first). */
+  /* Phones: smaller fish, first 8 only (tankFish's draw order). */
   @media (max-width: 767px) {
     .pixel-tank__water {
       --fish-size: 11;
@@ -722,6 +722,9 @@
      would be clipped away. */
   .pixel-fish-art {
     --fish-art: calc(var(--px) * var(--fish-size, 16));
+    /* One pixel of the 16x16 art: sizes the rarity sparkles and glare. */
+    --art-px: calc(var(--fish-art) / 16);
+    position: relative;
     display: block;
     flex: none;
     width: var(--fish-art);
@@ -739,9 +742,10 @@
     width: 100%;
     height: 100%;
   }
-  /* 16-unit grid; the poses differ only in the tail. */
+  /* 16-unit grid; the poses differ only in the tail. The epic glare takes
+     the resting shape. */
+  .pixel-fish-art--placeholder .pixel-fish-art__glare,
   .pixel-fish-art--placeholder .pixel-fish-art__body {
-    background: var(--fish-color);
     clip-path: polygon(
       0% 18.75%, 12.5% 18.75%, 12.5% 31.25%, 31.25% 31.25%, 31.25% 25%,
       43.75% 25%, 43.75% 18.75%, 75% 18.75%, 75% 25%, 87.5% 25%, 87.5% 31.25%,
@@ -750,6 +754,9 @@
       43.75% 75%, 31.25% 75%, 31.25% 68.75%, 12.5% 68.75%,
       12.5% 81.25%, 0% 81.25%, 0% 62.5%, 6.25% 62.5%, 6.25% 37.5%, 0% 37.5%
     );
+  }
+  .pixel-fish-art--placeholder .pixel-fish-art__body {
+    background: var(--fish-color);
   }
   .pixel-fish-art--placeholder .pixel-fish-art__body[data-frame="1"] {
     clip-path: polygon(
@@ -794,7 +801,197 @@
     background-position-x: calc(var(--fish-art) * -2);
   }
 
+
+  /* Fish food (useFishSwim's feed()): one art pixel, or two wide with
+     [data-big], sprinkled in at the surface. Behind the front layer and the
+     nearest fish. */
+  .pixel-tank-food {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9;
+    width: var(--px);
+    height: var(--px);
+    background: var(--color-amber);
+    pointer-events: none;
+    will-change: transform;
+  }
+  .pixel-tank-food[data-big] {
+    width: calc(var(--px) * 2);
+  }
+  .pixel-tank-food[data-food="1"] {
+    background: var(--color-gold);
+  }
+  .pixel-tank-food[data-food="2"] {
+    background: var(--color-rust);
+  }
+
+  /* --- Rarity ----------------------------------------------------------------
+     [data-rarity] sets the tier colour for the tile ribbon and legend dot. */
+  [data-rarity] {
+    --rarity: var(--color-stone-dk);
+    --rarity-ink: var(--color-ink);
+  }
+  [data-rarity="UNCOMMON"] {
+    --rarity: var(--color-sage);
+  }
+  [data-rarity="RARE"] {
+    --rarity: var(--color-lake);
+  }
+  [data-rarity="EPIC"] {
+    --rarity: var(--color-violet);
+    --rarity-ink: var(--color-white);
+  }
+  [data-rarity="LEGENDARY"] {
+    --rarity: var(--color-gold);
+  }
+
+  /* Epic: a glare sweeps across the fish every few seconds. */
+  .pixel-fish-art__glare {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-mask: var(--fish-mask, none) center / 100% 100% no-repeat;
+    mask: var(--fish-mask, none) center / 100% 100% no-repeat;
+  }
+  .pixel-fish-art--strip .pixel-fish-art__glare {
+    -webkit-mask-size: 300% 100%;
+    mask-size: 300% 100%;
+    -webkit-mask-position: 0 0;
+    mask-position: 0 0;
+  }
+  /* A wide and a thin band, hard-edged, stepping one art pixel at a time.
+     It starts and ends fully off the fish (the skew leans each end about 7
+     art pixels). */
+  .pixel-fish-art__glare::before {
+    content: "";
+    position: absolute;
+    inset: -50% 0;
+    width: calc(var(--art-px) * 6);
+    background: linear-gradient(
+      90deg,
+      var(--glare) 0 calc(var(--art-px) * 4),
+      transparent 0 calc(var(--art-px) * 5),
+      var(--glare) 0
+    );
+    --glare: color-mix(in srgb, var(--color-white) 70%, transparent);
+    transform: translateX(calc(var(--art-px) * -14)) skewX(-24deg);
+    animation: pixel-fish-glare 3.6s infinite;
+  }
+  @keyframes pixel-fish-glare {
+    0%,
+    70% {
+      transform: translateX(calc(var(--art-px) * -14)) skewX(-24deg);
+      animation-timing-function: steps(38, jump-none);
+    }
+    100% {
+      transform: translateX(calc(var(--art-px) * 24)) skewX(-24deg);
+    }
+  }
+
+  /* Legendary: three gold sparkles twinkle around the fish in turn. Each <i>
+     is one art pixel; the box-shadows are the arms of the plus. */
+  .pixel-fish-art__sparkles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .pixel-fish-art__sparkles i {
+    position: absolute;
+    width: var(--art-px);
+    height: var(--art-px);
+    background: var(--color-white);
+    opacity: 0;
+    animation: pixel-fish-sparkle 2.4s step-end infinite;
+  }
+  .pixel-fish-art__sparkles i:nth-child(1) {
+    top: var(--art-px);
+    left: calc(var(--art-px) * 2);
+  }
+  .pixel-fish-art__sparkles i:nth-child(2) {
+    top: calc(var(--art-px) * 3);
+    left: calc(var(--art-px) * 14);
+    animation-delay: 0.8s;
+  }
+  .pixel-fish-art__sparkles i:nth-child(3) {
+    top: calc(var(--art-px) * 14);
+    left: calc(var(--art-px) * 9);
+    animation-delay: 1.6s;
+  }
+  @keyframes pixel-fish-sparkle {
+    0% {
+      opacity: 1;
+      background: var(--color-gold);
+      box-shadow: none;
+    }
+    10%,
+    20% {
+      opacity: 1;
+      background: var(--color-white);
+      box-shadow:
+        var(--art-px) 0 0 var(--color-gold),
+        calc(var(--art-px) * -1) 0 0 var(--color-gold),
+        0 var(--art-px) 0 var(--color-gold),
+        0 calc(var(--art-px) * -1) 0 var(--color-gold);
+    }
+    30% {
+      opacity: 1;
+      background: var(--color-gold);
+      box-shadow: none;
+    }
+    40%,
+    100% {
+      opacity: 0;
+    }
+  }
+  /* Reduced motion: no glare, one still sparkle. */
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-fish-art__glare {
+      display: none;
+    }
+    .pixel-fish-art__sparkles i {
+      animation: none;
+    }
+    .pixel-fish-art__sparkles i:nth-child(1) {
+      opacity: 1;
+      box-shadow:
+        var(--art-px) 0 0 var(--color-gold),
+        calc(var(--art-px) * -1) 0 0 var(--color-gold),
+        0 var(--art-px) 0 var(--color-gold),
+        0 calc(var(--art-px) * -1) 0 var(--color-gold);
+    }
+  }
+
+  /* Sort keys on the left, the feed key on the right. */
+  .pixel-fish-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--px) * 3);
+  }
+  /* Feeding is all motion: nothing to show without it. */
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-fish-feed {
+      display: none;
+    }
+  }
+  .pixel-fish-sort {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--px) * 3);
+  }
+  .pixel-fish-sort__label {
+    font-size: 0.72rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-bark);
+  }
+
   .pixel-fish-card {
+    position: relative;
     display: flex;
     align-items: center;
     gap: calc(var(--px) * 4);
@@ -818,6 +1015,64 @@
     font-size: calc(var(--px) * 7);
     line-height: 1;
     color: var(--color-bark);
+  }
+  /* Corner ribbon, top right, in the tile's spare space; the tile's
+     clip-path trims the ends. Absolute, so the tile keeps its size.
+     --ribbon-at: where its centre line meets the top and right edges, so
+     the label sits centred in the visible part. Sized so LEGENDARY fits and
+     a 14-letter name ("Dungeness Crab") still clears it on one line in a
+     3-column tile. */
+  .pixel-fish-card__ribbon {
+    --ribbon-at: calc(var(--px) * 12);
+    --ribbon-w: calc(var(--px) * 4);
+    --ribbon-len: calc(var(--px) * 24);
+    position: absolute;
+    top: calc((var(--ribbon-at) - var(--ribbon-w)) / 2);
+    right: calc((var(--ribbon-at) - var(--ribbon-len)) / 2);
+    width: var(--ribbon-len);
+    height: var(--ribbon-w);
+    transform: rotate(45deg);
+    background: var(--rarity);
+    color: var(--rarity-ink);
+    font-family: var(--font-numeric);
+    font-size: calc(var(--px) * 3);
+    line-height: var(--ribbon-w);
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  /* Keeps a long name clear of the ribbon's inner edge. */
+  .pixel-fish-card__text {
+    padding-right: calc(var(--px) * 7);
+  }
+
+  .pixel-rarity-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: calc(var(--px) * 2) calc(var(--px) * 6);
+    font-size: 0.72rem;
+    color: var(--color-bark);
+  }
+  /* Label and points are different fonts: line them up on the baseline, at
+     line-height 1 so DotGothic16's tall line box doesn't push the label down. */
+  .pixel-rarity-legend li {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--px) * 2);
+    line-height: 1;
+  }
+  .pixel-rarity-legend__dot {
+    align-self: center;
+    width: calc(var(--px) * 3);
+    height: calc(var(--px) * 3);
+    background: var(--rarity);
+    clip-path: var(--pixclip);
+  }
+  .pixel-rarity-legend__points {
+    font-family: var(--font-numeric);
+    color: var(--color-ink);
   }
 
   /* --- Inline edit -----------------------------------------------------------

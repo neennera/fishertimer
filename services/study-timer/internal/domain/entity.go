@@ -33,6 +33,58 @@ const (
 	DefaultRestMinutes = 5
 )
 
+// SessionTimerStatus tracks whether a timer in a room is open or finalized.
+type SessionTimerStatus string
+
+const (
+	SessionTimerOpen      SessionTimerStatus = "OPEN"
+	SessionTimerFinalized SessionTimerStatus = "FINALIZED"
+)
+
+// CycleStatus tracks the lifecycle of an individual work or rest cycle.
+type CycleStatus string
+
+const (
+	CycleRunning   CycleStatus = "RUNNING"
+	CyclePaused    CycleStatus = "PAUSED"
+	CycleCompleted CycleStatus = "COMPLETED"
+	CycleSkipped   CycleStatus = "SKIPPED"
+	CycleDiscarded CycleStatus = "DISCARDED"
+)
+
+// RewardStatus tracks reward delivery state for completed work cycles.
+type RewardStatus string
+
+const (
+	RewardNone    RewardStatus = "NONE"
+	RewardPending RewardStatus = "PENDING"
+	RewardSent    RewardStatus = "SENT"
+)
+
+// SessionTimer represents a user's timer presence in a study room.
+type SessionTimer struct {
+	TimerID     string
+	SessionID   string
+	UserID      string
+	Status      SessionTimerStatus
+	OpenedAt    time.Time
+	FinalizedAt *time.Time
+}
+
+// Cycle represents an individual interval run within a SessionTimer.
+type Cycle struct {
+	CycleID        string
+	TimerID        string
+	Type           TimerPhase
+	Status         CycleStatus
+	DurationSec    int
+	StartedAt      time.Time
+	PausedAt       *time.Time
+	PausedTotalSec int
+	EndedAt        *time.Time
+	RewardStatus   RewardStatus
+}
+
 // TimerState is one participant's timer in one room (UC-05).
 //
 // Progress is derived from server-recorded timestamps rather than from client

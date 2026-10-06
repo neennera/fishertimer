@@ -35,6 +35,42 @@ func (r *fakeRepository) GetHistory(ctx context.Context, userID string) (*domain
 	return &domain.TimerHistory{UserID: userID}, nil
 }
 
+func (r *fakeRepository) GetRoomTimers(ctx context.Context, sessionID string) ([]*domain.TimerState, error) {
+	var res []*domain.TimerState
+	for _, t := range r.timers {
+		if t.SessionID == sessionID {
+			tCopy := t
+			res = append(res, &tCopy)
+		}
+	}
+	return res, nil
+}
+
+func (r *fakeRepository) FinalizeParticipantTimer(ctx context.Context, sessionID, userID, eventID, eventType string) error {
+	k := sessionID + ":" + userID
+	if t, ok := r.timers[k]; ok {
+		t.Status = domain.StatusStopped
+		t.Phase = domain.PhaseWork
+		r.timers[k] = t
+	}
+	return nil
+}
+
+func (r *fakeRepository) FinalizeSessionTimers(ctx context.Context, sessionID, eventID, eventType string) error {
+	for k, t := range r.timers {
+		if t.SessionID == sessionID {
+			t.Status = domain.StatusStopped
+			t.Phase = domain.PhaseWork
+			r.timers[k] = t
+		}
+	}
+	return nil
+}
+
+func (r *fakeRepository) IsEventProcessed(ctx context.Context, eventID string) (bool, error) {
+	return false, nil
+}
+
 type fakeRewardClient struct {
 	awards int
 }
@@ -138,5 +174,72 @@ func TestCompleteCycle_AwardsOnlyForWork(t *testing.T) {
 	}
 	if reward.awards != 1 {
 		t.Fatalf("awards = %d, want 1", reward.awards)
+	}
+}
+
+func TestGetRoomTimers_ReturnsAllInSession(t *testing.T) {
+	svc, _, _ := newService()
+	ctx := context.Background()
+
+	if _, err := svc.StartTimer(ctx, "room-1", "user-1"); err != nil {
+		t.Fatalf("start user-1: %v", err)
+	}
+	if _, err := svc.StartTimer(ctx, "room-1", "user-2"); err != nil {
+		t.Fatalf("start user-2: %v", err)
+	}
+
+	timers, err := svc.GetRoomTimers(ctx, "room-1")
+	if err != nil {
+		t.Fatalf("GetRoomTimers: %v", err)
+	}
+	if len(timers) != 2 {
+		t.Fatalf("got %d timers, want 2", len(timers))
+	}
+}
+
+func TestFinalizeParticipantTimer(t *testing.T) {
+	svc, _, _ := newService()
+	ctx := context.Background()
+
+	if _, err := svc.StartTimer(ctx, "room-1", "user-1"); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	if err := svc.FinalizeParticipantTimer(ctx, "room-1", "user-1", "evt-1", "LEFT"); err != nil {
+		t.Fatalf("FinalizeParticipantTimer: %v", err)
+	}
+
+	timer, err := svc.GetTimer(ctx, "room-1", "user-1")
+	if err != nil {
+		t.Fatalf("GetTimer: %v", err)
+	}
+	if timer.Status != domain.StatusStopped {
+		t.Fatalf("status = %s, want %s", timer.Status, domain.StatusStopped)
+	}
+}
+
+func TestFinalizeSessionTimers(t *testing.T) {
+	svc, _, _ := newService()
+	ctx := context.Background()
+
+	if _, err := svc.StartTimer(ctx, "room-1", "user-1"); err != nil {
+		t.Fatalf("start user-1: %v", err)
+	}
+	if _, err := svc.StartTimer(ctx, "room-1", "user-2"); err != nil {
+		t.Fatalf("start user-2: %v", err)
+	}
+
+	if err := svc.FinalizeSessionTimers(ctx, "room-1", "evt-2", "EMPTY"); err != nil {
+		t.Fatalf("FinalizeSessionTimers: %v", err)
+	}
+
+	for _, uid := range []string{"user-1", "user-2"} {
+		timer, err := svc.GetTimer(ctx, "room-1", uid)
+		if err != nil {
+			t.Fatalf("GetTimer: %v", err)
+		}
+		if timer.Status != domain.StatusStopped {
+			t.Fatalf("user %s status = %s, want %s", uid, timer.Status, domain.StatusStopped)
+		}
 	}
 }
