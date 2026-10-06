@@ -65,6 +65,9 @@ Tokens are in the `@theme` block of `tokens.css`. Each one works as
 | `--color-rust` | Errors, danger buttons |
 | `--color-rust-dk` | Danger button hover and depth |
 | `--color-rust-dp` | Danger button hover depth |
+| `--color-violet` | Epic rarity |
+| `--color-gold` | Legendary rarity, sparkles |
+| `--color-white` | Sparkle core, epic glare, label on violet |
 
 **Not used yet** — for background scenes, not for UI.
 
@@ -124,9 +127,14 @@ From `app/pixel.css`. Use these before writing new CSS.
 | `.pixel-sprite` | Pixel image. Sets `image-rendering: pixelated` |
 | `.pixel-tank` | Aquarium box: oak frame and `__water` (a size container, so contents can move in `cqw`; sets `--fish-size`, 16 art pixels, 11 on phones). `__layer` is one still background layer (`--layer-w` its native width, `--layer-offset` art pixels to shift it left); add `--front` to draw it over all but the nearest fish |
 | `.pixel-fish` | One fish in a tank. `components/account/useFishSwim.ts` moves, scales and fades it once the tank's `__water` has `data-live`, and turns and tilts `__turn`; until then, or under reduced motion, it rests at `--fish-rest-x` / `--fish-rest-y` (0–1 of the space it can swim in), facing right. On phones only the first 8 show |
+| `.pixel-tank-food` | A fish-food pellet, added by `useFishSwim`'s `feed()`: one art pixel (`[data-big]`: two wide) in amber, gold or rust (`[data-food]`). Sprinkled in at the surface, sinks, and is eaten or settles on the sand and fades |
 | `.pixel-tank-bubble` | A bubble in the tank (`components/account/useBubbles.ts`), `--big` (8x8) or `--small` (6x6) at `--px`: at 60% opacity: grows in, rises (`__rise`) with a sway (`__sway`), fades after 3s or at the surface (`__sprite`) |
 | `.pixel-fish-art` | A 16x16 fish picture. `--placeholder` draws a pixel fish shape in `--fish-color` with an ink outline; `--sprite` shows the 16x16 sprite, plus `--strip` for a 3-frame strip. `data-frame` on `__body` picks the tail pose (0 straight, 1 up, 2 down); without it, frame 0 |
-| `.pixel-fish-card` | Collection-list card (on `.pixel-tile`): the sprite, then `__text` with `__name` and `__count` |
+| `.pixel-fish-card` | Collection-list card (on `.pixel-tile`): the sprite, then `__text` with `__name` and `__count`, and `__ribbon`, the rarity label on a 45° band across the top-right corner (absolute, so the tile keeps its size; `__text` keeps clear of it) |
+| `[data-rarity]` | Sets `--rarity` (tier colour) and `--rarity-ink` (text on it) for `COMMON` to `LEGENDARY`. On `.pixel-fish-art`, `EPIC` adds `__glare` (a band sweeping across the fish, masked to the sprite) and `LEGENDARY` adds `__sparkles` (three gold pixel sparkles in turn). Under reduced motion: no glare, one still sparkle |
+| `.pixel-fish-sort` | Row of `.pixel-btn--sm` sort keys with a `__label`; the active one is solid, the rest `--ghost`, with `aria-pressed`. Changing the sort slides each tile from its old place to its new one (`components/account/useTileShuffle.ts`, tiles marked `data-tile`); not under reduced motion |
+| `.pixel-fish-controls` | The row under the tank: `.pixel-fish-sort` on the left, `.pixel-fish-feed` (a Feed key that calls `feed()`) on the right. The Feed key is hidden under reduced motion, where fish don't swim |
+| `.pixel-rarity-legend` | Wrapping row of rarities, each a `[data-rarity]` item with a `__dot` and `__points` |
 | `.pixel-name-row` | Fixed-height row for text that can be edited in place, so switching to the input never moves anything. `__text` truncates the shown text |
 | `.pixel-inline-field` | Wrapper for an inline input: draws a 1-art-pixel underline that steps in on open, turns `--color-lake-dp` on focus, and `--color-rust` with `--invalid` |
 | `.pixel-inline-input` | Borderless, transparent input sized to its content (8ch–31ch). Give it the same type classes as the text it replaces |
