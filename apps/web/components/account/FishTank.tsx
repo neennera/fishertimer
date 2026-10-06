@@ -7,6 +7,7 @@ import type { RewardRarity, RewardSummaryItem } from "../../lib/profile-types";
 import { FISHTANK_LAYERS } from "../../lib/scenes/fishtank";
 import { BUBBLE_IN_S, BUBBLE_POP_S, useBubbles } from "./useBubbles";
 import { useFishSwim, type SwimStart } from "./useFishSwim";
+import { useTileShuffle } from "./useTileShuffle";
 
 export interface FishTankProps {
   /** Only FISH items go in the tank. */
@@ -195,6 +196,8 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
   const swimmers = useMemo(() => tankFish(species, seed), [species, seed]);
   const [sort, setSort] = useState<SortKey>("recent");
   const tiles = useMemo(() => sortSpecies(species, sort), [species, sort]);
+  const tilesRef = useRef<HTMLUListElement>(null);
+  const shuffleTiles = useTileShuffle(tilesRef, sort);
   const starts = useMemo(() => swimmers.map((_, index) => restSpot(index)), [swimmers]);
   const waterRef = useRef<HTMLDivElement>(null);
   useFishSwim(waterRef, starts);
@@ -281,15 +284,20 @@ export function FishTank({ items, emptyMessage }: FishTankProps) {
                 type="button"
                 className={cx("pixel-btn pixel-btn--sm", sort !== key && "pixel-btn--ghost")}
                 aria-pressed={sort === key}
-                onClick={() => setSort(key)}
+                onClick={() => {
+                  if (key !== sort) {
+                    shuffleTiles();
+                    setSort(key);
+                  }
+                }}
               >
                 {label}
               </button>
             ))}
           </div>
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <ul ref={tilesRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             {tiles.map(({ key, name, count, rarity, sprite }) => (
-              <li key={key} className="pixel-tile pixel-fish-card" data-rarity={rarity}>
+              <li key={key} className="pixel-tile pixel-fish-card" data-rarity={rarity} data-tile={key}>
                 <FishArt sprite={sprite} rarity={rarity} still />
                 <span className="pixel-fish-card__text">
                   <span className="pixel-fish-card__name">{name}</span>
