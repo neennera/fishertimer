@@ -33,6 +33,8 @@ export const MOCK_REWARDS: Record<string, RewardsSummary> = {
     item('Goldfish', 5, '/sprites/fish/Goldfish.png'),
     item('Pufferfish', 2, '/sprites/fish/Pufferfish.png', 'FISH', 'RARE', 50),
     item('Angelfish', 1, '/sprites/fish/Angelfish.png', 'FISH', 'UNCOMMON', 25),
+    item('Koi', 2, '/sprites/fish/Koi.png', 'FISH', 'EPIC', 100),
+    item('Globefish', 1, '/sprites/fish/Globefish.png', 'FISH', 'LEGENDARY', 250),
     // Unknown sprite: placeholder.
     item('Golden Betta', 1, 'https://assets.example/fish/golden-betta.png', 'FISH', 'LEGENDARY', 250),
     // Not fish: in rewards earned, not in the tank.
@@ -44,6 +46,9 @@ export const MOCK_REWARDS: Record<string, RewardsSummary> = {
     item('Pufferfish', 4, '/sprites/fish/Pufferfish.png', 'FISH', 'RARE', 50),
     item('Blue Tang', 2, '/sprites/fish/Surgeonfish.png', 'FISH', 'UNCOMMON', 25),
     item('Bass', 1, '/sprites/fish/Bass.png'),
+    // Long names: must stay clear of the rarity ribbon.
+    item('Rainbow Trout', 2, '/sprites/fish/Rainbow Trout.png', 'FISH', 'RARE', 50),
+    item('Dungeness Crab', 1, '/sprites/fish/Crab - Dungeness.png', 'FISH', 'EPIC', 100),
   ]),
   [MOCK_USER_IDS.tan]: summary([
     item('Goldfish', 2, '/sprites/fish/Goldfish.png'),
