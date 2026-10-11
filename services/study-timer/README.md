@@ -15,7 +15,7 @@ Timers live in PostgreSQL `timer_db` (`timers`, `cycles`, `timer_settings`, `pro
 - **Opened** by Study Session's `session.participant.joined` event (RabbitMQ). A Start that beats the event opens it too.
 - **Run** by the user over gRPC (through the API Gateway): pick a length (`MIN_WORK_MINUTES`..`MAX_WORK_MINUTES`, E-1), start, pause / resume, reset, stop. One active cycle at a time (unique index, E-4).
 - **Completed by the server.** A background sweeper (every `TIMER_SWEEP_INTERVAL_SECONDS`) completes cycles whose time is up even when no client is watching, discards cycles paused longer than `MAX_PAUSE_MINUTES` (E-3) and retries undelivered rewards. Reads settle the same rules immediately.
-- **Rewarded once.** A completed work cycle is `reward_status = PENDING`; Timer asks Study Session for the participant count (`GetParticipants`) and calls Reward `POST /api/v1/reward/award` with `user_id, session_id, cycle_id, work_duration, participant_count`. Success marks it `SENT`; failure keeps it `PENDING` for the sweeper (E-7). Reward deduplicates by `cycle_id`.
+- **Rewarded once.** A completed work cycle is `reward_status = PENDING`; Timer asks Study Session for the participant count and the user's display name (`GetParticipants`) and calls Reward `POST /api/v1/reward/award` with `user_id, session_id, cycle_id, work_duration, participant_count, display_name` (the name is what Leaderboard shows). Success marks it `SENT`; failure keeps it `PENDING` for the sweeper (E-7). Reward deduplicates by `cycle_id`.
 - **Finalized** by `session.participant.left` / `session.ended`: a cycle whose time had already run out is completed (so its reward is kept), anything still running is discarded, and the timer refuses further actions (E-2). Rejoining reopens it with fresh per-stay counters.
 
 ## Ports
@@ -55,7 +55,7 @@ grpcurl -plaintext -d '{"session_id":"00000000-0000-0000-0000-000000000001","use
 | `TIMER_DATABASE_URL` | `postgres://...@localhost:5434/timer_db` | timer_db |
 | `RABBITMQ_URL` | `amqp://admin:adminpassword@localhost:5672/` | broker (consumer reconnects with backoff) |
 | `REWARD_SERVICE_URL` | `http://localhost:8085` | AwardReward |
-| `SESSION_GRPC_TARGET` | `localhost:50052` | participant count for rewards |
+| `SESSION_GRPC_TARGET` | `localhost:50052` | participant count and display name for rewards |
 | `MIN_WORK_MINUTES` / `MAX_WORK_MINUTES` | `1` / `120` | allowed focus lengths |
 | `MIN_REST_MINUTES` / `MAX_REST_MINUTES` | `1` / `60` | allowed break lengths |
 | `MAX_PAUSE_MINUTES` | `15` | longer pauses discard the cycle |

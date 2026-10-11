@@ -31,7 +31,7 @@ study-timer/
 │       │   └── consumer.go        # joined / left / ended, manual ack, reconnect with backoff
 │       ├── client/
 │       │   ├── reward_client.go   # Reward AwardReward (HTTP)
-│       │   └── session_client.go  # Study Session GetParticipants (gRPC)
+│       │   └── session_client.go  # Study Session GetParticipants: count + display name (gRPC)
 │       └── repository/
 │           ├── postgres_repo.go   # timers, cycles, timer_settings, processed_events
 │           └── memory_repo.go     # Same rules in memory (tests)

@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Kept full production implementation of `/account` from `main` using `ProfileShell`, `ProfileSections`, and live session management.
 
 ### Fixed
+- **[study-timer]**: Stopping, skipping or discarding a cycle that was paused recorded it as ended when the pause began, so Study Session counted the idle time from the pause and removed the user right after a stop (UC-05 E-8 starts the idle clock at the stop or discard). Cycles now end at the moment they are stopped, skipped or discarded.
+- **[study-timer]**: AwardReward now sends `display_name` (read from Study Session `GetParticipants`), so rewards from real study rooms show the user's name on the Leaderboard instead of a blank one.
 - **[web]**: The room page no longer reads "You and -1 other" after the last participant leaves; it says the room has closed.
 - **[study-timer]**: Two participants in one room shared one `timer_sessions` row (it was keyed by the room id), so the second to press Start overwrote the first one's timer and completed cycles were counted per room. Rows are now keyed by `(study_session_id, user_id)` (`004_timer_sessions_per_participant.sql`); needs `pnpm db:reset` on existing local databases.
 - **[proto]**: `GetRoomTimersRequest` / `GetRoomTimersResponse` in `timer.pb.go` were hand-written without protobuf reflection, so every real `GetRoomTimers` call panicked in the client. Regenerated with protoc. `scripts/gen-proto.mjs` now passes forward-slash paths so it works on Windows.
