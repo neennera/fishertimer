@@ -216,15 +216,15 @@ func (c *Cycle) Complete(now time.Time) error {
 }
 
 // End closes an active cycle as discarded (stopped, abandoned, paused too
-// long) or skipped (a rest period). Neither earns a reward.
+// long) or skipped (a rest period). Neither earns a reward. It ends now, even
+// if it was paused: Study Session starts the idle clock from this moment
+// (UC-05 E-8), so a cycle stopped after a long pause must not count as idle
+// since the pause began.
 func (c *Cycle) End(status CycleStatus, now time.Time) error {
 	if !c.Active() {
 		return ErrInvalidState
 	}
 	at := now
-	if c.Status == CyclePaused && c.PausedAt != nil {
-		at = *c.PausedAt
-	}
 	c.Status, c.EndedAt, c.PausedAt = status, &at, nil
 	return nil
 }
