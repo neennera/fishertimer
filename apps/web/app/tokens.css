@@ -35,6 +35,9 @@
   --color-rust: #b4472f; /* errors, ban badge, danger button */
   --color-rust-dk: #8e3523; /* danger button hover and thickness */
   --color-rust-dp: #6a2719; /* danger button hover thickness */
+  --color-violet: #8a5fb0; /* epic rarity */
+  --color-gold: #e8b53a; /* legendary rarity, sparkles */
+  --color-white: #ffffff; /* sparkle core, epic glare and ribbon label */
   --color-sky-fill: #9fc9f1; /* sampled from Sky_sky.png's last opaque pixel
     before it fades to transparent — extends the gradient where the art's own
     alpha runs out. Not --color-sky above: that's the warm dusk tone used

@@ -7,6 +7,9 @@ import { cx } from "../lib/cx";
 import { initials as initialsOf } from "../lib/initials";
 import { PixelButton } from "./ui/PixelButton";
 
+// Fish shown beside the wordmark (apps/web/public/sprites/fish).
+const BRAND_FISH = ["/sprites/fish/Goldfish.png", "/sprites/fish/Clownfish.png", "/sprites/fish/Koi.png"];
+
 export interface HeaderProps {
   /** Omitted while signed out. The bar keeps the same height either way. */
   user?: { displayName: string; avatarUrl?: string } | null;
@@ -45,14 +48,47 @@ export function Header({
   return (
     <header className={cx("pixel-header", className)}>
       <Link href="/" className="pixel-header__brand">
-        <span aria-hidden="true" className="pixel-header__logo" />
+        <span aria-hidden="true" className="flex items-center -space-x-1">
+          {BRAND_FISH.map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={src}
+              src={src}
+              alt=""
+              width={28}
+              height={28}
+              className="pixel-sprite"
+              style={{
+                imageRendering: "pixelated",
+                width: 28,
+                height: 28,
+                transform: i % 2 ? "scaleX(-1)" : undefined,
+              }}
+            />
+          ))}
+        </span>
         <span className="pixel-header__title">Fisher Timer</span>
       </Link>
+
+      <nav
+        aria-label="Developer pages"
+        className="ml-auto flex items-center gap-3 font-label"
+        style={{ fontSize: "calc(var(--px) * 3.6)" }}
+      >
+        <Link href="/admin" className="opacity-75 hover:opacity-100 underline-offset-4 hover:underline">
+          admin page
+        </Link>
+        <Link href="/dev" className="opacity-75 hover:opacity-100 underline-offset-4 hover:underline">
+          dev page
+        </Link>
+      </nav>
+
 
       {user && initials && (
         <Link
           href="/account"
           className="pixel-btn pixel-btn--ghost pixel-btn--icon pixel-header__avatar"
+          style={{ marginLeft: 0 }}
           title={`${user.displayName} — your account`}
           aria-label="Your account"
         >

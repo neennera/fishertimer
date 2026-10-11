@@ -195,3 +195,29 @@ func TestViewLeaderboard_EmptyState(t *testing.T) {
 		t.Errorf("expected 0 rankings for empty week, got %d", len(result.Rankings))
 	}
 }
+
+func TestViewLeaderboard_RanksByTierScore(t *testing.T) {
+	now := time.Now().UTC()
+	rc := &mockRewardClient{lastUpdate: now, rewards: []domain.FishReward{
+		// many commons: 5 x 10 = 50
+		{UserID: "many", AwardedAt: now.Add(-5 * time.Hour), Rarity: "COMMON", ScoreValue: 10},
+		{UserID: "many", AwardedAt: now.Add(-4 * time.Hour), Rarity: "COMMON", ScoreValue: 10},
+		{UserID: "many", AwardedAt: now.Add(-3 * time.Hour), Rarity: "COMMON", ScoreValue: 10},
+		{UserID: "many", AwardedAt: now.Add(-2 * time.Hour), Rarity: "COMMON", ScoreValue: 10},
+		{UserID: "many", AwardedAt: now.Add(-1 * time.Hour), Rarity: "COMMON", ScoreValue: 10},
+		// one legendary: 250
+		{UserID: "lucky", AwardedAt: now.Add(-1 * time.Hour), Rarity: "LEGENDARY", ScoreValue: 250},
+	}}
+	svc := usecase.New(newMockRepo(), rc)
+
+	result, err := svc.ViewLeaderboard(context.Background(), "all-time")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Rankings[0].UserID != "lucky" || result.Rankings[0].Score != 250 {
+		t.Errorf("expected lucky first with score 250, got %+v", result.Rankings[0])
+	}
+	if result.Rankings[1].Score != 50 {
+		t.Errorf("expected many score 50, got %d", result.Rankings[1].Score)
+	}
+}

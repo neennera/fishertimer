@@ -9,8 +9,11 @@ export type LeaderboardPeriod = 'weekly' | 'monthly' | 'all-time';
 export interface RankEntry {
   user_id: string;
   display_name: string;
+  avatar_url?: string;
   rank: number;
   reward_count: number;
+  /** Sum of the per-tier score of every catch in the period. */
+  score: number;
   period: LeaderboardPeriod;
 }
 

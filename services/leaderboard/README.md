@@ -46,6 +46,12 @@ Cache   Filter by period window (Rolling 7 days / Rolling 30 days / All-Time)
 
 ---
 
+## Ranking
+
+Users are ranked by total fish score in the period: the sum of each catch's `score_value` (set by rarity tier in the Reward service: 10 / 25 / 50 / 100 / 250). Ties go to the user whose earliest catch in the period is older, then by user id. Each `RankEntry` carries `score` and `reward_count`.
+
+---
+
 ## Configuration & Environment Variables
 
 | Variable | Description | Default |

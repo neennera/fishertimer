@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 
 // Units are art pixels (var(--px)), unrounded: tank fish are the documented
 // exception to the whole-pixel sprite rule.
@@ -47,6 +47,32 @@ const TAIL_FRAMES = [0, 1, 0, 2];
 // So a tab coming back doesn't teleport the fish.
 const MAX_DT = 0.1;
 
+// Feeding: a pinch of food sprinkled over one random spot at the surface.
+const FOOD_PELLETS: [number, number] = [10, 16];
+const FOOD_SPREAD = 12; // ± art px around the spot
+const FOOD_DROP_S = 0.9; // the pinch lands over this long
+const FOOD_ENTRY_SPEED = 22; // art px per second as it hits the water
+const FOOD_SINK: [number, number] = [2.5, 4.5]; // then slows to this
+const FOOD_DRAG = 2.5;
+const FOOD_SWAY = 1.2;
+const FOOD_LINGER_S = 5; // on the sand, then it fades
+const FOOD_FADE_S = 0.6;
+const MAX_FOOD = 40;
+const FOOD_COLORS = 3; // .pixel-tank-food[data-food]
+// Some of the fish come to eat, a moment apart, then go back to roaming.
+const HUNGRY_SHARE = 0.6;
+const HUNGRY_DELAY_S: [number, number] = [0.2, 1.4];
+const APPETITE: [number, number] = [2, 5];
+const FEED_SPEED = 1.9; // x cruise
+// Mouth: this far (x fish size) in front of the centre.
+const MOUTH = 0.4;
+const BITE_RANGE = 2.5;
+// Food this far (x fish size) behind the mouth makes the fish turn round;
+// closer, it keeps its side, so a fish right under a pellet doesn't flip.
+const TURN_FOR_FOOD = 0.3;
+// A fish that hasn't eaten for this long gives up and goes back to roaming.
+const CHASE_GIVE_UP_S = 4;
+
 /** Rest position (and home), 0–1 of the space the fish can swim in. */
 export interface SwimStart {
   restX: number;
@@ -76,6 +102,25 @@ interface Swimmer {
   tilt: number;
   tailPhase: number;
   bobPhase: number;
+  /** Pellets it still wants; 0 = not feeding. */
+  hunger: number;
+  /** Seconds before it notices the food. */
+  hungryIn: number;
+  /** Seconds since its last bite while feeding. */
+  chaseTime: number;
+}
+
+interface Pellet {
+  el: HTMLElement;
+  x: number;
+  y: number;
+  vy: number;
+  sink: number;
+  swayPhase: number;
+  /** Seconds until it is sprinkled in. */
+  delay: number;
+  /** Seconds left on the sand; unset while sinking. */
+  life?: number;
 }
 
 function between(min: number, max: number) {
@@ -94,23 +139,33 @@ function approach(value: number, target: number, rate: number, dt: number) {
  * Animates the `[data-fish]` elements in the tank. Writes styles directly, so
  * React doesn't re-render per frame. Off under prefers-reduced-motion (fish
  * stay at rest) and paused while the tank is off-screen.
+ *
+ * Returns `feed()`: sprinkles food in at the surface and sends some of the
+ * fish after it. Does nothing while the fish aren't swimming.
  */
-export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: SwimStart[]) {
+export function useFishSwim(
+  waterRef: RefObject<HTMLElement | null>,
+  starts: SwimStart[],
+) {
   const startsKey = JSON.stringify(starts);
+  const feedRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const water = waterRef.current;
     if (!water) {
       return;
     }
-    const fishEls = Array.from(water.querySelectorAll<HTMLElement>("[data-fish]"));
+    const fishEls = Array.from(
+      water.querySelectorAll<HTMLElement>("[data-fish]"),
+    );
     const parts = fishEls.map((el) => ({
       turn: el.querySelector<HTMLElement>(".pixel-fish__turn"),
       frame: el.querySelector<HTMLElement>("[data-frame]"),
     }));
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    const artPx = parseFloat(getComputedStyle(water).getPropertyValue("--px")) || 1;
+    const artPx =
+      parseFloat(getComputedStyle(water).getPropertyValue("--px")) || 1;
     let width = 0;
     let height = 0;
     let fishSize = DEFAULT_FISH_SIZE;
@@ -120,7 +175,8 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
       width = water!.clientWidth / artPx;
       height = water!.clientHeight / artPx;
       fishSize =
-        parseFloat(getComputedStyle(water!).getPropertyValue("--fish-size")) || DEFAULT_FISH_SIZE;
+        parseFloat(getComputedStyle(water!).getPropertyValue("--fish-size")) ||
+        DEFAULT_FISH_SIZE;
       swimmers.forEach((fish, i) => {
         fish.shown = getComputedStyle(fishEls[i]!).display !== "none";
       });
@@ -132,10 +188,17 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
 
     function candidateGoal(fish: Swimmer): [number, number] {
       const roam = Math.random() < ROAM_CHANCE;
-      const fx = roam ? Math.random() : fish.homeX + between(-HOME_RANGE, HOME_RANGE);
-      const fy = roam ? Math.random() : fish.homeY + between(-HOME_RANGE, HOME_RANGE);
+      const fx = roam
+        ? Math.random()
+        : fish.homeX + between(-HOME_RANGE, HOME_RANGE);
+      const fy = roam
+        ? Math.random()
+        : fish.homeY + between(-HOME_RANGE, HOME_RANGE);
       const clamp = (v: number) => Math.min(1, Math.max(0, v));
-      return [EDGE + clamp(fx) * (maxX() - EDGE), EDGE + clamp(fy) * (maxY() - EDGE)];
+      return [
+        EDGE + clamp(fx) * (maxX() - EDGE),
+        EDGE + clamp(fy) * (maxY() - EDGE),
+      ];
     }
 
     function pickGoal(fish: Swimmer) {
@@ -188,6 +251,9 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
         tilt: 0,
         tailPhase: Math.random() * TAIL_FRAMES.length,
         bobPhase: Math.random() * Math.PI * 2,
+        hunger: 0,
+        hungryIn: 0,
+        chaseTime: 0,
       };
       fish.goalX = fish.x;
       fish.goalY = fish.y;
@@ -196,8 +262,181 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
     measure();
     swimmers.forEach(pickGoal);
 
+    const pellets: Pellet[] = [];
+    // Pellets sink onto the sand; fish can only reach those above it.
+    const sandY = () => height * (1 - FLOOR_FRACTION) + 2;
+    const reachY = () => maxY() + fishSize / 2 + BITE_RANGE;
+
+    function removePellet(pellet: Pellet) {
+      pellet.el.remove();
+      pellets.splice(pellets.indexOf(pellet), 1);
+    }
+
+    function mouthOf(fish: Swimmer): [number, number] {
+      const scale = mix(DEPTH_SCALE, fish.z);
+      return [
+        fish.x + fishSize / 2 + fish.facing * fishSize * MOUTH * scale,
+        fish.y + fishSize / 2,
+      ];
+    }
+
+    function nearestFood(fish: Swimmer) {
+      const [mx, my] = mouthOf(fish);
+      let best: Pellet | null = null;
+      let bestDistance = Infinity;
+      for (const pellet of pellets) {
+        if (
+          pellet.delay > 0 ||
+          pellet.life !== undefined ||
+          pellet.y > reachY()
+        ) {
+          continue;
+        }
+        const d = Math.hypot(pellet.x - mx, pellet.y - my);
+        if (d < bestDistance) {
+          bestDistance = d;
+          best = pellet;
+        }
+      }
+      return best;
+    }
+
+    function feed() {
+      if (!rafId) {
+        return;
+      }
+      const count = Math.min(
+        MAX_FOOD - pellets.length,
+        Math.round(between(...FOOD_PELLETS)),
+      );
+      const minX = EDGE + fishSize * 0.2;
+      const maxFoodX = Math.max(minX, width - EDGE - fishSize * 0.2);
+      const spot = between(minX + FOOD_SPREAD, maxFoodX - FOOD_SPREAD);
+      for (let n = 0; n < count; n++) {
+        const el = document.createElement("span");
+        el.className = "pixel-tank-food";
+        el.dataset.food = String(Math.floor(Math.random() * FOOD_COLORS));
+        if (Math.random() < 0.3) {
+          el.dataset.big = "";
+        }
+        el.hidden = true;
+        water!.append(el);
+        // Two randoms: most of the pinch lands near the spot.
+        const spread = (Math.random() + Math.random() - 1) * FOOD_SPREAD;
+        pellets.push({
+          el,
+          x: Math.min(maxFoodX, Math.max(minX, spot + spread)),
+          y: 0,
+          vy: FOOD_ENTRY_SPEED * between(0.7, 1),
+          sink: between(...FOOD_SINK),
+          swayPhase: Math.random() * Math.PI * 2,
+          delay: between(0, FOOD_DROP_S),
+        });
+      }
+      if (count === 0) {
+        return;
+      }
+      const shown = swimmers.filter((fish) => fish.shown);
+      const eaters = Math.max(1, Math.round(shown.length * HUNGRY_SHARE));
+      shown
+        .map((fish) => ({ fish, order: Math.random() }))
+        .sort((a, b) => a.order - b.order)
+        .slice(0, eaters)
+        .forEach(({ fish }) => {
+          if (fish.hunger === 0) {
+            fish.hungryIn = between(...HUNGRY_DELAY_S);
+          }
+          fish.hunger += Math.round(between(...APPETITE));
+          fish.chaseTime = 0;
+        });
+    }
+
+    function stepFood(dt: number) {
+      for (const pellet of [...pellets]) {
+        if (pellet.delay > 0) {
+          pellet.delay -= dt;
+          pellet.el.hidden = pellet.delay > 0;
+          continue;
+        }
+        if (pellet.life === undefined) {
+          pellet.vy = approach(pellet.vy, pellet.sink, FOOD_DRAG, dt);
+          pellet.y += pellet.vy * dt;
+          pellet.swayPhase += dt * 2.2;
+          pellet.x += Math.sin(pellet.swayPhase) * FOOD_SWAY * dt;
+          if (pellet.y >= sandY()) {
+            pellet.y = sandY();
+            pellet.life = FOOD_LINGER_S;
+          }
+        } else {
+          pellet.life -= dt;
+          if (pellet.life <= 0) {
+            removePellet(pellet);
+          }
+        }
+      }
+    }
+
+    // Steers a hungry fish mouth-first at the nearest pellet and eats it.
+    // Returns false once it is full or the food is gone.
+    function chaseFood(fish: Swimmer, dt: number) {
+      if (fish.hunger === 0) {
+        return false;
+      }
+      if (fish.hungryIn > 0) {
+        fish.hungryIn -= dt;
+        return false;
+      }
+      const food = nearestFood(fish);
+      fish.chaseTime += dt;
+      if (!food || fish.chaseTime > CHASE_GIVE_UP_S) {
+        fish.hunger = 0;
+        pickGoal(fish);
+        return false;
+      }
+      const scale = mix(DEPTH_SCALE, fish.z);
+      const centreX = fish.x + fishSize / 2;
+      const centreY = fish.y + fishSize / 2;
+      const [mx, my] = mouthOf(fish);
+      // A bite: the pellet reaches the mouth, or anywhere on the head.
+      const ahead = (food.x - centreX) * fish.facing;
+      const onHead =
+        ahead >= 0 && Math.hypot(food.x - centreX, food.y - centreY) < fishSize * MOUTH * scale;
+      if (onHead || Math.hypot(food.x - mx, food.y - my) < BITE_RANGE) {
+        removePellet(food);
+        fish.hunger -= 1;
+        fish.chaseTime = 0;
+        if (fish.hunger === 0) {
+          pickGoal(fish);
+          return false;
+        }
+        return true;
+      }
+      const side = ahead > -fishSize * TURN_FOR_FOOD ? fish.facing : -fish.facing;
+      fish.goalX = food.x - side * fishSize * MOUTH * scale - fishSize / 2;
+      fish.goalY = food.y - fishSize / 2;
+      fish.goalZ = 1;
+      fish.goalTimer = 1;
+      fish.mode = "cruise";
+      fish.modeTimer = 0;
+      const toX = fish.goalX - fish.x;
+      const toY = fish.goalY - fish.y;
+      const distance = Math.hypot(toX, toY);
+      const speed = fish.cruise * FEED_SPEED;
+      const wantX = distance > 0 ? (toX / distance) * speed : 0;
+      const wantY = distance > 0 ? (toY / distance) * speed : 0;
+      fish.vx = approach(fish.vx, wantX, STEER * 3, dt);
+      fish.vy = approach(fish.vy, wantY, STEER * 3, dt);
+      const toZ = fish.goalZ - fish.z;
+      fish.z += Math.sign(toZ) * Math.min(Math.abs(toZ), DEPTH_RATE * 2 * dt);
+      return true;
+    }
+
     function step(dt: number) {
+      stepFood(dt);
       for (const fish of swimmers) {
+        if (fish.shown && chaseFood(fish, dt)) {
+          continue;
+        }
         fish.modeTimer -= dt;
         if (fish.mode !== "cruise" && fish.modeTimer <= 0) {
           fish.mode = "cruise";
@@ -221,7 +460,12 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
         }
 
         const speed =
-          fish.cruise * (fish.mode === "dart" ? DART_SPEED : fish.mode === "idle" ? IDLE_SPEED : 1);
+          fish.cruise *
+          (fish.mode === "dart"
+            ? DART_SPEED
+            : fish.mode === "idle"
+              ? IDLE_SPEED
+              : 1);
         const wantX = distance > 0 ? (toX / distance) * speed : 0;
         const wantY = distance > 0 ? (toY / distance) * speed * 0.7 : 0;
         const bend = STEER * (fish.mode === "dart" ? 3 : 1);
@@ -243,7 +487,8 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
           const dy = b.y - a.y;
           const d = Math.hypot(dx, dy);
           if (d > 0 && d < PERSONAL_SPACE) {
-            const push = ((PERSONAL_SPACE - d) / PERSONAL_SPACE) * SPACE_PUSH * dt;
+            const push =
+              ((PERSONAL_SPACE - d) / PERSONAL_SPACE) * SPACE_PUSH * dt;
             a.vx -= (dx / d) * push;
             a.vy -= (dy / d) * push;
             b.vx += (dx / d) * push;
@@ -254,8 +499,14 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
 
       for (const fish of swimmers) {
         const onScreen = mix(DEPTH_SPEED, fish.z);
-        fish.x = Math.min(maxX(), Math.max(EDGE, fish.x + fish.vx * onScreen * dt));
-        fish.y = Math.min(maxY(), Math.max(EDGE, fish.y + fish.vy * onScreen * dt));
+        fish.x = Math.min(
+          maxX(),
+          Math.max(EDGE, fish.x + fish.vx * onScreen * dt),
+        );
+        fish.y = Math.min(
+          maxY(),
+          Math.max(EDGE, fish.y + fish.vy * onScreen * dt),
+        );
 
         if (fish.vx > TURN_THRESHOLD) {
           fish.facing = 1;
@@ -264,7 +515,9 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
         }
         fish.turn = approach(fish.turn, fish.facing, TURN_RATE, dt);
 
-        const heading = (Math.atan2(fish.vy, Math.max(Math.abs(fish.vx), 0.5)) * 180) / Math.PI;
+        const heading =
+          (Math.atan2(fish.vy, Math.max(Math.abs(fish.vx), 0.5)) * 180) /
+          Math.PI;
         const wantTilt = Math.max(-MAX_TILT, Math.min(MAX_TILT, heading));
         fish.tilt = approach(fish.tilt, wantTilt, TILT_RATE, dt);
 
@@ -275,6 +528,15 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
     }
 
     function draw() {
+      for (const pellet of pellets) {
+        pellet.el.style.transform = `translate(calc(var(--px) * ${pellet.x.toFixed(2)}), calc(var(--px) * ${pellet.y.toFixed(2)}))`;
+        if (pellet.life !== undefined) {
+          pellet.el.style.opacity = Math.min(
+            1,
+            pellet.life / FOOD_FADE_S,
+          ).toFixed(3);
+        }
+      }
       swimmers.forEach((fish, i) => {
         const el = fishEls[i];
         const { turn, frame } = parts[i] ?? {};
@@ -305,6 +567,10 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
 
     function reset() {
       delete water!.dataset.live;
+      [...pellets].forEach(removePellet);
+      swimmers.forEach((fish) => {
+        fish.hunger = 0;
+      });
       fishEls.forEach((el, i) => {
         el.style.removeProperty("transform");
         el.style.removeProperty("opacity");
@@ -363,8 +629,10 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
     reducedMotion.addEventListener("change", onMotionChange);
 
     start();
+    feedRef.current = feed;
 
     return () => {
+      feedRef.current = () => {};
       stop();
       resize.disconnect();
       onScreen.disconnect();
@@ -372,4 +640,6 @@ export function useFishSwim(waterRef: RefObject<HTMLElement | null>, starts: Swi
       reset();
     };
   }, [waterRef, startsKey]);
+
+  return useCallback(() => feedRef.current(), []);
 }

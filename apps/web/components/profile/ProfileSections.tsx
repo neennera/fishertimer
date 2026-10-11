@@ -233,17 +233,29 @@ export function FishTankPanel({
   const items = rewards.status === "ok" ? rewards.data.items : [];
   return (
     <PixelPanel as="section" aria-labelledby="fish-tank" className="pixel-panel--tank">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id="fish-tank" className="font-display text-2xl leading-none">
+      {/* Larger title, centred on the two stat lines beside it. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <h2 id="fish-tank" className="font-display text-4xl leading-none">
           Fish Tank
         </h2>
-        <p className="text-sm text-bark">
+        <div className="flex flex-col gap-1 text-sm text-bark sm:items-end">
           {rewards.status === "ok" ? (
-            `${countFishCaught(items)} fish caught in total`
+            <>
+              <p>{countFishCaught(items)} fish caught in total</p>
+              {/* The API total: every reward type, same as the leaderboard. */}
+              <p>{formatCount(rewards.data.total_score)} total score</p>
+            </>
           ) : rewards.status === "loading" ? (
-            <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text w-32" />
+            <>
+              <p>
+                <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text w-32" />
+              </p>
+              <p>
+                <span aria-hidden="true" className="pixel-skeleton pixel-skeleton--text w-24" />
+              </p>
+            </>
           ) : null}
-        </p>
+        </div>
       </div>
       <div className="mt-6">
         <FishTank

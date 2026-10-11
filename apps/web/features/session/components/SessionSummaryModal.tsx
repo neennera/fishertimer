@@ -42,7 +42,7 @@ export function SessionSummaryModal({ summary, onDone }: SessionSummaryModalProp
           <ul className="pixel-haul mt-2">
             {summary.fish.map((fish) => (
               <li key={fish.name} className="pixel-tile pixel-fish-card">
-                <FishArt sprite={fishSprite(fish)} still />
+                <FishArt sprite={fishSprite(fish)} rarity={fish.rarity} still />
                 <span className="pixel-fish-card__text">
                   <span className="pixel-fish-card__name">{fish.name}</span>
                   <span className="pixel-fish-card__count">

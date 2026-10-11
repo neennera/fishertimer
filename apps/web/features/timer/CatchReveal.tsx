@@ -82,7 +82,7 @@ export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak
         <span className="pixel-catch-stage__bobber" />
         {best && (
           <span className="pixel-catch-stage__fish">
-            <FishArt sprite={fishSprite(best)} still />
+            <FishArt sprite={fishSprite(best)} rarity={best.rarity} still />
           </span>
         )}
         <span className="pixel-catch-stage__splash" />
