@@ -18,6 +18,15 @@ export interface PixelModalProps {
  */
 export function PixelModal({ open, onClose, title, children }: PixelModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Callers usually pass an inline arrow, so onClose changes on every parent
+  // render. Reading it through a ref keeps the effect below tied to `open`
+  // only; otherwise a re-render (e.g. a polling list behind the dialog)
+  // would re-focus the close button mid-typing, and the next space or Enter
+  // would close the dialog.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -28,13 +37,13 @@ export function PixelModal({ open, onClose, title, children }: PixelModalProps) 
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;

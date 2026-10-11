@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -25,7 +26,11 @@ func NewGRPC(uc usecase.Usecase) *GRPCHandler {
 }
 
 func (h *GRPCHandler) StartTimer(ctx context.Context, req *timerv1.StartTimerRequest) (*timerv1.TimerStateResponse, error) {
-	return toTimerResponse(h.uc.StartTimer(ctx, req.GetSessionId(), req.GetUserId()))
+	phase := domain.PhaseWork
+	if req.GetPhase() == timerv1.TimerPhase_TIMER_PHASE_REST {
+		phase = domain.PhaseRest
+	}
+	return toTimerResponse(h.uc.StartTimer(ctx, req.GetSessionId(), req.GetUserId(), phase, int(req.GetDurationMinutes())))
 }
 
 func (h *GRPCHandler) GetTimer(ctx context.Context, req *timerv1.GetTimerRequest) (*timerv1.TimerStateResponse, error) {
@@ -33,18 +38,13 @@ func (h *GRPCHandler) GetTimer(ctx context.Context, req *timerv1.GetTimerRequest
 }
 
 func (h *GRPCHandler) GetRoomTimers(ctx context.Context, req *timerv1.GetRoomTimersRequest) (*timerv1.GetRoomTimersResponse, error) {
-	timers, err := h.uc.GetRoomTimers(ctx, req.GetSessionId())
+	views, err := h.uc.GetRoomTimers(ctx, req.GetSessionId())
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	resp := &timerv1.GetRoomTimersResponse{
-		Timers: make([]*timerv1.TimerStateResponse, 0, len(timers)),
-	}
-	for _, t := range timers {
-		tr, err := toTimerResponse(t, nil)
-		if err == nil && tr != nil {
-			resp.Timers = append(resp.Timers, tr)
-		}
+	resp := &timerv1.GetRoomTimersResponse{Timers: make([]*timerv1.TimerStateResponse, 0, len(views))}
+	for i := range views {
+		resp.Timers = append(resp.Timers, ToProto(&views[i]))
 	}
 	return resp, nil
 }
@@ -87,6 +87,7 @@ func (h *GRPCHandler) TimerStatistics(ctx context.Context, req *timerv1.TimerSta
 		UserId:            stats.UserID,
 		TotalSessions:     int32(stats.SessionsJoined),
 		TotalFocusMinutes: int32(stats.TotalFocusMinutes),
+		CyclesCompleted:   int32(stats.CyclesCompleted),
 	}
 	if !stats.LastActive.IsZero() {
 		resp.LastActive = stats.LastActive.Format(time.RFC3339)
@@ -94,26 +95,46 @@ func (h *GRPCHandler) TimerStatistics(ctx context.Context, req *timerv1.TimerSta
 	return resp, nil
 }
 
-func toTimerResponse(t *domain.TimerState, err error) (*timerv1.TimerStateResponse, error) {
+func toTimerResponse(v *domain.View, err error) (*timerv1.TimerStateResponse, error) {
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	now := time.Now().UTC()
+	return ToProto(v), nil
+}
+
+// ToProto renders a timer view as the gRPC response.
+func ToProto(v *domain.View) *timerv1.TimerStateResponse {
 	resp := &timerv1.TimerStateResponse{
-		SessionId:        t.SessionID,
-		UserId:           t.UserID,
-		Status:           toProtoStatus(t.Status),
-		Phase:            toProtoPhase(t.Phase),
-		WorkMinutes:      int32(t.WorkMinutes),
-		RestMinutes:      int32(t.RestMinutes),
-		CurrentCycle:     int32(t.CurrentCycle),
-		DurationSeconds:  int32(t.Duration().Seconds()),
-		RemainingSeconds: int32(t.RemainingSeconds(now)),
+		SessionId:            v.SessionID,
+		UserId:               v.UserID,
+		Status:               toProtoStatus(v.Status),
+		Phase:                toProtoPhase(v.Phase),
+		WorkMinutes:          int32(v.Settings.WorkMinutes),
+		RestMinutes:          int32(v.Settings.RestMinutes),
+		CurrentCycle:         int32(v.CompletedWork),
+		DurationSeconds:      int32(v.DurationSeconds),
+		RemainingSeconds:     int32(v.RemainingSeconds),
+		State:                string(v.State),
+		CycleId:              v.CycleID,
+		PausedTotalSeconds:   int32(v.PausedTotalSeconds),
+		FocusSeconds:         int32(v.FocusSeconds),
+		LastCompletedCycleId: v.LastCompletedID,
+		MinWorkMinutes:       int32(v.Limits.MinWorkMinutes),
+		MaxWorkMinutes:       int32(v.Limits.MaxWorkMinutes),
+		MinRestMinutes:       int32(v.Limits.MinRestMinutes),
+		MaxRestMinutes:       int32(v.Limits.MaxRestMinutes),
+		MaxPauseMinutes:      int32(v.Limits.MaxPauseMinutes),
 	}
-	if !t.LastUpdated.IsZero() {
-		resp.LastUpdated = t.LastUpdated.Format(time.RFC3339)
+	if !v.LastUpdated.IsZero() {
+		resp.LastUpdated = v.LastUpdated.UTC().Format(time.RFC3339)
 	}
-	return resp, nil
+	if v.StartedAt != nil {
+		resp.StartedAt = v.StartedAt.UTC().Format(time.RFC3339)
+	}
+	if v.LastCompletedAt != nil {
+		resp.LastCompletedAt = v.LastCompletedAt.UTC().Format(time.RFC3339)
+	}
+	return resp
 }
 
 func toProtoStatus(s domain.TimerStatus) timerv1.TimerStatus {
@@ -145,11 +166,14 @@ func toStatus(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalid):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, domain.ErrInvalidState):
+	case errors.Is(err, domain.ErrInvalidState), errors.Is(err, domain.ErrNotFinished):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrTimerClosed):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, domain.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		log.Printf("study-timer: internal error: %v", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

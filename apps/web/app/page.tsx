@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SessionHeader } from "../components/SessionHeader";
 import { ParallaxScene } from "../components/ui/ParallaxScene";
-import { PixelButton } from "../components/ui/PixelButton";
 import { PixelPanel } from "../components/ui/PixelPanel";
 import { SIGNIN_SCENE_LAYERS } from "../lib/scenes/signin-scene";
 
@@ -16,7 +15,7 @@ const FEATURES = [
     emoji: "👥",
     title: "Study Sessions",
     description: "Join and create study rooms with peers",
-    href: null, // no page yet
+    href: "/rooms",
   },
   {
     emoji: "🐟",
@@ -89,9 +88,12 @@ export default function Home() {
             })}
           </div>
 
-          <div className="mt-6">
-            <Link href="/timer">
-              <PixelButton>Start Studying</PixelButton>
+          <div className="mt-6 flex flex-wrap items-center gap-4">
+            <Link href="/rooms" className="pixel-btn">
+              Start Studying
+            </Link>
+            <Link href="/settings" className="underline underline-offset-4">
+              ⚙️ Timer defaults
             </Link>
           </div>
         </PixelPanel>

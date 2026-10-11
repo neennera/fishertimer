@@ -7,8 +7,17 @@ option go_package = "github.com/neennera/fishertimer/proto/studytimer/v1;timerv1
 // StudyTimerService runs one independent timer per participant per room
 // (UC-05). Every RPC that changes the timer returns its full state, so the
 // caller never has to issue a follow-up GetTimer.
+//
+// Lifecycle of one timer (UC-05), see TimerStateResponse.state:
+//   READY -> WORK_RUNNING <-> WORK_PAUSED -> (complete) -> READY_FOR_REST
+//   READY_FOR_REST -> REST_RUNNING <-> REST_PAUSED -> (complete / skip) -> READY
+// Stop discards the active cycle (no reward) and returns to READY. A timer is
+// opened by Study Session's participant.joined event and FINALIZED by
+// participant.left / session.ended; a finalized timer refuses every action.
 service StudyTimerService {
-  // Starts a new work cycle, or restarts one from the top.
+  // Starts a work cycle (phase WORK, the default) or a rest period (phase
+  // REST, only after a completed work cycle). duration_minutes 0 uses the
+  // user's saved setting. A duplicate start while a cycle is active is ignored.
   rpc StartTimer(StartTimerRequest) returns (TimerStateResponse);
   // Reads the timer's current state and remaining time.
   rpc GetTimer(GetTimerRequest) returns (TimerStateResponse);
@@ -18,10 +27,14 @@ service StudyTimerService {
   rpc PauseTimer(PauseTimerRequest) returns (TimerStateResponse);
   // Continues a paused timer from where it was frozen.
   rpc ResumeTimer(ResumeTimerRequest) returns (TimerStateResponse);
+  // Discards the active cycle without a reward (UC-05 S-4).
   rpc StopTimer(StopTimerRequest) returns (TimerStateResponse);
-  // Discards the timer and returns it to its initial, stopped state.
+  // Restarts the active cycle from its full length.
   rpc ResetTimer(ResetTimerRequest) returns (TimerStateResponse);
+  // Completes the active cycle once its time is really up (server-checked,
+  // idempotent). The server also completes cycles on its own.
   rpc CompleteCycle(CompleteCycleRequest) returns (TimerStateResponse);
+  // Skips the rest period, running or not yet started.
   rpc SkipRest(SkipRestRequest) returns (TimerStateResponse);
   rpc UpdateTimerSetting(UpdateTimerSettingRequest) returns (TimerStateResponse);
   rpc TimerStatistics(TimerStatisticsRequest) returns (TimerStatisticsResponse);
@@ -43,6 +56,10 @@ enum TimerPhase {
 message StartTimerRequest {
   string session_id = 1;
   string user_id = 2;
+  // WORK when unspecified.
+  TimerPhase phase = 3;
+  // 0 = the user's saved default for this phase.
+  int32 duration_minutes = 4;
 }
 
 message GetTimerRequest {
@@ -106,6 +123,24 @@ message TimerStateResponse {
   // Time left in the current phase, computed by the server at response time.
   // Clients count down locally from this value and re-sync with GetTimer.
   int32 remaining_seconds = 10;
+  // READY | WORK_RUNNING | WORK_PAUSED | READY_FOR_REST | REST_RUNNING |
+  // REST_PAUSED | FINALIZED
+  string state = 11;
+  // The active cycle, when there is one.
+  string cycle_id = 12;
+  string started_at = 13;
+  int32 paused_total_seconds = 14;
+  // Focus time from work cycles completed during this stay in the room.
+  int32 focus_seconds = 15;
+  // The most recently completed work cycle (for the reward reveal).
+  string last_completed_cycle_id = 16;
+  string last_completed_at = 17;
+  // Allowed ranges (UC-05 E-1) and the pause limit (E-3), in minutes.
+  int32 min_work_minutes = 18;
+  int32 max_work_minutes = 19;
+  int32 min_rest_minutes = 20;
+  int32 max_rest_minutes = 21;
+  int32 max_pause_minutes = 22;
 }
 
 message TimerStatisticsResponse {
@@ -113,6 +148,7 @@ message TimerStatisticsResponse {
   int32 total_sessions = 2;
   int32 total_focus_minutes = 3;
   string last_active = 4;
+  int32 cycles_completed = 5;
 }
 
 message GetRoomTimersRequest {
