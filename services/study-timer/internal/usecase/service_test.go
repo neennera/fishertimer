@@ -35,11 +35,12 @@ func (f *fakeRewards) AwardReward(ctx context.Context, req domain.AwardRequest) 
 
 type fakeSessions struct {
 	count int
+	name  string
 	err   error
 }
 
-func (f *fakeSessions) ParticipantCount(ctx context.Context, sessionID string) (int, error) {
-	return f.count, f.err
+func (f *fakeSessions) Room(ctx context.Context, sessionID, userID string) (domain.RoomSnapshot, error) {
+	return domain.RoomSnapshot{ParticipantCount: f.count, DisplayName: f.name}, f.err
 }
 
 type fixture struct {
@@ -51,7 +52,7 @@ type fixture struct {
 }
 
 func newFixture() *fixture {
-	f := &fixture{repo: repository.NewInMemory(), rewards: &fakeRewards{}, sessions: &fakeSessions{count: 3}, now: t0}
+	f := &fixture{repo: repository.NewInMemory(), rewards: &fakeRewards{}, sessions: &fakeSessions{count: 3, name: "Alice"}, now: t0}
 	f.uc = usecase.New(f.repo, f.rewards,
 		usecase.WithClock(func() time.Time { return f.now }),
 		usecase.WithSessionClient(f.sessions))
@@ -125,7 +126,7 @@ func TestFullCycle_WorkRewardsThenRest(t *testing.T) {
 	if v.LastCompletedID != work.CycleID || !v.LastCompletedAt.Equal(t0.Add(25*time.Minute)) {
 		t.Fatalf("last completed = %s at %v", v.LastCompletedID, v.LastCompletedAt)
 	}
-	want := domain.AwardRequest{UserID: alice, SessionID: room, CycleID: work.CycleID, WorkMinutes: 25, ParticipantCount: 3}
+	want := domain.AwardRequest{UserID: alice, SessionID: room, CycleID: work.CycleID, WorkMinutes: 25, ParticipantCount: 3, DisplayName: "Alice"}
 	if len(f.rewards.sent) != 1 || f.rewards.sent[0] != want {
 		t.Fatalf("rewards = %+v, want %+v", f.rewards.sent, want)
 	}
@@ -155,6 +156,34 @@ func TestStop_DiscardsWithoutReward(t *testing.T) {
 	f.uc.Sweep(context.Background())
 	if len(f.rewards.sent) != 0 {
 		t.Fatalf("stopped cycle was rewarded")
+	}
+}
+
+// The idle clock (UC-05 E-8) starts when a work cycle is stopped or
+// discarded, so the timer must report that moment, not when it was paused.
+func TestStopAfterPause_LastUpdatedIsTheStop(t *testing.T) {
+	f := newFixture()
+	ctx := context.Background()
+	f.start(t, domain.PhaseWork, 25)
+	f.advance(5 * time.Minute)
+	if _, err := f.uc.PauseTimer(ctx, room, alice); err != nil {
+		t.Fatal(err)
+	}
+	f.advance(12 * time.Minute)
+	stoppedAt := f.now
+	v, err := f.uc.StopTimer(ctx, room, alice)
+	if err != nil || v.State != domain.StateReady || !v.LastUpdated.Equal(stoppedAt) {
+		t.Fatalf("stop = %+v, %v; want last_updated %v", v, err, stoppedAt)
+	}
+
+	// Discarded by the sweeper after MAX_PAUSE_MINUTES: same rule.
+	f.start(t, domain.PhaseWork, 25)
+	f.uc.PauseTimer(ctx, room, alice)
+	f.advance(16 * time.Minute)
+	sweptAt := f.now
+	f.uc.Sweep(ctx)
+	if v := f.state(t); !v.LastUpdated.Equal(sweptAt) {
+		t.Fatalf("after discard last_updated = %v, want %v", v.LastUpdated, sweptAt)
 	}
 }
 

@@ -27,12 +27,14 @@ func NewRewardClient(baseURL string) domain.RewardClient {
 
 // awardPayload is POST /api/v1/reward/award (UC-05 S-2 / UC-09): everything
 // Reward needs to roll the catch. cycle_id makes a retried call harmless.
+// display_name is stored on the reward rows for the Leaderboard.
 type awardPayload struct {
 	UserID           string `json:"user_id"`
 	SessionID        string `json:"session_id"`
 	CycleID          string `json:"cycle_id"`
 	WorkMinutes      int    `json:"work_duration"`
 	ParticipantCount int    `json:"participant_count"`
+	DisplayName      string `json:"display_name,omitempty"`
 	Reason           string `json:"reason"`
 }
 
@@ -43,6 +45,7 @@ func (c *HTTPRewardClient) AwardReward(ctx context.Context, req domain.AwardRequ
 		CycleID:          req.CycleID,
 		WorkMinutes:      req.WorkMinutes,
 		ParticipantCount: req.ParticipantCount,
+		DisplayName:      req.DisplayName,
 		Reason:           "CompleteCycle",
 	})
 	if err != nil {

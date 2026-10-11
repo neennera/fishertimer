@@ -183,21 +183,22 @@ func (s *service) deliver(ctx context.Context, ref domain.CycleRef) {
 	ctx, cancel := context.WithTimeout(ctx, collaboratorTimeout)
 	defer cancel()
 
-	count := 1
+	room := domain.RoomSnapshot{ParticipantCount: 1}
 	if s.sessions != nil {
-		n, err := s.sessions.ParticipantCount(ctx, ref.SessionID)
+		r, err := s.sessions.Room(ctx, ref.SessionID, ref.UserID)
 		if err != nil {
 			log.Printf("study-timer: reward for cycle %s waits: participant count: %v", ref.CycleID, err)
 			return
 		}
-		count = max(n, 1)
+		room = r
 	}
 	err := s.rewards.AwardReward(ctx, domain.AwardRequest{
 		UserID:           ref.UserID,
 		SessionID:        ref.SessionID,
 		CycleID:          ref.CycleID,
 		WorkMinutes:      ref.DurationSec / 60,
-		ParticipantCount: count,
+		ParticipantCount: max(room.ParticipantCount, 1),
+		DisplayName:      room.DisplayName,
 	})
 	if err != nil {
 		log.Printf("study-timer: reward for cycle %s waits: %v", ref.CycleID, err)

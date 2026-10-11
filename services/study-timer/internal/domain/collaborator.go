@@ -10,13 +10,24 @@ type AwardRequest struct {
 	CycleID          string
 	WorkMinutes      int
 	ParticipantCount int
+	// DisplayName is stored on the reward rows; Leaderboard shows it beside
+	// the user's rank. Empty when the user is no longer in the room.
+	DisplayName string
 }
 
 type RewardClient interface {
 	AwardReward(ctx context.Context, req AwardRequest) error
 }
 
+// RoomSnapshot is what a completed work cycle needs from the room.
+type RoomSnapshot struct {
+	ParticipantCount int
+	// DisplayName is the user's name in the room roster, or "" when they
+	// are no longer in it.
+	DisplayName string
+}
+
 // SessionClient reads the room from Study Session (UC-09 step 2).
 type SessionClient interface {
-	ParticipantCount(ctx context.Context, sessionID string) (int, error)
+	Room(ctx context.Context, sessionID, userID string) (RoomSnapshot, error)
 }
