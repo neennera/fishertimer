@@ -1,90 +1,94 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Header } from '../../components/Header';
-import { ParallaxScene } from '../../components/ui/ParallaxScene';
-import { ADMIN_SCENE_LAYERS } from '../../lib/scenes/admin-scene';
+import { cx } from '../../lib/cx';
 import { PixelPanel } from '../../components/ui/PixelPanel';
-import { PixelButton } from '../../components/ui/PixelButton';
 import { listSessions } from '../../features/admin/admin.api';
 import { AdminNav } from '../../features/admin/components/AdminNav';
-import { StatusBadge } from '../../features/admin/components/StatusBadge';
+import { AdminError, StaleNotice } from '../../features/admin/components/AdminError';
+import { SeatPips } from '../../features/admin/components/SeatPips';
 import { formatDateTime } from '../../features/admin/components/format';
-import type { AdminSession } from '../../features/admin/types';
-import { SessionHeader } from "../../components/SessionHeader";
+import { usePolling } from '../../features/admin/hooks/usePolling';
 
-/** Admin — list study sessions, with a link to each session's detail + members. */
+/** Admin — every live room (refreshed every few seconds), each opening its detail + members. */
 export default function AdminPage() {
-  const [sessions, setSessions] = useState<AdminSession[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    listSessions()
-      .then(setSessions)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load sessions'));
-  }, []);
+  const { data: sessions, error, stale } = usePolling(listSessions, 'sessions');
+  const full = sessions?.filter((s) => s.participant_count >= s.max_participants).length ?? 0;
 
   return (
-    <div className="min-h-screen">
-      <ParallaxScene layers={ADMIN_SCENE_LAYERS} />
-      <SessionHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
-        <PixelPanel>
-          <AdminNav active="sessions" />
-
-          <h1 className="font-display leading-tight" style={{ fontSize: 'calc(var(--px) * 10)' }}>
-            Admin — Sessions
-          </h1>
-          <p className="mt-1 text-bark font-body text-sm">
-            {sessions ? `${sessions.length} active sessions` : 'Loading…'}
-          </p>
-
-          {error && (
-            <div className="pixel-alert mt-4" role="alert">
-              ⚠️ {error}
+    <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
+      <div className="w-full max-w-2xl">
+        <PixelPanel as="section" aria-labelledby="admin-heading">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
+              <h1 id="admin-heading" className="font-display text-4xl leading-none">
+                Live Rooms
+              </h1>
+              <p className="mt-2 text-sm text-bark">
+                Every open room on the lake. Inspect one to remove an angler or close it.
+              </p>
             </div>
-          )}
+            <AdminNav active="sessions" />
+          </div>
 
-          <ul className="mt-5 flex flex-col gap-2.5" aria-busy={!sessions}>
-            {!sessions &&
-              !error &&
-              [1, 2, 3].map((i) => (
-                <li
-                  key={i}
-                  className="pixel-tile animate-pulse"
-                  style={{ height: '4.5rem' }}
-                  aria-hidden="true"
-                />
-              ))}
+          {error ? <AdminError error={error} fallback="Failed to load rooms" /> : null}
 
-            {sessions?.map((s) => (
-              <li
-                key={s.session_id}
-                className="pixel-tile flex flex-wrap items-center justify-between gap-3 text-left"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-numeric text-base text-ink truncate">{s.title}</span>
-                    {/* <StatusBadge active={s.is_active} /> */}
-                  </div>
-                  <div className="font-label text-[11px] text-bark mt-1">
-                    Host {s.host_name} · 👥 {s.participant_count}/{s.max_participants} · Started{' '}
-                    {formatDateTime(s.created_at)}
-                  </div>
+          {!error && (
+            <>
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <h2 className="pixel-label m-0">
+                  {sessions
+                    ? `${sessions.length} room${sessions.length === 1 ? '' : 's'} live · ${full} full`
+                    : 'Rooms'}
+                </h2>
+                <StaleNotice stale={stale} />
+              </div>
+
+              {!sessions ? (
+                <ul className="mt-3 flex flex-col gap-3" aria-busy="true">
+                  {[0, 1, 2].map((i) => (
+                    <li key={i} className="pixel-skeleton h-20" />
+                  ))}
+                </ul>
+              ) : sessions.length === 0 ? (
+                <div className="pixel-placeholder mt-3 flex flex-col items-center gap-2 py-10 text-center">
+                  <p className="font-display text-2xl leading-none">The lake is quiet</p>
+                  <p className="text-sm text-bark">No rooms are open right now.</p>
                 </div>
-                <Link href={`/admin/sessions/${s.session_id}`}>
-                  <PixelButton variant="ghost">View detail →</PixelButton>
-                </Link>
-              </li>
-            ))}
-
-            {sessions?.length === 0 && (
-              <li className="text-bark font-body text-sm">No active sessions right now.</li>
-            )}
-          </ul>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-3">
+                  {sessions.map((s) => (
+                    <li
+                      key={s.session_id}
+                      className={cx(
+                        'pixel-tile pixel-room-card',
+                        s.participant_count >= s.max_participants && 'pixel-room-card--full',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="pixel-room-card__name" title={s.title}>
+                          {s.title}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <SeatPips taken={s.participant_count} limit={s.max_participants} />
+                          <span className="pixel-room-card__meta">
+                            {s.participant_count}/{s.max_participants} anglers · opened{' '}
+                            {formatDateTime(s.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <Link href={`/admin/sessions/${s.session_id}`} className="pixel-btn">
+                        Inspect
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
         </PixelPanel>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

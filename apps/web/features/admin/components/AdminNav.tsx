@@ -1,17 +1,14 @@
 import Link from 'next/link';
 
 const LINKS = [
-  { href: '/admin', label: '🛡️ Sessions', key: 'sessions' },
-  { href: '/admin/logs', label: '📜 Audit Log', key: 'logs' },
+  { href: '/admin', label: 'Live rooms', key: 'sessions' },
+  { href: '/admin/logs', label: 'Audit log', key: 'logs' },
 ] as const;
 
 /** Tab links shared by every admin page. */
 export function AdminNav({ active }: { active: 'sessions' | 'logs' }) {
   return (
-    <nav
-      aria-label="Admin"
-      className="mb-5 flex flex-wrap items-center justify-end gap-2 pb-3 border-b border-[var(--color-rule)]"
-    >
+    <nav aria-label="Admin" className="flex flex-wrap gap-2">
       {LINKS.map((l) => (
         <Link
           key={l.key}

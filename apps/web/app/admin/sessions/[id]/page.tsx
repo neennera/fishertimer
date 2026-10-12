@@ -1,28 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { SessionHeader } from '../../../../components/SessionHeader';
-import { ParallaxScene } from '../../../../components/ui/ParallaxScene';
-import { ADMIN_SCENE_LAYERS } from '../../../../lib/scenes/admin-scene';
+import { PixelAlert } from '../../../../components/ui/PixelAlert';
 import { PixelPanel } from '../../../../components/ui/PixelPanel';
 import { PixelBadge } from '../../../../components/ui/PixelBadge';
 import { PixelButton } from '../../../../components/ui/PixelButton';
 import { PixelInput } from '../../../../components/ui/PixelInput';
 import { PixelModal } from '../../../../components/ui/PixelModal';
 import { endSession, getSession, kickParticipant } from '../../../../features/admin/admin.api';
-import { AdminNav } from '../../../../features/admin/components/AdminNav';
-import { StatusBadge } from '../../../../features/admin/components/StatusBadge';
+import { SeatPips } from '../../../../features/admin/components/SeatPips';
 import { formatDateTime } from '../../../../features/admin/components/format';
-import type { AdminParticipant, AdminSessionDetail } from '../../../../features/admin/types';
+import {
+  AdminError,
+  StaleNotice,
+  adminErrorMessage,
+} from '../../../../features/admin/components/AdminError';
+import { usePolling } from '../../../../features/admin/hooks/usePolling';
+import { AdminApiError } from '../../../../lib/admin-api';
+import type { AdminParticipant } from '../../../../features/admin/types';
 
-/** Admin — one session's detail and its members. */
+/** 409 from a kick / close: the room or member changed since it was shown. */
+const isStateChanged = (e: unknown) => e instanceof AdminApiError && e.status === 409;
+
+/** Admin — one live session's detail and its members, refreshed every few seconds. */
 export default function AdminSessionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [session, setSession] = useState<AdminSessionDetail | null>(null);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const fetchSession = useCallback(() => getSession(id), [id]);
+  const { data, error, stale, refresh } = usePolling(fetchSession, id);
+  /** getSession answers null once the room is no longer live (UC-04 E-3). */
+  const session = data ?? null;
+  const ended = data === null;
+  const [notice, setNotice] = useState<string | null>(null);
   const [kickTarget, setKickTarget] = useState<AdminParticipant | null>(null);
   const [kickReason, setKickReason] = useState('');
   const [endReason, setEndReason] = useState('');
@@ -31,12 +41,6 @@ export default function AdminSessionDetailPage() {
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [ending, setEnding] = useState(false);
   const [endError, setEndError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getSession(id)
-      .then((s) => (s ? setSession(s) : setNotFound(true)))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load session'));
-  }, [id]);
 
   function closeKick() {
     if (!kicking) {
@@ -51,16 +55,22 @@ export default function AdminSessionDetailPage() {
     setKicking(true);
     setKickError(null);
     try {
-      const updated = await kickParticipant(id, kickTarget.user_id, kickReason);
-      if (!updated) {
-        setKickError('Member is no longer in this session.');
-        return;
-      }
-      setSession(updated);
+      const res = await kickParticipant(id, kickTarget.user_id, kickReason);
+      const name = kickTarget.display_name ?? kickTarget.user_id;
+      setNotice(res.session_ended ? `${name} was removed, and the room closed because it was empty.` : `${name} was removed from the room.`);
       setKickTarget(null);
       setKickReason('');
+      await refresh();
     } catch (e: unknown) {
-      setKickError(e instanceof Error ? e.message : 'Failed to kick member');
+      if (isStateChanged(e)) {
+        // Member already left or room ended: nothing changed, show the current state (UC-10 E-3).
+        setNotice(adminErrorMessage(e, 'This room has changed.'));
+        setKickTarget(null);
+        setKickReason('');
+        await refresh();
+        return;
+      }
+      setKickError(adminErrorMessage(e, 'Failed to remove the angler'));
     } finally {
       setKicking(false);
     }
@@ -78,124 +88,125 @@ export default function AdminSessionDetailPage() {
     setEnding(true);
     setEndError(null);
     try {
-      const updated = await endSession(id, endReason);
-      if (!updated) {
-        setEndError('This session has already ended.');
-        return;
-      }
-      setSession(updated);
+      await endSession(id, endReason);
+      setNotice('Room closed. Everyone was sent back to the lake.');
       setConfirmingEnd(false);
       setEndReason('');
+      await refresh();
     } catch (e: unknown) {
-      setEndError(e instanceof Error ? e.message : 'Failed to close session');
+      if (isStateChanged(e)) {
+        setNotice(adminErrorMessage(e, 'This room has already closed.'));
+        setConfirmingEnd(false);
+        setEndReason('');
+        await refresh();
+        return;
+      }
+      setEndError(adminErrorMessage(e, 'Failed to close the room'));
     } finally {
       setEnding(false);
     }
   }
 
-  return (
-    <div className="min-h-screen">
-      <ParallaxScene layers={ADMIN_SCENE_LAYERS} />
-      <SessionHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
-        <PixelPanel>
-          <AdminNav active="sessions" />
-          <Link href="/admin" className="text-bark hover:text-ink font-label text-sm">
-            ← All sessions
-          </Link>
-          <div className="mb-5" />
+  const name = (p: AdminParticipant | null) => p?.display_name ?? 'this angler';
 
-          {error && (
-            <div className="pixel-alert" role="alert">
-              ⚠️ {error}
+  return (
+    <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
+      <div className="w-full max-w-2xl">
+        <PixelPanel as="section" aria-labelledby="room-heading">
+          <Link href="/admin" className="font-label text-[10px] uppercase tracking-[0.12em] text-bark hover:text-ink">
+            ← Live rooms
+          </Link>
+
+          {notice && (
+            <PixelAlert tone="warn" className="mt-4 flex items-start justify-between gap-3">
+              <span>{notice}</span>
+              <button type="button" className="pixel-link text-sm" onClick={() => setNotice(null)}>
+                OK
+              </button>
+            </PixelAlert>
+          )}
+          {error ? <AdminError error={error} fallback="Failed to load the room" /> : null}
+
+          {ended && (
+            <div className="pixel-placeholder mt-5 flex flex-col items-center gap-3 py-10 text-center">
+              <p className="font-display text-2xl leading-none">This room has closed</p>
+              <p className="text-sm text-bark">It is no longer on the lake.</p>
+              <Link href="/admin" className="pixel-btn">
+                Back to live rooms
+              </Link>
             </div>
           )}
-          {notFound && <p className="font-body text-bark">Session not found.</p>}
-          {!session && !error && !notFound && (
-            <p className="font-body text-bark" aria-busy="true">
-              Loading…
-            </p>
+
+          {data === undefined && !error && (
+            <div aria-busy="true">
+              <div className="pixel-skeleton mt-3 h-10 w-1/2" />
+              <div className="pixel-skeleton mt-6 h-44" />
+            </div>
           )}
 
           {session && (
             <>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display leading-tight" style={{ fontSize: 'calc(var(--px) * 9)' }}>
-                  {session.title}
-                </h1>
-                {/* <StatusBadge active={session.is_active} /> */}
-                {session.is_active && (
-                  <PixelButton
-                    variant="danger"
-                    className="ml-auto"
-                    onClick={() => setConfirmingEnd(true)}
-                  >
-                    Close session
-                  </PixelButton>
-                )}
+              <div className="mt-1 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h1 id="room-heading" className="truncate font-display text-4xl leading-none" title={session.title}>
+                    {session.title}
+                  </h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <SeatPips taken={session.participant_count} limit={session.max_participants} />
+                    <span className="pixel-room-card__meta">
+                      {session.participant_count}/{session.max_participants} anglers · opened{' '}
+                      {formatDateTime(session.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <PixelButton variant="danger" className="flex-none" onClick={() => setConfirmingEnd(true)}>
+                  Close room
+                </PixelButton>
               </div>
 
-              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
-                {[
-                  ['Host', session.host_name],
-                  ['Members', `${session.participant_count}/${session.max_participants}`],
-                  ['Started', formatDateTime(session.created_at)],
-                  ['Ended', session.ended_at ? formatDateTime(session.ended_at) : '—'],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="pixel-tile text-left"
-                  >
-                    <dt className="font-label text-[10px] uppercase text-bark">{label}</dt>
-                    <dd className="font-numeric text-sm text-ink mt-0.5 truncate">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <h2 className="font-label text-sm uppercase text-bark mt-6 mb-2">
-                Members ({session.participants.length})
-              </h2>
-              <ul className="flex flex-col gap-2">
-                {session.participants.map((p) => (
-                  <li
-                    key={p.user_id}
-                    className="pixel-tile flex flex-wrap items-center justify-between gap-2 text-left"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-numeric text-sm text-ink truncate">{p.display_name}</span>
-                      {p.is_host && <PixelBadge className="pixel-badge--wood">HOST</PixelBadge>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-label text-[11px] text-bark">
-                        Joined {formatDateTime(p.joined_at)} ·{' '}
-                        {p.left_at ? `Left ${formatDateTime(p.left_at)}` : 'In room'}
-                      </span>
-                      {session.is_active && !p.left_at && !p.is_host && (
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <h2 className="pixel-label m-0">On the dock ({session.participants.length})</h2>
+                <StaleNotice stale={stale} />
+              </div>
+              {session.participants.length === 0 ? (
+                <p className="pixel-placeholder mt-3 py-6 text-center text-sm text-bark">Nobody is on the dock.</p>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-3">
+                  {session.participants.map((p) => (
+                    <li key={p.user_id} className="pixel-tile pixel-room-card">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-display text-xl leading-none">
+                            {p.display_name ?? 'Unnamed angler'}
+                          </span>
+                          {p.is_host && <PixelBadge className="pixel-badge--wood">HOST</PixelBadge>}
+                        </div>
+                        <p className="pixel-room-card__meta mt-1.5">Joined {formatDateTime(p.joined_at)}</p>
+                      </div>
+                      {!p.is_host && (
                         <PixelButton
                           variant="danger"
-                          className="pixel-btn--sm"
+                          className="pixel-btn--sm flex-none"
                           onClick={() => setKickTarget(p)}
-                          aria-label={`Kick ${p.display_name}`}
+                          aria-label={`Remove ${name(p)}`}
                         >
-                          Kick
+                          Remove
                         </PixelButton>
                       )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
         </PixelPanel>
-      </main>
+      </div>
 
-      <PixelModal open={kickTarget !== null} onClose={closeKick} title="Kick member?">
-        <p className="font-body text-sm">
-          Remove <strong>{kickTarget?.display_name}</strong> from this session? They will be
-          disconnected from the room immediately.
-          {session?.participant_count === 1 && (
-            <> They are the last member, so the session will also be closed.</>
-          )}
+      <PixelModal open={kickTarget !== null} onClose={closeKick} title="Remove angler?">
+        <p className="text-sm">
+          Remove <strong>{name(kickTarget)}</strong> from this room? Their timer stops and any focus block in
+          progress is lost.
+          {session?.participant_count === 1 && <> They are the last angler, so the room will close too.</>}
         </p>
         <PixelInput
           label="Reason (optional)"
@@ -205,25 +216,21 @@ export default function AdminSessionDetailPage() {
           maxLength={200}
           disabled={kicking}
         />
-        {kickError && (
-          <div className="pixel-alert mt-3" role="alert">
-            ⚠️ {kickError}
-          </div>
-        )}
-        <div className="mt-4 flex justify-end gap-2">
+        {kickError && <PixelAlert className="mt-3">{kickError}</PixelAlert>}
+        <div className="mt-5 flex flex-col-reverse justify-end gap-3 sm:flex-row">
           <PixelButton variant="ghost" onClick={closeKick} disabled={kicking}>
             Cancel
           </PixelButton>
           <PixelButton variant="danger" onClick={confirmKick} disabled={kicking}>
-            {kicking ? 'Kicking…' : 'Kick'}
+            {kicking ? 'Removing…' : 'Remove'}
           </PixelButton>
         </div>
       </PixelModal>
 
-      <PixelModal open={confirmingEnd} onClose={closeEnd} title="Close session?">
-        <p className="font-body text-sm">
-          Close <strong>{session?.title}</strong>? Everyone still in the room will be
-          disconnected and the session cannot be reopened.
+      <PixelModal open={confirmingEnd} onClose={closeEnd} title="Close room?">
+        <p className="text-sm">
+          Close <strong>{session?.title}</strong>? Everyone on the dock is sent back to the lake, their focus blocks
+          in progress are lost, and the room cannot be reopened.
         </p>
         <PixelInput
           label="Reason (optional)"
@@ -233,20 +240,16 @@ export default function AdminSessionDetailPage() {
           maxLength={200}
           disabled={ending}
         />
-        {endError && (
-          <div className="pixel-alert mt-3" role="alert">
-            ⚠️ {endError}
-          </div>
-        )}
-        <div className="mt-4 flex justify-end gap-2">
+        {endError && <PixelAlert className="mt-3">{endError}</PixelAlert>}
+        <div className="mt-5 flex flex-col-reverse justify-end gap-3 sm:flex-row">
           <PixelButton variant="ghost" onClick={closeEnd} disabled={ending}>
             Cancel
           </PixelButton>
           <PixelButton variant="danger" onClick={confirmEnd} disabled={ending}>
-            {ending ? 'Closing…' : 'Close session'}
+            {ending ? 'Closing…' : 'Close room'}
           </PixelButton>
         </div>
       </PixelModal>
-    </div>
+    </main>
   );
 }

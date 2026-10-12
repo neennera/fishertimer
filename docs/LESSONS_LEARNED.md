@@ -104,6 +104,16 @@
 
 ---
 
+### Incident 009: New Schema Files Never Reach an Existing Docker DB Volume
+- **Date:** 2026-10-12
+- **Component:** `services/study-session/database/schemas/`, `session_db` (Docker `session_db_data` volume)
+- **Symptom:** Study Session logs `pq: relation "event_outbox" does not exist`, `column "participant_count" does not exist`, `column "display_name" does not exist`; admin monitoring cannot load rooms.
+- **Root Cause:** `docker-entrypoint-initdb.d` scripts run only when the volume is first created. The volume predated `002_phase2_rooms_and_outbox.sql`, so `pnpm db:up` never applied it. The local seeds (`002_seed_test_session.sql`, `003_seed_admin_demo_sessions.sql`) still wrote the Phase 1 `is_active` column, so a fresh `pnpm db:reset` would also fail after the migration dropped it.
+- **Solution:** Applied the migration in one transaction (`psql -1 -v ON_ERROR_STOP=1 < 002_phase2_rooms_and_outbox.sql`), backfilled `participant_count` / `display_name` / leave and end reasons, and moved the seeds to `status`, `end_reason`, `display_name`, `leave_reason` and a recomputed `participant_count`. Participants now have a per-stay primary key, so `ON CONFLICT` no longer dedupes them; the seeds delete and re-insert their own rows instead.
+- **Action for Future Agents:** After pulling a new schema file, apply it to the running DB by hand (`docker exec -i fishertimer-<svc>-db psql -U postgres -d <db> -1 -v ON_ERROR_STOP=1 < file.sql`) or run `pnpm db:reset` (wipes data). When a migration drops or renames a column, update every seed in the same folder. Run the folder's files in order against a scratch database to check a fresh init.
+
+---
+
 ## 2. Template for Recording New Lessons Learned
 
 When documenting a new learning, append to Section 1 using this markdown structure:

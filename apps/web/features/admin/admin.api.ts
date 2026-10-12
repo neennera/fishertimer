@@ -1,115 +1,75 @@
-// Admin data access. Mock-backed for now; swap the bodies for adminApiFetch
-// (lib/admin-api.ts) once services/admin exposes the endpoints.
+// Admin data access — every call hits services/admin (see its README).
 
-import {
-  MOCK_ADMIN,
-  MOCK_ADMIN_LOGS,
-  MOCK_ADMIN_SESSIONS,
-} from '../../lib/mocks/admin-sessions.mock';
+import { AdminApiError, adminApiFetch } from '../../lib/admin-api';
 import type {
   AdminLog,
   AdminLogAction,
+  AdminParticipant,
   AdminSession,
   AdminSessionDetail,
+  ModerationResult,
 } from './types';
 
-const LATENCY_MS = 250;
-const delay = () => new Promise((r) => setTimeout(r, LATENCY_MS));
-
-/** The backend writes one admin_logs row per action; the mock does the same. */
-function recordLog(
-  action: AdminLogAction,
-  target_id: string,
-  target_label: string,
-  reason: string | undefined,
-) {
-  MOCK_ADMIN_LOGS.unshift({
-    log_id: `log-${Date.now()}`,
-    admin_id: MOCK_ADMIN.id,
-    admin_name: MOCK_ADMIN.name,
-    action,
-    target_id,
-    target_label,
-    reason: reason?.trim() || null,
-    created_at: new Date().toISOString(),
-  });
-}
-
-function closeRoom(session: AdminSessionDetail) {
-  const now = new Date().toISOString();
-  session.is_active = false;
-  session.ended_at = now;
-  session.participants.forEach((p) => {
-    if (p.left_at === null) p.left_at = now;
-  });
-  session.participant_count = 0;
-}
-
-const snapshot = (s: AdminSessionDetail): AdminSessionDetail => ({
-  ...s,
-  participants: s.participants.map((p) => ({ ...p })),
+const json = (body: unknown): RequestInit => ({
+  method: 'POST',
+  body: JSON.stringify(body),
 });
 
-/** GET /api/v1/admin/sessions?active=true — only rooms still open. */
-export async function listSessions(): Promise<AdminSession[]> {
-  await delay();
-  return MOCK_ADMIN_SESSIONS.filter((s) => s.is_active).map(({ participants: _p, ...s }) => s);
+/** GET /api/v1/admin/sessions — live rooms from Study Session, newest first. */
+export function listSessions(): Promise<AdminSession[]> {
+  return adminApiFetch<AdminSession[]>('sessions');
 }
 
-/** GET /api/v1/admin/sessions/:id — null when not found. */
-export async function getSession(id: string): Promise<AdminSessionDetail | null> {
-  await delay();
-  return MOCK_ADMIN_SESSIONS.find((s) => s.session_id === id) ?? null;
+/** GET /api/v1/admin/sessions/:id/participants — members of a live room. */
+export function listParticipants(sessionId: string): Promise<AdminParticipant[]> {
+  return adminApiFetch<AdminParticipant[]>(
+    `sessions/${encodeURIComponent(sessionId)}/participants`,
+  );
 }
 
 /**
- * POST /api/v1/admin/sessions/:id/participants/:userId/kick — admin command
- * that makes Study Session run LeaveSession() for the member. Removing the
- * last member ends the room. Logged as KICK_USER.
- * Returns the updated session, or null when session/member is not found.
+ * GET /api/v1/admin/sessions/:id — a live room plus its members (host first).
+ * Null when the room is not live (ended, or never existed).
  */
-export async function kickParticipant(
+export async function getSession(id: string): Promise<AdminSessionDetail | null> {
+  try {
+    return await adminApiFetch<AdminSessionDetail>(`sessions/${encodeURIComponent(id)}`);
+  } catch (e) {
+    if (e instanceof AdminApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/**
+ * POST /api/v1/admin/sessions/:id/participants/:userId/kick — Study Session
+ * runs LeaveSession() for the member; removing the last member ends the room.
+ * Logged as KICK_USER. Throws AdminApiError 409 when the member has already
+ * left or the room has ended.
+ */
+export function kickParticipant(
   sessionId: string,
   userId: string,
   reason?: string,
-): Promise<AdminSessionDetail | null> {
-  await delay();
-  const session = MOCK_ADMIN_SESSIONS.find((s) => s.session_id === sessionId);
-  const member = session?.participants.find((p) => p.user_id === userId);
-  if (!session || !member || !session.is_active || member.left_at !== null) {
-    return null;
-  }
-  member.left_at = new Date().toISOString();
-  session.participant_count = session.participants.filter((p) => p.left_at === null).length;
-  if (session.participant_count === 0) {
-    closeRoom(session);
-  }
-  recordLog('KICK_USER', member.user_id, member.display_name, reason);
-  return snapshot(session);
+): Promise<ModerationResult> {
+  return adminApiFetch<ModerationResult>(
+    `sessions/${encodeURIComponent(sessionId)}/participants/${encodeURIComponent(userId)}/kick`,
+    json({ reason: reason?.trim() || undefined }),
+  );
 }
 
 /**
- * POST /api/v1/admin/sessions/:id/end — admin command that makes Study
- * Session run EndSession(), disconnecting everyone still in the room.
- * Logged as FORCE_CLOSE_SESSION.
- * Returns the updated session, or null when not found or already ended.
+ * POST /api/v1/admin/sessions/:id/end — Study Session runs EndSession(),
+ * disconnecting everyone still in the room. Logged as FORCE_CLOSE_SESSION.
+ * Throws AdminApiError 409 when the room has already ended.
  */
-export async function endSession(
-  sessionId: string,
-  reason?: string,
-): Promise<AdminSessionDetail | null> {
-  await delay();
-  const session = MOCK_ADMIN_SESSIONS.find((s) => s.session_id === sessionId);
-  if (!session || !session.is_active) {
-    return null;
-  }
-  closeRoom(session);
-  recordLog('FORCE_CLOSE_SESSION', session.session_id, session.title, reason);
-  return snapshot(session);
+export function endSession(sessionId: string, reason?: string): Promise<ModerationResult> {
+  return adminApiFetch<ModerationResult>(
+    `sessions/${encodeURIComponent(sessionId)}/end`,
+    json({ reason: reason?.trim() || undefined }),
+  );
 }
 
-/** GET /api/v1/admin/logs?action= — newest first. */
-export async function listLogs(action?: AdminLogAction): Promise<AdminLog[]> {
-  await delay();
-  return MOCK_ADMIN_LOGS.filter((l) => !action || l.action === action).map((l) => ({ ...l }));
+/** GET /api/v1/admin/logs?action= — newest first (latest 100). */
+export function listLogs(action?: AdminLogAction): Promise<AdminLog[]> {
+  return adminApiFetch<AdminLog[]>(action ? `logs?action=${action}` : 'logs');
 }
