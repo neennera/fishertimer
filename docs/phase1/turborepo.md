@@ -24,7 +24,7 @@ fishertimer/
 │   └── web/                         # Next.js 16 (React 19) web application (Port 3000)
 ├── services/                        # Go microservices (scaffolded via automation script)
 │   ├── auth/                        # Google OAuth & Identity Service (Port 8081)
-│   ├── account/                     # User Profiles & Ban Status Service (Port 8082)
+│   ├── account/                     # User Profiles Service (Port 8082)
 │   ├── study-session/               # Study Room Lifecycle & Rosters (Port 8083)
 │   ├── study-timer/                 # Independent Work/Rest Timers (Port 8084)
 │   ├── reward/                      # FishTank Gamification & Progression (Port 8085)

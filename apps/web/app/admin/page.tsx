@@ -1,60 +1,94 @@
+'use client';
+
 import Link from 'next/link';
-import styles from '../page.module.css';
+import { cx } from '../../lib/cx';
+import { PixelPanel } from '../../components/ui/PixelPanel';
+import { listSessions } from '../../features/admin/admin.api';
+import { AdminNav } from '../../features/admin/components/AdminNav';
+import { AdminError, StaleNotice } from '../../features/admin/components/AdminError';
+import { SeatPips } from '../../features/admin/components/SeatPips';
+import { formatDateTime } from '../../features/admin/components/format';
+import { usePolling } from '../../features/admin/hooks/usePolling';
 
+/** Admin — every live room (refreshed every few seconds), each opening its detail + members. */
 export default function AdminPage() {
+  const { data: sessions, error, stale } = usePolling(listSessions, 'sessions');
+  const full = sessions?.filter((s) => s.participant_count >= s.max_participants).length ?? 0;
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '2.5rem' }}>🛡️</span>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.8rem' }}>
-              Fisher Timer — Admin Moderation Portal
-            </h1>
-            <p style={{ margin: '0.25rem 0 0 0', color: '#888' }}>
-              Frontend Website (Admin Page) — Direct connection to Admin Service (Port 8087)
-            </p>
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            width: '100%',
-            maxWidth: '650px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-          }}
-        >
-          <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.75rem' }}>
-            <h3 style={{ margin: 0 }}>Direct Service Communication</h3>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#aaa' }}>
-              As designed in the architecture diagram, the Admin Website does <strong>not</strong> go through the API Gateway. It connects directly to <code>services/admin</code> (Port 8087).
-            </p>
+    <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
+      <div className="w-full max-w-2xl">
+        <PixelPanel as="section" aria-labelledby="admin-heading">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
+              <h1 id="admin-heading" className="font-display text-4xl leading-none">
+                Live Rooms
+              </h1>
+              <p className="mt-2 text-sm text-bark">
+                Every open room on the lake. Inspect one to remove an angler or close it.
+              </p>
+            </div>
+            <AdminNav active="sessions" />
           </div>
 
-          <div>
-            <h4 style={{ margin: '0 0 0.5rem 0' }}>Admin Operations</h4>
-            <ul style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: '1.8' }}>
-              <li><strong>ViewActiveSessions:</strong> Inspect live study room states.</li>
-              <li><strong>ViewParticipants:</strong> List participants currently in an active room.</li>
-              <li><strong>MonitorTimerStatus:</strong> Real-time timer inspection across participants.</li>
-              <li><strong>ReviewReport & BanUser:</strong> Moderate users and update ban flags directly in Account Service.</li>
-              <li><strong>KickParticipant:</strong> Command Study Session service to kick participants.</li>
-            </ul>
-          </div>
-        </div>
+          {error ? <AdminError error={error} fallback="Failed to load rooms" /> : null}
 
-        <div className={styles.ctas}>
-          <Link href="/" className={styles.secondary}>
-            ← Return to Client Portal
-          </Link>
-        </div>
-      </main>
-    </div>
+          {!error && (
+            <>
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <h2 className="pixel-label m-0">
+                  {sessions
+                    ? `${sessions.length} room${sessions.length === 1 ? '' : 's'} live · ${full} full`
+                    : 'Rooms'}
+                </h2>
+                <StaleNotice stale={stale} />
+              </div>
+
+              {!sessions ? (
+                <ul className="mt-3 flex flex-col gap-3" aria-busy="true">
+                  {[0, 1, 2].map((i) => (
+                    <li key={i} className="pixel-skeleton h-20" />
+                  ))}
+                </ul>
+              ) : sessions.length === 0 ? (
+                <div className="pixel-placeholder mt-3 flex flex-col items-center gap-2 py-10 text-center">
+                  <p className="font-display text-2xl leading-none">The lake is quiet</p>
+                  <p className="text-sm text-bark">No rooms are open right now.</p>
+                </div>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-3">
+                  {sessions.map((s) => (
+                    <li
+                      key={s.session_id}
+                      className={cx(
+                        'pixel-tile pixel-room-card',
+                        s.participant_count >= s.max_participants && 'pixel-room-card--full',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="pixel-room-card__name" title={s.title}>
+                          {s.title}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <SeatPips taken={s.participant_count} limit={s.max_participants} />
+                          <span className="pixel-room-card__meta">
+                            {s.participant_count}/{s.max_participants} anglers · opened{' '}
+                            {formatDateTime(s.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <Link href={`/admin/sessions/${s.session_id}`} className="pixel-btn">
+                        Inspect
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </PixelPanel>
+      </div>
+    </main>
   );
 }

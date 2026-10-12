@@ -293,7 +293,7 @@ export default function StyleguidePage() {
                 <PixelAlert tone="warn">
                   Couldn&rsquo;t save. Try again.
                 </PixelAlert>
-                <PixelBadge>BANNED</PixelBadge>
+                <PixelBadge>HOST</PixelBadge>
               </div>
             </Demo>
 

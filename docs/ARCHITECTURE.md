@@ -57,6 +57,7 @@ graph TD
     AdminWeb -->|REST API| Admin
 
     %% Inter-service collaborations
+    Admin -.->|Monitor / ListActiveSession() + GetParticipants()| Session
     Admin -.->|Kick Participant / LeaveSession()| Session
     Admin -.->|End Session / EndSession()| Session
     Account -.->|Fetch History / TimerStatistics()| Timer
@@ -99,7 +100,7 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | **Study Timer** | 50051 (gRPC), 8084 (HTTP) | `services/study-timer` | gRPC / HTTP / AMQP Consumer | Timer DB (`timer_db`) | One timer per participant per room (UC-05 state machine on `timers` / `cycles`), server-timestamp countdowns, a sweeper that completes due cycles, discards long pauses and retries AwardReward (once per `cycle_id`). Opens / finalizes timers from RabbitMQ session events (consumer reconnects on its own). |
 | **Reward** | 8085 | `services/reward` | HTTP / REST | Reward DB (`reward_db`) | Gamified fish drops, rarity table buffed by session participants, user inventory. |
 | **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
-| **Admin** | 8087 | `services/admin` | HTTP / REST / WS | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. |
+| **Admin** | 8087 | `services/admin` | HTTP / REST | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. Admin-only: verifies the session JWT (`role = ADMIN`) itself, since the admin website calls it directly. Every kick/close is audited in `admin_logs`. |
 | **RabbitMQ** | 5672 (AMQP), 15672 (UI) | Infrastructure (`docker-compose.yml`) | AMQP 0-9-1 | In-Memory / Mnesia Queue | Message broker for asynchronous inter-service events (`fisher.session` exchange, dead-letter DLX/DLQ). |
 | **Adminer** | 8080 | Infrastructure (`docker-compose.yml`) | HTTP | - | Lightweight web-based database management GUI for local inspection of PostgreSQL databases. |
 
@@ -120,8 +121,12 @@ As defined in `docs/phase1/microservice.md`:
 | Study Timer   | StudySession.GetParticipants| gRPC     | Participant count for the reward (UC-09 S-2)   |
 | Leaderboard   | Reward.ViewAllRewards()     | REST     | Fetches all earned rewards for ranking (S-3)   |
 | Leaderboard   | Reward.GetLastUpdate()      | REST     | Checks reward mutation timestamp (S-1 cache)   |
-| Admin         | StudySession.LeaveSession() | gRPC     | Kick user from active study session room       |
-| Admin         | StudySession.EndSession()   | gRPC     | Command to close/end active study session room |
+| Admin         | StudySession.ListActive-    | REST     | Live room list / participants for monitoring   |
+|               |   Session(), GetParticipants|          | (UC-04)                                        |
+| Admin         | StudySession.LeaveSession() | REST     | Kick user from active study session room       |
+|               |                             |          | (reason KICKED), audited as KICK_USER          |
+| Admin         | StudySession.EndSession()   | REST     | Close/end active study session room (reason    |
+|               |                             |          | ADMIN_CLOSED), audited as FORCE_CLOSE_SESSION  |
 | Study Session | StudyTimer.SessionEvents    | RabbitMQ | Async events (participant.joined / .left,      |
 |               |                             |          | session.ended) via transactional outbox        |
 | Study Session | StudyTimer.GetRoomTimers()  | gRPC     | Idle detection (UC-05 E-8)                     |
