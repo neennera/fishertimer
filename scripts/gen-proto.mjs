@@ -36,7 +36,10 @@ function findProtoFiles(dir) {
   });
 }
 
-const protoFiles = findProtoFiles(protoDir).map((file) => path.relative(protoDir, file));
+// protoc wants forward slashes even on Windows ("studytimer/v1/timer.proto").
+const protoFiles = findProtoFiles(protoDir).map((file) =>
+  path.relative(protoDir, file).split(path.sep).join('/')
+);
 
 if (protoFiles.length === 0) {
   console.error('No .proto files found under proto/');

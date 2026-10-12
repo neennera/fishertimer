@@ -17,6 +17,11 @@ import (
 	"github.com/neennera/fishertimer/services/study-timer/internal/usecase"
 )
 
+const (
+	demoRoom = "00000000-0000-0000-0000-000000000001"
+	demoUser = "00000000-0000-0000-0000-000000000002"
+)
+
 // newClient serves the gRPC handler over an in-memory connection.
 func newClient(t *testing.T) timerv1.StudyTimerServiceClient {
 	t.Helper()
@@ -41,10 +46,10 @@ func TestGRPC_StartThenGet(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
 
-	if _, err := client.StartTimer(ctx, &timerv1.StartTimerRequest{SessionId: "demo", UserId: "demo"}); err != nil {
+	if _, err := client.StartTimer(ctx, &timerv1.StartTimerRequest{SessionId: demoRoom, UserId: demoUser}); err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	got, err := client.GetTimer(ctx, &timerv1.GetTimerRequest{SessionId: "demo", UserId: "demo"})
+	got, err := client.GetTimer(ctx, &timerv1.GetTimerRequest{SessionId: demoRoom, UserId: demoUser})
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -60,12 +65,12 @@ func TestGRPC_ErrorCodes(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
 
-	_, err := client.PauseTimer(ctx, &timerv1.PauseTimerRequest{SessionId: "demo", UserId: "demo"})
+	_, err := client.PauseTimer(ctx, &timerv1.PauseTimerRequest{SessionId: demoRoom, UserId: demoUser})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("pause stopped timer: code = %v, want FailedPrecondition", status.Code(err))
 	}
 
-	_, err = client.StartTimer(ctx, &timerv1.StartTimerRequest{UserId: "demo"})
+	_, err = client.StartTimer(ctx, &timerv1.StartTimerRequest{UserId: demoUser})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("start without session: code = %v, want InvalidArgument", status.Code(err))
 	}

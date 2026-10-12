@@ -9,7 +9,7 @@ In adherence to microservice autonomy and high cohesion, each service manages it
 | Service | Database / Datastore | Engine | Port | Primary Entities / Collections |
 | :--- | :--- | :--- | :--- | :--- |
 | **Account** | `account_db` | PostgreSQL (Supabase) | `5432` | `users` |
-| **Study Session** | `session_db` | PostgreSQL | `5433` | `study_sessions`, `session_participants` |
+| **Study Session** | `session_db` | PostgreSQL | `5433` | `study_sessions`, `session_participants`, `event_outbox` |
 | **Study Timer** | `timer_db` | PostgreSQL | `5434` | `timer_settings`, `timers`, `cycles`, `processed_events`<br>*(Legacy: `timer_sessions`, `timer_cycles`)* |
 | **Reward** | `reward_db` | MongoDB | `27017` | `reward_items`, `user_rewards` |
 | **Admin Moderation**| `admin_db` | PostgreSQL | `5435` | `admin_logs` |
@@ -39,14 +39,22 @@ The canonical DBML representation is available in [`schema.dbml`](./schema.dbml)
   - `session_id` (UUID, PK)
   - `title` (VARCHAR(150), NOT NULL)
   - `host_id` (UUID, NOT NULL, logical ref to `account_db.users.user_id`)
-  - `is_active` (BOOLEAN, DEFAULT TRUE)
-  - `max_participants` (INT, DEFAULT 4)
+  - `status` (VARCHAR, `ACTIVE` | `ENDED`; replaces Phase 1 `is_active`)
+  - `max_participants` (INT, DEFAULT 5, CHECK 1-5)
+  - `participant_count` (INT, CHECK 0..`max_participants`; the atomic capacity check updates it)
+  - `end_reason` (`EMPTY` | `ADMIN_CLOSED` | `TIMEOUT_24H`)
   - `created_at`, `ended_at` (TIMESTAMPTZ)
-- `session_participants`: Join table tracking participant room roster.
+- `session_participants`: One row per stay of a user in a room (a user can leave and rejoin).
+  - `participant_id` (UUID, PK)
   - `session_id` (UUID, FK -> `study_sessions.session_id`)
   - `user_id` (UUID, logical ref to `account_db.users.user_id`)
-  - `joined_at`, `left_at` (TIMESTAMPTZ)
-  - Composite PK: `(session_id, user_id)`
+  - `display_name` (VARCHAR(100), snapshot shown in the roster)
+  - `joined_at`, `left_at`, `last_seen_at` (TIMESTAMPTZ; `last_seen_at` is the presence heartbeat)
+  - `leave_reason` (`LEFT` | `KICKED` | `DISCONNECT_TIMEOUT` | `IDLE_TIMEOUT` | `SESSION_ENDED`)
+  - Partial unique index `(user_id) WHERE left_at IS NULL`: one active room per user
+- `event_outbox`: Transactional outbox for RabbitMQ.
+  - `id` (BIGSERIAL, PK), `event_id` (UUID, UNIQUE), `routing_key`, `payload` (JSONB)
+  - `created_at`, `published_at` (NULL until confirmed by the broker), `attempts`, `last_error`
 
 #### 3. Study Timer Service (`timer_db` - Phase 2 Specification)
 - `timer_settings`: Per-user pomodoro configuration.

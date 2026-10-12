@@ -97,6 +97,12 @@
   --panel-min-stats: 120.53px;
   --panel-min-tank: 524px;
 
+  /* Study room dock scene: its own art pixel, so five anglers fit side by
+     side on a phone (2px there, below). The fishing line is one screen
+     pixel wide at any scale. */
+  --dock-px: 3px;
+  --dock-line: 1px;
+
   /* Focus history chart. */
   --chart-bar-max: 24px;
   --chart-bar-gap: 2px;
@@ -131,10 +137,18 @@
   }
 }
 
+/* Wide screens: a bigger dock, so the anglers aren't lost in the scene. */
+@media (min-width: 1280px) {
+  :root {
+    --dock-px: 4px;
+  }
+}
+
 /* Below md. */
 @media (max-width: 767px) {
   :root {
     --tank-px: 1px;
+    --dock-px: 2px;
   }
 }
 

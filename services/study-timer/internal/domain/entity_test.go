@@ -1,174 +1,121 @@
-package domain_test
+package domain
 
 import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/neennera/fishertimer/services/study-timer/internal/domain"
 )
 
-var t0 = time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+var t0 = time.Date(2026, 10, 8, 9, 0, 0, 0, time.UTC)
 
-func newTimer() *domain.TimerState {
-	return domain.NewTimer("room-1", "user-1")
+func running(minutes int) *Cycle {
+	return &Cycle{Type: PhaseWork, Status: CycleRunning, DurationSec: minutes * 60, StartedAt: t0, RewardStatus: RewardNone}
 }
 
-func TestNewTimer_IsStoppedWithFullWorkPhase(t *testing.T) {
-	timer := newTimer()
-
-	if timer.Status != domain.StatusStopped || timer.Phase != domain.PhaseWork {
-		t.Fatalf("got status %s phase %s, want STOPPED WORK", timer.Status, timer.Phase)
+func TestCycle_PauseFreezesAndResumeContinues(t *testing.T) {
+	c := running(25)
+	if err := c.Pause(t0.Add(10 * time.Minute)); err != nil {
+		t.Fatal(err)
 	}
-	if got, want := timer.Remaining(t0), domain.DefaultWorkMinutes*time.Minute; got != want {
-		t.Fatalf("remaining = %v, want %v", got, want)
+	// Paused time does not count, however long it lasts.
+	if got := c.Remaining(t0.Add(40 * time.Minute)); got != 15*time.Minute {
+		t.Fatalf("paused remaining = %v, want 15m", got)
 	}
-}
-
-func TestStart_CountsDownFromServerTime(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-
-	if timer.Status != domain.StatusRunning {
-		t.Fatalf("status = %s, want RUNNING", timer.Status)
+	if err := c.Resume(t0.Add(40 * time.Minute)); err != nil {
+		t.Fatal(err)
 	}
-	if got, want := timer.Remaining(t0.Add(10*time.Minute)), 15*time.Minute; got != want {
-		t.Fatalf("remaining after 10m = %v, want %v", got, want)
+	if c.PausedTotalSec != 30*60 {
+		t.Fatalf("paused total = %d, want 1800", c.PausedTotalSec)
 	}
-}
-
-func TestRemainingSeconds_RoundsUp(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-
-	if got, want := timer.RemainingSeconds(t0.Add(400*time.Millisecond)), 25*60; got != want {
-		t.Fatalf("remaining seconds = %d, want %d", got, want)
+	if got := c.Remaining(t0.Add(45 * time.Minute)); got != 10*time.Minute {
+		t.Fatalf("remaining after resume = %v, want 10m", got)
 	}
-	if got := timer.RemainingSeconds(t0.Add(time.Hour)); got != 0 {
-		t.Fatalf("remaining seconds after time ran out = %d, want 0", got)
+	if !c.EndsAt().Equal(t0.Add(55 * time.Minute)) {
+		t.Fatalf("ends at %v", c.EndsAt())
 	}
 }
 
-func TestStart_WhileActiveIsIgnored(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-	timer.Start(t0.Add(5 * time.Minute))
+func TestCycle_CompleteOnlyWhenDue(t *testing.T) {
+	c := running(25)
+	if err := c.Complete(t0.Add(24 * time.Minute)); !errors.Is(err, ErrNotFinished) {
+		t.Fatalf("early complete: %v, want ErrNotFinished", err)
+	}
+	if err := c.Complete(t0.Add(40 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	// Ends when it ran out, not when the completion was noticed.
+	if !c.EndedAt.Equal(t0.Add(25*time.Minute)) || c.RewardStatus != RewardPending {
+		t.Fatalf("completed = %+v", c)
+	}
 
-	if got, want := timer.Remaining(t0.Add(5*time.Minute)), 20*time.Minute; got != want {
-		t.Fatalf("duplicate start restarted the cycle: remaining = %v, want %v", got, want)
+	rest := &Cycle{Type: PhaseRest, Status: CycleRunning, DurationSec: 300, StartedAt: t0}
+	_ = rest.Complete(t0.Add(5 * time.Minute))
+	if rest.RewardStatus == RewardPending {
+		t.Fatalf("rest earned a reward")
 	}
 }
 
-func TestStart_AfterTimeRunsOutBeginsNewWorkPhase(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-	later := t0.Add(30 * time.Minute)
-	timer.Start(later)
-
-	if got, want := timer.Remaining(later), 25*time.Minute; got != want {
-		t.Fatalf("remaining = %v, want %v", got, want)
+func TestCycle_PauseRejectedOnceDue(t *testing.T) {
+	c := running(1)
+	if err := c.Pause(t0.Add(2 * time.Minute)); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("pause after time is up: %v", err)
 	}
 }
 
-func TestPauseResume_FreezesAndContinuesRemainingTime(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
+func TestTimer_StateMachine(t *testing.T) {
+	tm := NewTimer("s", "u", DefaultSettings, t0)
+	if tm.State() != StateReady {
+		t.Fatalf("new timer = %s", tm.State())
+	}
+	tm.Active = running(25)
+	if tm.State() != StateWorkRunning {
+		t.Fatalf("= %s", tm.State())
+	}
+	_ = tm.Active.Pause(t0.Add(time.Minute))
+	if tm.State() != StateWorkPaused {
+		t.Fatalf("= %s", tm.State())
+	}
 
-	if err := timer.Pause(t0.Add(10 * time.Minute)); err != nil {
-		t.Fatalf("pause: %v", err)
+	done := running(25)
+	_ = done.Complete(t0.Add(30 * time.Minute))
+	tm.Active, tm.Last = nil, done
+	if tm.State() != StateReadyForRest {
+		t.Fatalf("after work = %s", tm.State())
 	}
-	// Time spent paused must not count.
-	if got, want := timer.Remaining(t0.Add(40*time.Minute)), 15*time.Minute; got != want {
-		t.Fatalf("remaining while paused = %v, want %v", got, want)
+	v := tm.View(t0.Add(30*time.Minute), DefaultLimits)
+	if v.Phase != PhaseRest || v.Status != StatusStopped || v.DurationSeconds != DefaultRestMinutes*60 {
+		t.Fatalf("ready-for-rest view = %+v", v)
 	}
 
-	resumedAt := t0.Add(40 * time.Minute)
-	if err := timer.Resume(resumedAt); err != nil {
-		t.Fatalf("resume: %v", err)
+	tm.Active = &Cycle{Type: PhaseRest, Status: CycleRunning, DurationSec: 300, StartedAt: t0}
+	if tm.State() != StateRestRunning {
+		t.Fatalf("= %s", tm.State())
 	}
-	if got, want := timer.Remaining(resumedAt.Add(5*time.Minute)), 10*time.Minute; got != want {
-		t.Fatalf("remaining after resume = %v, want %v", got, want)
+	skipped := &Cycle{Type: PhaseRest, Status: CycleSkipped}
+	tm.Active, tm.Last = nil, skipped
+	if tm.State() != StateReady {
+		t.Fatalf("after rest = %s", tm.State())
+	}
+
+	tm.Status = SessionTimerFinalized
+	if tm.State() != StateFinalized {
+		t.Fatalf("= %s", tm.State())
 	}
 }
 
-func TestPause_RejectedUnlessRunningWithTimeLeft(t *testing.T) {
-	cases := map[string]func() *domain.TimerState{
-		"stopped": newTimer,
-		"paused": func() *domain.TimerState {
-			timer := newTimer()
-			timer.Start(t0)
-			_ = timer.Pause(t0)
-			return timer
-		},
-		"time ran out": func() *domain.TimerState {
-			timer := newTimer()
-			timer.Start(t0.Add(-time.Hour))
-			return timer
-		},
+func TestLimits_Check(t *testing.T) {
+	l := Limits{MinWorkMinutes: 5, MaxWorkMinutes: 60, MinRestMinutes: 1, MaxRestMinutes: 30}
+	cases := []struct {
+		phase TimerPhase
+		min   int
+		ok    bool
+	}{
+		{PhaseWork, 4, false}, {PhaseWork, 5, true}, {PhaseWork, 60, true}, {PhaseWork, 61, false},
+		{PhaseRest, 0, false}, {PhaseRest, 30, true}, {PhaseRest, 31, false},
 	}
-	for name, build := range cases {
-		t.Run(name, func(t *testing.T) {
-			if err := build().Pause(t0); !errors.Is(err, domain.ErrInvalidState) {
-				t.Fatalf("err = %v, want ErrInvalidState", err)
-			}
-		})
-	}
-}
-
-func TestResume_RejectedUnlessPaused(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-
-	if err := timer.Resume(t0); !errors.Is(err, domain.ErrInvalidState) {
-		t.Fatalf("err = %v, want ErrInvalidState", err)
-	}
-}
-
-func TestReset_ReturnsToInitialStateButKeepsSettings(t *testing.T) {
-	timer := newTimer()
-	_ = timer.UpdateSetting(50, 10, t0)
-	timer.Start(t0)
-	timer.CompleteCycle(t0.Add(50 * time.Minute))
-
-	timer.Reset(t0.Add(51 * time.Minute))
-
-	if timer.Status != domain.StatusStopped || timer.Phase != domain.PhaseWork || timer.CurrentCycle != 0 {
-		t.Fatalf("got status %s phase %s cycle %d, want STOPPED WORK 0", timer.Status, timer.Phase, timer.CurrentCycle)
-	}
-	if got, want := timer.Remaining(t0.Add(time.Hour)), 50*time.Minute; got != want {
-		t.Fatalf("remaining = %v, want %v (custom work length kept)", got, want)
-	}
-}
-
-func TestCompleteCycle_OnlyWorkCounts(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-
-	if !timer.CompleteCycle(t0) {
-		t.Fatal("completing a work phase should report workCompleted")
-	}
-	if timer.Phase != domain.PhaseRest || timer.CurrentCycle != 1 {
-		t.Fatalf("got phase %s cycle %d, want REST 1", timer.Phase, timer.CurrentCycle)
-	}
-	if timer.CompleteCycle(t0) {
-		t.Fatal("completing a rest phase should not report workCompleted")
-	}
-	if timer.Phase != domain.PhaseWork || timer.CurrentCycle != 1 {
-		t.Fatalf("got phase %s cycle %d, want WORK 1", timer.Phase, timer.CurrentCycle)
-	}
-}
-
-func TestSkipRest_RejectedDuringWork(t *testing.T) {
-	timer := newTimer()
-	timer.Start(t0)
-
-	if err := timer.SkipRest(t0); !errors.Is(err, domain.ErrInvalidState) {
-		t.Fatalf("err = %v, want ErrInvalidState", err)
-	}
-}
-
-func TestUpdateSetting_RejectsNonPositiveLengths(t *testing.T) {
-	if err := newTimer().UpdateSetting(0, 5, t0); !errors.Is(err, domain.ErrInvalid) {
-		t.Fatalf("err = %v, want ErrInvalid", err)
+	for _, c := range cases {
+		if err := l.Check(c.phase, c.min); (err == nil) != c.ok {
+			t.Errorf("%s %d: err = %v", c.phase, c.min, err)
+		}
 	}
 }

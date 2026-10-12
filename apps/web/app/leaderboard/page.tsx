@@ -109,9 +109,16 @@ export default function LeaderboardPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-3xl" aria-hidden="true">
-                  🏆
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/sprites/ui/trophy.png"
+                  alt=""
+                  aria-hidden="true"
+                  width={32}
+                  height={32}
+                  className="pixel-sprite"
+                  style={{ width: 32, height: 32 }}
+                />
                 <h1
                   className="font-display leading-tight"
                   style={{ fontSize: 'calc(var(--px) * 10)' }}
@@ -135,7 +142,7 @@ export default function LeaderboardPage() {
               aria-label="Refresh rankings"
               style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem', minHeight: 0 }}
             >
-              {loading ? '⏳ Updating…' : '🔄 Refresh'}
+              {loading ? 'Updating…' : 'Refresh'}
             </PixelButton>
           </div>
 
@@ -150,7 +157,7 @@ export default function LeaderboardPage() {
                 className="font-numeric text-lg text-ink truncate mt-0.5"
                 title={topAngler?.display_name}
               >
-                {topAngler ? `🥇 ${topAngler.display_name}` : '—'}
+                {topAngler ? topAngler.display_name : '—'}
               </span>
             </div>
 
@@ -168,7 +175,7 @@ export default function LeaderboardPage() {
           {/* ── Error Banner (E-3) ───────────────────────────────────── */}
           {error && (
             <div className="pixel-alert mt-4" role="alert">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
@@ -203,12 +210,13 @@ export default function LeaderboardPage() {
 
 
           {/* ── Bottom Action Navigation ─ */}
-          <div className="mt-6 pt-4 border-t border-[var(--color-rule)] flex flex-wrap items-center justify-between gap-3">
+          <hr className="pixel-rule mt-6" aria-hidden="true" />
+          <div className="pt-4 flex flex-wrap items-center justify-between gap-3">
             <Link href="/">
-              <PixelButton variant="ghost">⏱️ Focus Room (Timer)</PixelButton>
+              <PixelButton variant="ghost">Focus Room</PixelButton>
             </Link>
             <Link href="/account">
-              <PixelButton>👤 My Account Profile</PixelButton>
+              <PixelButton>My Account</PixelButton>
             </Link>
           </div>
         </PixelPanel>

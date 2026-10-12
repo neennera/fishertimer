@@ -155,7 +155,7 @@ export function countFishCaught(items: RewardSummaryItem[]) {
   return caughtSpecies(items).reduce((sum, { count }) => sum + count, 0);
 }
 
-function FishArt({
+export function FishArt({
   sprite,
   rarity,
   still = false,

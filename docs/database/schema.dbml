@@ -24,21 +24,38 @@ Table study_sessions {
   session_id uuid [pk]
   title varchar(150) [not null]
   host_id uuid [not null, note: 'Refers to account_db.users(user_id)']
-  is_active boolean [not null, default: true]
-  max_participants int [not null, default: 4]
+  status varchar(10) [not null, default: 'ACTIVE', note: 'ACTIVE | ENDED']
+  max_participants int [not null, default: 5, note: '1-5']
+  participant_count int [not null, default: 0]
+  end_reason varchar(20) [note: 'EMPTY | ADMIN_CLOSED | TIMEOUT_24H']
   created_at timestamptz [not null]
   ended_at timestamptz
 }
 
 Table session_participants {
+  participant_id uuid [pk]
   session_id uuid [not null]
   user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
+  display_name varchar(100) [not null]
   joined_at timestamptz [not null]
+  last_seen_at timestamptz [not null, note: 'Presence heartbeat']
   left_at timestamptz
+  leave_reason varchar(20) [note: 'LEFT | KICKED | DISCONNECT_TIMEOUT | IDLE_TIMEOUT | SESSION_ENDED']
 
   indexes {
-    (session_id, user_id) [pk]
+    user_id [unique, note: 'WHERE left_at IS NULL: one active room per user']
   }
+}
+
+Table event_outbox {
+  id bigserial [pk]
+  event_id uuid [not null, unique]
+  routing_key varchar(64) [not null]
+  payload jsonb [not null]
+  created_at timestamptz [not null]
+  published_at timestamptz [note: 'NULL until RabbitMQ confirms']
+  attempts int [not null, default: 0]
+  last_error text
 }
 
 Ref: study_sessions.session_id < session_participants.session_id
@@ -93,10 +110,14 @@ Ref: timers.timer_id < cycles.timer_id
 Table timer_sessions {
   timer_session_id uuid [pk]
   user_id uuid [not null, note: 'Refers to account_db.users(user_id)']
-  study_session_id uuid [note: 'Refers to session_db.study_sessions(session_id). Nullable for solo study']
+  study_session_id uuid [note: 'Refers to session_db.study_sessions(session_id)']
   status varchar(20) [not null, note: 'FOCUS | SHORT_BREAK | LONG_BREAK | PAUSED | COMPLETED | STOPPED']
   started_at timestamptz [not null]
   completed_at timestamptz
+
+  indexes {
+    (study_session_id, user_id) [unique, note: 'One timer per participant per room (004)']
+  }
 }
 
 Table timer_cycles {
