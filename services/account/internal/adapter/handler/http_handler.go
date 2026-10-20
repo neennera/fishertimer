@@ -76,6 +76,11 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *HTTPHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	if !h.opts.OAuthConfigured {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"error": "google oauth is not configured: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI",
@@ -105,6 +110,11 @@ func (h *HTTPHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 //	e-mail is new         -> no row written, go to the sign-up page with a
 //	                         15-minute ticket cookie holding the identity
 func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	query := r.URL.Query()
 
 	// Where to land, as asked for at login. Read before the cookies are cleared.
@@ -152,6 +162,11 @@ func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 //
 //	GET -> 200 + the user, or 401 if there is no valid session
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	user, err := h.uc.Authenticate(r.Context(), bearerOrCookie(r))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "sign in required"})
@@ -317,6 +332,11 @@ func (h *HTTPHandler) Rewards(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) SignOut(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	h.clearCookie(w, SessionCookie)
 	h.clearCookie(w, SignUpCookie)
 	writeJSON(w, http.StatusOK, map[string]any{"signed_out": true})
