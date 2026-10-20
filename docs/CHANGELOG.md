@@ -122,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[account]**: `/auth/google`, `/auth/google/callback`, `/me` and `/auth/signout` answer 405 for the wrong HTTP method.
 - **[account]**: If the `next` cookie expired during the Google consent screen, a failed sign-in lands on `/signin` (which can show the error) instead of the home page.
 - **[web]**: Leaderboard requests no longer go through a redirect to a trailing-slash URL.
+- **[leaderboard]**: Errors come back as JSON `{"error": ...}` with a message that is safe to show; a Reward service outage is a 502 instead of a 500 carrying the raw error text.
 
 ### Fixed
 
