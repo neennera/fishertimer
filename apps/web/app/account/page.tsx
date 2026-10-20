@@ -11,7 +11,7 @@ const LOADING = { status: "loading" } as const;
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, setUser, signingOut, handleSignOut } = useSignedInUser();
+  const { user, setUser, signingOut, signOutError, handleSignOut, unavailable, retry } = useSignedInUser();
   const userId = user?.user_id ?? null;
   // Needs the user id from /me. Keyed by it, so a stale answer never shows.
   const [panels, setPanels] = useState<{
@@ -38,7 +38,15 @@ export default function AccountPage() {
   const current = panels?.userId === userId ? panels : null;
 
   return (
-    <ProfileShell title="Account" viewer={user} signingOut={signingOut} onSignOut={handleSignOut}>
+    <ProfileShell
+      title="Account"
+      viewer={user}
+      signingOut={signingOut}
+      onSignOut={handleSignOut}
+      signOutError={signOutError}
+      unavailable={unavailable}
+      onRetry={retry}
+    >
       <ProfileSections
         profile={user ? toPublicProfile(user) : null}
         stats={current?.stats ?? LOADING}

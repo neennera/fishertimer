@@ -10,7 +10,8 @@
 //   GET  /api/auth/google/callback             Google -> backend -> redirect
 //                                              to next/signup (+?auth_error=)
 //   GET  /api/auth/me                          200 + the user, or 401 when not
-//                                              signed in. A pending sign-up
+//                                              signed in (anything else, or no
+//                                              answer, is `unavailable`). A pending sign-up
 //                                              lives only in the ft_signup
 //                                              cookie; /me doesn't report it.
 //   POST /api/auth/signup {display_name}       201 + user, sets ft_session;
@@ -41,8 +42,8 @@ import {
   writeMockAuthState,
   type MockAuthScenario,
 } from './mocks/auth.mock';
-import { validateDisplayName } from './validate-display-name';
 import { USE_MOCKS } from './use-mocks';
+import { validateDisplayName } from './validate-display-name';
 
 export type { AuthErrorCode, UserRole };
 export { AUTH_ERROR_MESSAGES };
@@ -71,8 +72,13 @@ export interface SessionUser {
   updated_at: string;
 }
 
-// GET /me: 200 -> signed_in, anything else -> signed_out.
-export type Session = { status: 'signed_in'; user: SessionUser } | { status: 'signed_out' };
+// GET /me: 200 -> signed_in, 401 -> signed_out. A network error, timeout or 5xx
+// is `unavailable`: we couldn't find out, which is not the same as signed out,
+// so pages offer a retry instead of sending the user to /signin.
+export type Session =
+  | { status: 'signed_in'; user: SessionUser }
+  | { status: 'signed_out' }
+  | { status: 'unavailable' };
 
 export type SessionStatus = Session['status'];
 
@@ -180,8 +186,9 @@ async function fetchSession(): Promise<Session> {
       cachedSession = { status: 'signed_out' };
       return cachedSession;
     }
-    // Network error or 5xx: signed out for now, but ask again next time.
-    return { status: 'signed_out' };
+    // Network error, timeout or 5xx: we don't know. Not cached, so the next
+    // call (a Retry) asks again.
+    return { status: 'unavailable' };
   }
 }
 

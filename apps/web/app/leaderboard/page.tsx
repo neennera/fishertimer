@@ -6,7 +6,7 @@ import { Header } from '../../components/Header';
 import { ParallaxScene } from '../../components/ui/ParallaxScene';
 import { PixelPanel } from '../../components/ui/PixelPanel';
 import { PixelButton } from '../../components/ui/PixelButton';
-import { useSignedInUser } from '../../components/profile/ProfileShell';
+import { SessionUnavailableAlert, useSignedInUser } from '../../components/profile/ProfileShell';
 import { SIGNIN_SCENE_LAYERS } from '../../lib/scenes/signin-scene';
 import { getRewards } from '../../lib/profile';
 import { PeriodTabs } from '../../features/leaderboard/components/PeriodTabs';
@@ -20,7 +20,7 @@ import { useLeaderboard } from '../../features/leaderboard/hooks/useLeaderboard'
  * own row is highlighted (NF-6) and pinned below the table.
  */
 export default function LeaderboardPage() {
-  const { user, signingOut, handleSignOut } = useSignedInUser();
+  const { user, signingOut, handleSignOut, unavailable, retry } = useSignedInUser();
   const { data, loading, error, period, setPeriod, refresh } = useLeaderboard('monthly');
   const [userRewardScore, setUserRewardScore] = useState<number | null>(null);
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
@@ -90,6 +90,11 @@ export default function LeaderboardPage() {
       <div className="flex min-h-screen flex-col">
         <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
         <Header />
+        {unavailable && (
+          <main className="relative mx-auto w-full max-w-2xl px-4 py-8">
+            <SessionUnavailableAlert onRetry={retry} />
+          </main>
+        )}
       </div>
     );
   }

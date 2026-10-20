@@ -41,7 +41,7 @@ function Notice({ title, children }: { title: string; children: string }) {
 
 export default function PublicProfilePage() {
   const { userId } = useParams<{ userId: string }>();
-  const { user, signingOut, handleSignOut } = useSignedInUser();
+  const { user, signingOut, signOutError, handleSignOut, unavailable, retry } = useSignedInUser();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   // All three in parallel, alongside /me.
@@ -71,7 +71,15 @@ export default function PublicProfilePage() {
   const isOwn = user !== null && user.user_id === userId;
 
   return (
-    <ProfileShell title="Profile" viewer={user} signingOut={signingOut} onSignOut={handleSignOut}>
+    <ProfileShell
+      title="Profile"
+      viewer={user}
+      signingOut={signingOut}
+      onSignOut={handleSignOut}
+      signOutError={signOutError}
+      unavailable={unavailable}
+      onRetry={retry}
+    >
       {current?.profile === null ? (
         <Notice title="Fisher not found">This profile doesn&rsquo;t exist, or it has moved.</Notice>
       ) : current?.profile === "error" ? (
