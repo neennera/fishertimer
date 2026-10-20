@@ -55,6 +55,8 @@ func main() {
 	workerCtx, stopWorkers := context.WithCancel(context.Background())
 	defer stopWorkers()
 	go usecase.NewOutboxRelay(repo, publisher, cfg.OutboxInterval).Run(workerCtx)
+	// Renames from Account (profile.updated) reach the rooms people are in.
+	go sessionAMQP.NewProfileConsumer(cfg.RabbitMQURL, uc).Run(workerCtx)
 	go usecase.NewSweeper(uc, repo, timerClient, usecase.SweeperConfig{
 		Interval:          cfg.SweepInterval,
 		MaxSessionAge:     cfg.MaxSessionAge,

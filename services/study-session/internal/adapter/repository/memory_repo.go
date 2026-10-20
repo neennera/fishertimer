@@ -216,6 +216,17 @@ func (r *InMemoryRepository) GetLastParticipation(ctx context.Context, sessionID
 	return nil, domain.ErrNotFound
 }
 
+func (r *InMemoryRepository) RenameParticipant(ctx context.Context, userID, displayName string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	i := r.activeIndex(userID)
+	if i < 0 {
+		return 0, nil
+	}
+	r.participants[i].DisplayName = displayName
+	return 1, nil
+}
+
 func (r *InMemoryRepository) TouchParticipant(ctx context.Context, sessionID, userID string, now time.Time) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
