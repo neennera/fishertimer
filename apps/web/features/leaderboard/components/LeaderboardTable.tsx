@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RankEntry } from '../types';
 import { cx } from '../../../lib/cx';
 import { PixelButton } from '../../../components/ui/PixelButton';
+import { hasVisibleText, initials as initialsOf } from '../../../lib/initials';
 
 export const LEADERBOARD_PAGE_SIZE = 5;
 
@@ -21,7 +22,7 @@ const EMPTY_FISH = '/sprites/fish/Ghostfish.png';
 
 // An account with no usable display name still gets a readable row.
 const UNKNOWN_ANGLER = 'Unknown angler';
-const nameOf = (entry: RankEntry) => entry.display_name.trim() || UNKNOWN_ANGLER;
+const nameOf = (entry: RankEntry) => (hasVisibleText(entry.display_name) ? entry.display_name.trim() : UNKNOWN_ANGLER);
 
 export interface LeaderboardTableProps {
   entries: RankEntry[];
@@ -200,12 +201,8 @@ function Row({
   const [failedAvatar, setFailedAvatar] = useState(false);
   const podium = RANK_BADGES[entry.rank];
   const name = nameOf(entry);
-  const initials = (entry.display_name.trim() ? name : '?')
-    .split(/\s+/)
-    .map((p) => Array.from(p)[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  // The shared helper: whole emoji, no invisible characters, "?" for a nameless row.
+  const rowInitials = initialsOf(entry.display_name);
 
   const showAvatar = Boolean(entry.avatar_url && !failedAvatar);
 
@@ -264,7 +261,7 @@ function Row({
               onError={() => setFailedAvatar(true)}
             />
           ) : (
-            initials
+            rowInitials
           )}
         </span>
 
