@@ -42,24 +42,24 @@ export default function Home() {
       <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
       <SessionHeader />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
-        <PixelPanel>
+        <PixelPanel as="section" aria-labelledby="home-heading">
           <h1
+            id="home-heading"
             className="font-display leading-tight"
-            style={{ fontSize: "calc(var(--px) * 10)" }}
+            style={{ fontSize: "calc(var(--px) * 12)" }}
           >
-            <Fish aria-hidden="true" className="mr-2 inline-block h-[1em] w-[1em] align-[-0.1em]" />
             Fisher Timer
           </h1>
-          <p className="mt-2 text-bark">
+          <p className="mt-2 max-w-prose text-lg text-ink">
             Study in focused sessions, catch fish, climb the leaderboard.
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-4">
-            <Link href="/rooms" className="pixel-btn">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link href="/rooms" className="pixel-btn min-h-11">
               Start Studying
             </Link>
-            <Link href="/settings" className="underline underline-offset-4">
-              <Gear aria-hidden="true" className="mr-1 inline-block h-[1.1em] w-[1.1em] align-[-0.15em]" />
+            <Link href="/settings" className="pixel-btn pixel-btn--ghost min-h-11">
+              <Gear aria-hidden="true" className="h-5 w-5" />
               Timer defaults
             </Link>
           </div>
