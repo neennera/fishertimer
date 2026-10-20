@@ -11,7 +11,8 @@ import { SIGNIN_SCENE_LAYERS } from "../../lib/scenes/signin-scene";
 /**
  * The timer only runs inside a room (UC-05: the user is an active
  * participant), so this sends the user to the room they are in, or to the
- * lake to pick or open one. The lake also handles being signed out.
+ * lake to pick or open one. The lake also handles being signed out, or the
+ * sign-in check failing.
  */
 export default function TimerPage() {
   const router = useRouter();
@@ -19,7 +20,8 @@ export default function TimerPage() {
 
   useEffect(() => {
     if (actorState.status === "loading") return;
-    if (actorState.status === "signed_out") {
+    if (actorState.status === "signed_out" || actorState.status === "unavailable") {
+      // The lake handles both: it asks to sign in, or says the sign-in check failed, with a Retry.
       router.replace("/rooms");
       return;
     }

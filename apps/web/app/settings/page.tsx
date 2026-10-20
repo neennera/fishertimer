@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SessionHeader } from "../../components/SessionHeader";
 import { PixelAlert } from "../../components/ui/PixelAlert";
+import { SessionUnavailableAlert } from "../../components/profile/ProfileShell";
 import { PixelPanel } from "../../components/ui/PixelPanel";
 import { ParallaxScene } from "../../components/ui/ParallaxScene";
 import { useActor } from "../../features/session/useActor";
@@ -42,7 +43,9 @@ export default function SettingsPage() {
           <p className="mt-2 text-sm text-bark">How long a focus block and a break start out as, in every room.</p>
 
           <div className="mt-6">
-            {actorState.status === "signed_out" ? (
+            {actorState.status === "unavailable" ? (
+              <SessionUnavailableAlert onRetry={actorState.retry} />
+            ) : actorState.status === "signed_out" ? (
               <div className="pixel-placeholder text-center">
                 <p>Sign in to save your timer defaults.</p>
                 <Link href="/signin" className="pixel-btn mt-4">
