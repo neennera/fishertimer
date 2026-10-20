@@ -144,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The dialog close button is 44px on phones.
 - **[web]**: When a Retry after a failed sign-in check succeeds, every other "couldn't check your sign-in" banner on the page clears too.
 - **[web]**: Rooms, a room, Settings and Dev tools show the Retry banner when the sign-in check fails, instead of acting as if the user were signed out; `/timer` sends them to the rooms page, which shows the banner.
+- **[web]**: The page header shows a Retry button instead of Sign in when the sign-in check fails.
 
 ### Fixed
 
