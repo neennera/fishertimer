@@ -111,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: API calls give up after 15 seconds and show an error instead of loading forever.
 - **[web]**: Error alerts are read out by screen readers straight away (`role="alert"`).
 - **[web]**: A production build talks to the real backend unless `NEXT_PUBLIC_USE_MOCKS=true`; mocks stay the default only in `next dev`.
+- **[web]**: When the sign-in check fails (offline, timeout, server error) the Account, Profile and Leaderboard pages show a Retry banner instead of sending the user to the sign-in page.
 
 ### Fixed
 
