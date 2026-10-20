@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/neennera/fishertimer/services/account/internal/domain"
@@ -257,13 +258,35 @@ func summarizeRewards(catches []domain.UnlockedReward) *domain.RewardsSummary {
 	return summary
 }
 
-// validDisplayName trims the name and checks it fits users.display_name.
+// validDisplayName trims the name and checks it fits users.display_name and
+// shows something: no control characters, and not only invisible ones
+// (zero-width space/joiners, BOM, word joiner) that TrimSpace leaves behind.
 func validDisplayName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > domain.MaxDisplayNameLength {
 		return "", domain.ErrInvalid
 	}
+	visible := false
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return "", domain.ErrInvalid
+		}
+		if !unicode.IsSpace(r) && !isInvisible(r) {
+			visible = true
+		}
+	}
+	if !visible {
+		return "", domain.ErrInvalid
+	}
 	return name, nil
+}
+
+func isInvisible(r rune) bool {
+	switch r {
+	case '\u200b', '\u200c', '\u200d', '\u2060', '\ufeff':
+		return true
+	}
+	return false
 }
 
 // newUserID returns a version 4 UUID, matching the `user_id uuid` column.
