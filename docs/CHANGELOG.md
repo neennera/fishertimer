@@ -123,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[account]**: If the `next` cookie expired during the Google consent screen, a failed sign-in lands on `/signin` (which can show the error) instead of the home page.
 - **[web]**: Leaderboard requests no longer go through a redirect to a trailing-slash URL.
 - **[leaderboard]**: Errors come back as JSON `{"error": ...}` with a message that is safe to show; a Reward service outage is a 502 instead of a 500 carrying the raw error text.
+- **[web]**: A failed leaderboard load says what happened and what to do, and switching periods never shows the previous period's rows under the new tab.
 
 ### Fixed
 
