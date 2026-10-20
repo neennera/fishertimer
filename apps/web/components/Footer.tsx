@@ -13,7 +13,7 @@ const MAKERS = [
  */
 export function Footer() {
   return (
-    <footer className="mx-auto w-full max-w-5xl px-4 pb-6 pt-2 text-center text-sm leading-snug text-white [text-shadow:0_1px_0_var(--color-ink)]">
+    <footer className="w-full px-4 pb-6 pt-2 text-center text-sm lg:whitespace-nowrap leading-snug text-white [text-shadow:0_1px_0_var(--color-ink)]">
       <p>© 2026 Fisher Timer. Made by {MAKERS.join(", ")}.</p>
       <p>Software Architecture project.</p>
     </footer>
