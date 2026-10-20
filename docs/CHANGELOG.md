@@ -126,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: A failed leaderboard load says what happened and what to do, and switching periods never shows the previous period's rows under the new tab.
 - **[web]**: When the leaderboard fails to load, a banner with a Retry button replaces the empty table (rows already loaded stay visible).
 - **[web]**: The leaderboard period tabs and Refresh button are 44px tall on phones.
+- **[web]**: The leaderboard asks for each user's avatar once (no repeated requests on every update) and keeps a late answer.
 
 ### Fixed
 
