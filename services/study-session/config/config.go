@@ -21,7 +21,9 @@ type Config struct {
 	// MaxSessionAge auto-ends rooms (UC-03 E-6). 0 disables.
 	MaxSessionAge time.Duration
 	// DisconnectTimeout auto-leaves participants without heartbeats
-	// (UC-03 E-3). 0 disables.
+	// (UC-03 E-3). 0 disables. The room page beats every 10s, but browsers
+	// slow a hidden tab's timers to about once a minute, so this must stay
+	// well above 60s or students studying in another tab get removed.
 	DisconnectTimeout time.Duration
 	// IdleTimeout auto-leaves participants with no running work cycle
 	// (UC-03 E-7, IDLE_TIMEOUT_MINUTES). 0 disables.
@@ -62,7 +64,7 @@ func Load() *Config {
 		OutboxInterval:    time.Duration(envInt("SESSION_OUTBOX_INTERVAL_MS", 500)) * time.Millisecond,
 		SweepInterval:     time.Duration(envInt("SESSION_SWEEP_INTERVAL_SECONDS", 5)) * time.Second,
 		MaxSessionAge:     time.Duration(envInt("SESSION_MAX_AGE_HOURS", 24)) * time.Hour,
-		DisconnectTimeout: time.Duration(envInt("SESSION_DISCONNECT_TIMEOUT_SECONDS", 60)) * time.Second,
+		DisconnectTimeout: time.Duration(envInt("SESSION_DISCONNECT_TIMEOUT_SECONDS", 120)) * time.Second,
 		IdleTimeout:       time.Duration(envInt("IDLE_TIMEOUT_MINUTES", 10)) * time.Minute,
 	}
 }
