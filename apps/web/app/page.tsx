@@ -9,6 +9,13 @@ import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelPanel } from "../components/ui/PixelPanel";
 import { SIGNIN_SCENE_LAYERS } from "../lib/scenes/signin-scene";
 
+// The three steps of a session, in order.
+const STEPS = [
+  { title: "Join a room", description: "Pick an open room or start your own." },
+  { title: "Focus, then rest", description: "Work in timed blocks with breaks." },
+  { title: "Catch a fish", description: "Every finished block earns a fish." },
+];
+
 // Where to go next. The timer itself lives inside a room, so "Study rooms"
 // is also the way to the timer.
 const DESTINATIONS = [
@@ -63,6 +70,25 @@ export default function Home() {
               Timer defaults
             </Link>
           </div>
+        </PixelPanel>
+
+        <PixelPanel as="section" aria-labelledby="how-heading">
+          <h2 id="how-heading" className="font-display text-2xl">
+            How it works
+          </h2>
+          <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {STEPS.map(({ title, description }, i) => (
+              <li
+                key={title}
+                className="flex flex-col gap-1 p-3 sm:p-4"
+                style={{ background: "var(--color-tile)" }}
+              >
+                <span className="font-label text-sm text-bark">Step {i + 1}</span>
+                <span className="font-display text-xl">{title}</span>
+                <span className="text-base text-ink">{description}</span>
+              </li>
+            ))}
+          </ol>
         </PixelPanel>
 
         <PixelPanel as="nav" aria-labelledby="go-heading">
