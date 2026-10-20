@@ -38,6 +38,10 @@ type Config struct {
 
 	// Reward service collaborator, for GET /api/v1/account/rewards.
 	RewardServiceURL string
+
+	// RabbitMQ, where profile.updated is published. Dialed lazily: the service
+	// starts and keeps working while the broker is down.
+	RabbitMQURL string
 }
 
 // OAuthConfigured reports whether real Google credentials are present. Without
@@ -139,6 +143,7 @@ func Load() *Config {
 		CookieSecure: env == "production",
 
 		TimerServiceURL:  getenv("TIMER_SERVICE_URL", "http://localhost:8084"),
+		RabbitMQURL:      getenv("RABBITMQ_URL", "amqp://admin:adminpassword@localhost:5672/"),
 		RewardServiceURL: getenv("REWARD_SERVICE_URL", "http://localhost:8085"),
 	}
 }
