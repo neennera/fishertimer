@@ -60,7 +60,7 @@ export function Header({
               alt=""
               width={28}
               height={28}
-              className="pixel-sprite"
+              className={cx("pixel-sprite", i > 0 && "hidden sm:block")}
               style={{
                 imageRendering: "pixelated",
                 width: 28,
@@ -114,7 +114,7 @@ export function Header({
       )}
 
       {!user && showSignIn && (
-        <Link href="/signin" className="pixel-btn pixel-btn--sm pixel-header__action">
+        <Link href="/signin" className="pixel-btn pixel-btn--sm pixel-header__action whitespace-nowrap">
           Sign in
         </Link>
       )}
