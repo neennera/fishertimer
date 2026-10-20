@@ -285,7 +285,11 @@ function Row({
             className="text-xs truncate font-label opacity-75"
             style={{ fontSize: 'calc(var(--px) * 2.8)' }}
           >
-            {isMe ? (entry.rank > 0 ? 'Your ranking' : 'Your ranking · Unranked') : `Fisher ID: ${entry.user_id}`}
+            {isMe
+              ? entry.rank > 0
+                ? 'Your ranking'
+                : 'Your ranking · Unranked'
+              : `${entry.reward_count} fish caught`}
           </span>
         </div>
       </div>
