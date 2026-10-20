@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "pixelarticons/react/ArrowRight";
 import { Footer } from "../components/Footer";
+import { HangingSign } from "../components/HangingSign";
 import { SessionHeader } from "../components/SessionHeader";
 import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelPanel } from "../components/ui/PixelPanel";
@@ -45,30 +46,30 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
       <SessionHeader />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
-        <PixelPanel as="section" aria-labelledby="home-heading">
-          <h1
-            id="home-heading"
-            className="font-display leading-tight"
-            style={{ fontSize: "calc(var(--px) * 12)" }}
-          >
-            Fisher Timer
-          </h1>
-          <p className="mt-2 max-w-prose text-lg text-ink">
-            Study in focused sessions, catch fish, climb the leaderboard.
-          </p>
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-8 pt-44 sm:pb-12">
+        {/* The sign stands on the top edge of this panel and carries the title. */}
+        <div className="relative">
+          <HangingSign />
+          <PixelPanel as="section" aria-labelledby="home-heading">
+            <h1 id="home-heading" className="sr-only">
+              Fisher Timer
+            </h1>
+            <p className="max-w-prose text-lg text-ink">
+              Study in focused sessions, catch fish, climb the leaderboard.
+            </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link href="/rooms" className="pixel-btn min-h-11">
-              Start Studying
-            </Link>
-            <Link href="/settings" className="pixel-btn pixel-btn--ghost min-h-11">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/sprites/ui/gear.png" alt="" className="pixel-sprite h-6 w-6" />
-              Timer defaults
-            </Link>
-          </div>
-        </PixelPanel>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link href="/rooms" className="pixel-btn min-h-11">
+                Start Studying
+              </Link>
+              <Link href="/settings" className="pixel-btn pixel-btn--ghost min-h-11">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/sprites/ui/gear.png" alt="" className="pixel-sprite h-6 w-6" />
+                Timer defaults
+              </Link>
+            </div>
+          </PixelPanel>
+        </div>
 
         <PixelPanel as="section" aria-labelledby="how-heading">
           <h2 id="how-heading" className="font-display text-2xl">
