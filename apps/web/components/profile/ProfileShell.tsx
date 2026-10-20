@@ -88,7 +88,7 @@ export function SessionUnavailableAlert({ onRetry, className }: { onRetry: () =>
   return (
     <PixelAlert className={`flex flex-wrap items-center justify-between gap-3 ${className ?? ""}`}>
       <span>{SESSION_UNAVAILABLE_MESSAGE}</span>
-      <PixelButton small onClick={onRetry}>
+      <PixelButton small className="min-h-11 sm:min-h-0" onClick={onRetry}>
         Retry
       </PixelButton>
     </PixelAlert>

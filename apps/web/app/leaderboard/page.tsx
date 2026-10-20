@@ -197,7 +197,7 @@ export default function LeaderboardPage() {
               <span>
                 {data ? `${error} Showing the last rankings loaded.` : error}
               </span>
-              <PixelButton small onClick={refresh} disabled={loading}>
+              <PixelButton small className="min-h-11 sm:min-h-0" onClick={refresh} disabled={loading}>
                 {loading ? 'Retrying…' : 'Retry'}
               </PixelButton>
             </PixelAlert>
