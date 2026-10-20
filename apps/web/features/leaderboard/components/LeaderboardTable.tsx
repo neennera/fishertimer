@@ -268,7 +268,7 @@ function Row({
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className="font-numeric text-base tracking-wide break-words line-clamp-2 sm:truncate sm:line-clamp-none"
+              className="font-numeric text-base tracking-wide break-words line-clamp-2 sm:block sm:truncate"
               style={{ fontSize: 'calc(var(--px) * 5.2)' }}
               title={name}
             >
