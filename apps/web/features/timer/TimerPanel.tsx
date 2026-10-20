@@ -300,6 +300,7 @@ export function TimerPanel({ owner, joinedAt }: { owner: TimerOwner; joinedAt?: 
       )}
 
       <CatchReveal
+        key={completed?.cycleId}
         block={completed}
         userId={owner.userId}
         onClose={dismissCompleted}
