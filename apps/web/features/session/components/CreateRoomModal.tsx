@@ -23,7 +23,8 @@ export interface CreateRoomModalProps {
 export function CreateRoomModal({ open, onClose, onCreate }: CreateRoomModalProps) {
   const [name, setName] = useState("");
   const [limit, setLimit] = useState<number>(ROOM_RULES.maxLimit);
-  // Errors stay hidden until the first Open room press, then follow the input.
+  // Errors show only for the last Open room press; editing the name clears
+  // them until the next press.
   const [submitted, setSubmitted] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +70,10 @@ export function CreateRoomModal({ open, onClose, onCreate }: CreateRoomModalProp
             placeholder="e.g. Midterm grind"
             value={name}
             maxLength={ROOM_RULES.maxNameLength + 10}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setSubmitted(false);
+            }}
             error={showErrors.name}
             hint={`${[...name.trim()].length}/${ROOM_RULES.maxNameLength} · every room is public`}
             autoFocus
