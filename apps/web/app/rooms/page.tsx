@@ -19,6 +19,8 @@ const NOTICES: Record<string, string> = {
   IDLE_TIMEOUT: "No focus block ran for 10 minutes, so you were moved off the dock.",
   DISCONNECT_TIMEOUT: "We lost your connection, so you were moved off the dock.",
   SESSION_ENDED: "That room has closed.",
+  ADMIN_CLOSED: "An admin closed that room.",
+  TIMEOUT_24H: "That room closed after 24 hours. Open a new one to keep going.",
   ROOM_NOT_FOUND: "That room doesn't exist any more.",
 };
 
@@ -85,18 +87,6 @@ export default function RoomsPage() {
             </div>
           ) : (
             <>
-              {myRoom && (
-                <div className="pixel-tile pixel-room-card pixel-room-card--mine mt-6">
-                  <div className="min-w-0 flex-1">
-                    <p className="pixel-room-card__meta">Your line is still in the water</p>
-                    <p className="pixel-room-card__name">{myRoom.name}</p>
-                  </div>
-                  <Link href={`/rooms/${myRoom.id}`} className="pixel-btn">
-                    Return
-                  </Link>
-                </div>
-              )}
-
               {actions.joinError && (
                 <PixelAlert className="mt-5 flex items-start justify-between gap-3">
                   <span>{actions.joinError}</span>
