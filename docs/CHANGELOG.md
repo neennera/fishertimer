@@ -141,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The audit log refreshes on its own, keeps showing the last entries with an "out of date" note when a refresh fails, and says when only the latest 100 are shown.
 - **[web]**: The admin room list, room page and audit log fit a 375px phone: long room names wrap, buttons are 44px tall, and the Kick and Close buttons stack under the title.
 - **[web]**: Dialogs keep Tab inside them, give focus back to the button that opened them, and use a unique title id.
+- **[web]**: The dialog close button is 44px on phones.
 
 ### Fixed
 
