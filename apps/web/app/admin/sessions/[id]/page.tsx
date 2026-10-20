@@ -154,9 +154,9 @@ export default function AdminSessionDetailPage() {
 
           {session && (
             <>
-              <div className="mt-1 flex items-start justify-between gap-4">
+              <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h1 id="room-heading" className="truncate font-display text-4xl leading-none" title={session.title}>
+                  <h1 id="room-heading" className="[overflow-wrap:anywhere] font-display text-4xl leading-none" title={session.title}>
                     {session.title}
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -190,7 +190,7 @@ export default function AdminSessionDetailPage() {
                     <li key={p.user_id} className="pixel-tile pixel-room-card">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-display text-xl leading-none">
+                          <span className="min-w-0 [overflow-wrap:anywhere] font-display text-xl leading-none">
                             {p.display_name ?? 'Unnamed angler'}
                           </span>
                           {p.is_host && <PixelBadge className="pixel-badge--wood">HOST</PixelBadge>}
@@ -200,7 +200,7 @@ export default function AdminSessionDetailPage() {
                       {!p.is_host && (
                         <PixelButton
                           variant="danger"
-                          className="pixel-btn--sm flex-none"
+                          className="pixel-btn--sm min-h-11 flex-none sm:min-h-0"
                           onClick={() => setKickTarget(p)}
                           disabled={stale}
                           title={stale ? 'Out of date: wait for the list to refresh' : undefined}

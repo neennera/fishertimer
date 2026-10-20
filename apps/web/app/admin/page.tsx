@@ -67,7 +67,7 @@ export default function AdminPage() {
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="pixel-room-card__name" title={s.title}>
+                        <p className="pixel-room-card__name whitespace-normal [overflow-wrap:anywhere]" title={s.title}>
                           {s.title}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -78,7 +78,7 @@ export default function AdminPage() {
                           </span>
                         </div>
                       </div>
-                      <Link href={`/admin/sessions/${s.session_id}`} className="pixel-btn">
+                      <Link href={`/admin/sessions/${s.session_id}`} className="pixel-btn flex-none">
                         Inspect
                       </Link>
                     </li>

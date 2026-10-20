@@ -69,7 +69,7 @@ export default function AdminLogsPage() {
                     <PixelButton
                       key={f.label}
                       variant={f.value === filter ? 'primary' : 'ghost'}
-                      className="pixel-btn--sm"
+                      className="pixel-btn--sm min-h-11 sm:min-h-0"
                       aria-pressed={f.value === filter}
                       onClick={() => setFilter(f.value)}
                     >
@@ -109,7 +109,7 @@ export default function AdminLogsPage() {
                             {formatDateTime(l.created_at)}
                           </time>
                         </div>
-                        <p className="mt-2 text-sm">{l.reason ?? <span className="text-bark">No reason given</span>}</p>
+                        <p className="mt-2 text-sm [overflow-wrap:anywhere]">{l.reason ?? <span className="text-bark">No reason given</span>}</p>
                         <p className="pixel-room-card__meta mt-1.5">
                           <span title={l.target_id}>
                             {l.action === 'KICK_USER' ? 'Angler' : 'Room'} {shortId(l.target_id)}
