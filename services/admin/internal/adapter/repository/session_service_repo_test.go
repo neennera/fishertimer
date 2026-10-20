@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/neennera/fishertimer/services/admin/internal/adapter/repository"
@@ -76,5 +77,22 @@ func TestListActiveSessions_UpstreamFailure(t *testing.T) {
 	_, err := repository.NewSessionService(srv.URL).ListActiveSessions(context.Background())
 	if !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("expected ErrUpstream, got %v", err)
+	}
+}
+
+// The 400 text reaches the admin's screen, so it must not carry the internal
+// request path.
+func TestListParticipants_RejectedIDMessageHasNoInternalPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer srv.Close()
+
+	_, err := repository.NewSessionService(srv.URL).ListParticipants(context.Background(), "not-a-uuid")
+	if !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("expected ErrInvalid, got %v", err)
+	}
+	if strings.Contains(err.Error(), "/api/") || strings.Contains(err.Error(), "GET") {
+		t.Fatalf("internal path leaked into the message: %q", err.Error())
 	}
 }
