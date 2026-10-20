@@ -73,7 +73,7 @@ func (s *service) ViewSessionDetails(ctx context.Context, sessionID string) (*do
 	}
 	for i := range parts {
 		parts[i].SessionID = sessionID
-		parts[i].IsHost = parts[i].UserID == sess.HostID
+		parts[i].IsHost = strings.EqualFold(parts[i].UserID, sess.HostID)
 		if parts[i].IsHost {
 			sess.HostName = parts[i].DisplayName
 		}
@@ -95,8 +95,16 @@ func (s *service) KickUser(ctx context.Context, adminID, sessionID, userID, reas
 	if err != nil {
 		return nil, err
 	}
-	if err := s.requireLive(ctx, sessionID); err != nil {
+	room, err := s.requireLive(ctx, sessionID)
+	if err != nil {
 		return nil, err
+	}
+	// A room without its host is left with nobody in charge (host_id would
+	// point at someone who is gone), so the host is not removable one by one:
+	// close the room instead.
+	// EqualFold: isUUID accepts upper case and Postgres compares uuids without case.
+	if strings.EqualFold(room.HostID, userID) {
+		return nil, fmt.Errorf("%w: The host can't be removed. Close the room instead.", domain.ErrInvalid)
 	}
 
 	var ended bool
@@ -124,7 +132,7 @@ func (s *service) EndSession(ctx context.Context, adminID, sessionID, reason str
 	}
 	// Study Session answers 200 for a room that has already ended, so the
 	// "already ended" case is detected here instead (UC-10 E-3).
-	if err := s.requireLive(ctx, sessionID); err != nil {
+	if _, err := s.requireLive(ctx, sessionID); err != nil {
 		return nil, err
 	}
 
@@ -147,12 +155,12 @@ func (s *service) ViewLogs(ctx context.Context, action string) ([]domain.AdminLo
 
 // requireLive turns "room is not live" into ErrStateChanged, so the admin is
 // told the room changed under them and refreshes (UC-10 E-3).
-func (s *service) requireLive(ctx context.Context, sessionID string) error {
-	_, err := s.sessions.GetActiveSession(ctx, sessionID)
+func (s *service) requireLive(ctx context.Context, sessionID string) (*domain.SessionOverview, error) {
+	room, err := s.sessions.GetActiveSession(ctx, sessionID)
 	if errors.Is(err, domain.ErrNotFound) {
-		return fmt.Errorf("%w: room is no longer active", domain.ErrStateChanged)
+		return nil, fmt.Errorf("%w: This room is no longer active.", domain.ErrStateChanged)
 	}
-	return err
+	return room, err
 }
 
 func newLog(adminID string, action domain.AdminAction, targetID, reason string) (*domain.AdminLog, error) {
