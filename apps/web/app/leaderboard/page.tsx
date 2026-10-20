@@ -146,7 +146,8 @@ export default function LeaderboardPage() {
               onClick={refresh}
               disabled={loading}
               aria-label="Refresh rankings"
-              style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem', minHeight: 0 }}
+              className="min-h-11 sm:min-h-0"
+              style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem' }}
             >
               {loading ? 'Updating…' : 'Refresh'}
             </PixelButton>
