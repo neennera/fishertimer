@@ -28,7 +28,8 @@ export interface CatchRevealProps {
 
 /**
  * UC-09 step 9: after a work block completes, reel in what it caught. The
- * fish are read from Reward (awarded at or after the block's end).
+ * fish are read from Reward (awarded at or after the block's end). Render it
+ * with `key={block.cycleId}` so each block starts from a fresh "reeling in".
  */
 export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak, onSkipBreak }: CatchRevealProps) {
   const [fish, setFish] = useState<CaughtFish[] | null>(null);
@@ -42,8 +43,6 @@ export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak
     const timers: number[] = [];
     const from = new Date(new Date(block.completedAt).getTime() - 5_000);
 
-    setFish(null);
-    setLooking(true);
     LOOK_AFTER_MS.forEach((delay, i) => {
       timers.push(
         window.setTimeout(async () => {
