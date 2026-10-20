@@ -119,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[account]**: Display names with control characters, or made only of spaces and invisible characters, are rejected.
 - **[account]**: `/profile`, `/statistics` and `/rewards` answer 404 (not 500) for an id that is not a UUID.
 - **[account]**: Submitting the sign-up form in two tabs at once signs in to the account that was created, instead of failing with a 500.
+- **[account]**: `/auth/google`, `/auth/google/callback`, `/me` and `/auth/signout` answer 405 for the wrong HTTP method.
 
 ### Fixed
 
