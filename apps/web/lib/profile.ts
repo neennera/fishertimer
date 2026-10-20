@@ -61,7 +61,7 @@ async function fetched<T>(call: () => Promise<T>): Promise<Fetched<T>> {
 /** null if there's no such user; other failures throw. E-mail and role are
  * stripped here and never leave. */
 export async function getPublicProfile(userId: string): Promise<PublicProfile | null> {
-  // The backend answers 500 for a malformed id.
+  // A malformed id can't match a user: answer null without a request.
   if (!isUserId(userId)) {
     return null;
   }
