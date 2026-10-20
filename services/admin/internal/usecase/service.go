@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/neennera/fishertimer/services/admin/internal/domain"
 )
@@ -161,8 +162,10 @@ func newLog(adminID string, action domain.AdminAction, targetID, reason string) 
 	}
 	entry := &domain.AdminLog{AdminID: adminID, Action: action, TargetID: targetID}
 	if r := strings.TrimSpace(reason); r != "" {
-		if len(r) > domain.MaxReasonLength {
-			return nil, fmt.Errorf("%w: reason must be at most %d characters", domain.ErrInvalid, domain.MaxReasonLength)
+		// Counted in characters (runes), as the API docs say: a byte count would
+		// reject a 200-character Thai reason that the form allows.
+		if utf8.RuneCountInString(r) > domain.MaxReasonLength {
+			return nil, fmt.Errorf("%w: The reason must be at most %d characters.", domain.ErrInvalid, domain.MaxReasonLength)
 		}
 		entry.Reason = &r
 	}
