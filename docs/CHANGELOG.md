@@ -110,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
 - **[web]**: API calls give up after 15 seconds and show an error instead of loading forever.
 - **[web]**: Error alerts are read out by screen readers straight away (`role="alert"`).
+- **[web]**: A production build talks to the real backend unless `NEXT_PUBLIC_USE_MOCKS=true`; mocks stay the default only in `next dev`.
 
 ### Fixed
 
