@@ -150,7 +150,14 @@ func (s *service) CompleteSignUp(ctx context.Context, token, displayName string)
 		UpdatedAt:   now,
 	}
 	if err := s.repo.CreateUser(ctx, user); err != nil {
-		return nil, err
+		// Two submits racing (two tabs): the other one created the account
+		// between our lookup and insert and we hit UNIQUE(email). Sign into
+		// that account, as the sequential double-submit above does.
+		existing, lookupErr := s.repo.GetUserByEmail(ctx, ticket.Email)
+		if lookupErr != nil {
+			return nil, err
+		}
+		return s.newSession(existing)
 	}
 	return s.newSession(user)
 }
