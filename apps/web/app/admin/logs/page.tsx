@@ -40,16 +40,15 @@ export default function AdminLogsPage() {
     <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
       <div className="w-full max-w-2xl">
         <PixelPanel as="section" aria-labelledby="logs-heading">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
-              <h1 id="logs-heading" className="font-display text-4xl leading-none">
-                Audit Log
-              </h1>
-              <p className="mt-2 text-sm text-bark">The latest anglers removed and rooms closed by admins.</p>
-            </div>
-            <AdminNav active="logs" />
+          <div>
+            <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
+            <h1 id="logs-heading" className="font-display text-4xl leading-none">
+              Audit Log
+            </h1>
+            <p className="mt-2 text-sm text-bark">The latest anglers removed and rooms closed by admins.</p>
           </div>
+          {/* Under the heading on every admin page, so it never moves with the intro text's length. */}
+          <AdminNav active="logs" className="mt-4" />
 
           {error ? <AdminError error={error} fallback="Failed to load the audit log" onRetry={refresh} /> : null}
 

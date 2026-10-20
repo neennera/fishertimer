@@ -19,18 +19,17 @@ export default function AdminPage() {
     <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
       <div className="w-full max-w-2xl">
         <PixelPanel as="section" aria-labelledby="admin-heading">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
-              <h1 id="admin-heading" className="font-display text-4xl leading-none">
-                Live Rooms
-              </h1>
-              <p className="mt-2 text-sm text-bark">
-                Every open room on the lake. Inspect one to remove an angler or close it.
-              </p>
-            </div>
-            <AdminNav active="sessions" />
+          <div>
+            <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
+            <h1 id="admin-heading" className="font-display text-4xl leading-none">
+              Live Rooms
+            </h1>
+            <p className="mt-2 text-sm text-bark">
+              Every open room on the lake. Inspect one to remove an angler or close it.
+            </p>
           </div>
+          {/* Under the heading on every admin page, so it never moves with the intro text's length. */}
+          <AdminNav active="sessions" className="mt-4" />
 
           {error ? <AdminError error={error} fallback="Failed to load rooms" onRetry={refresh} /> : null}
 
