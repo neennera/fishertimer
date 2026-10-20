@@ -108,7 +108,7 @@ export function PixelModal({ open, onClose, title, children }: PixelModalProps) 
           <button
             ref={closeRef}
             type="button"
-            className="pixel-modal__close"
+            className="pixel-modal__close h-11 w-11 sm:h-[calc(var(--px)*8)] sm:w-[calc(var(--px)*8)]"
             onClick={onClose}
             aria-label="Close"
           >
