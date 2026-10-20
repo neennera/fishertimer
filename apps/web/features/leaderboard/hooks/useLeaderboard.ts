@@ -15,9 +15,15 @@ import type { LeaderboardPeriod, LeaderboardResponse, LeaderboardState } from '.
  * Automatically re-fetches whenever `period` changes (S-2 filter).
  *
  * `data` is only ever the answer for the current `period`: after switching
- * period, or when that period's request fails, it is null — never another
- * period's rows under this period's tab. A failed *refresh* of the period on
- * screen keeps its last rows, with `error` set.
+ * period it is null until that period arrives, never another period's rows
+ * under this period's tab. While the new period loads, `previous` holds the
+ * last rows of another period so the page can keep them on screen, dimmed,
+ * instead of flashing a skeleton. If the new period's request fails, those
+ * rows are dropped for good. A failed *refresh* of the period on screen keeps
+ * its last rows, with `error` set.
+ *
+ * `loading` and `error` are derived from the request being asked for right now,
+ * so they are right in the very render that follows a tab click.
  *
  * @param initialPeriod - the period shown first (the page passes "monthly")
  */
@@ -26,34 +32,33 @@ export function useLeaderboard(
 ): LeaderboardState {
   const [period, setPeriodState] = useState<LeaderboardPeriod>(initialPeriod);
   const [loaded, setLoaded] = useState<{ period: LeaderboardPeriod; data: LeaderboardResponse } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // How the latest request settled, tagged with the request it belongs to.
+  const [result, setResult] = useState<{ key: string; error: string | null } | null>(null);
   const [tick, setTick] = useState(0); // increment to trigger a manual refresh
+
+  const key = `${period}:${tick}`;
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     clientApiFetch<LeaderboardResponse>('leaderboard', `?period=${period}`)
-      .then((result) => {
+      .then((response) => {
         if (!cancelled) {
-          setLoaded({ period, data: result });
+          setLoaded({ period, data: response });
+          setResult({ key, error: null });
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(friendlyApiError(err, 'the leaderboard'));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
+          // Rows of a different period are dropped for good: they must not come
+          // back, dimmed, on the next Retry.
+          setLoaded((prev) => (prev && prev.period !== period ? null : prev));
+          setResult({ key, error: friendlyApiError(err, 'the leaderboard') });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [period, tick]);
+  }, [period, tick, key]);
 
   const setPeriod = useCallback((next: LeaderboardPeriod) => {
     setPeriodState(next);
@@ -63,7 +68,17 @@ export function useLeaderboard(
     setTick((t) => t + 1);
   }, []);
 
+  const settled = result?.key === key;
   const data = loaded?.period === period ? loaded.data : null;
+  const previous = loaded && loaded.period !== period ? loaded.data : null;
 
-  return { data, loading, error, period, setPeriod, refresh };
+  return {
+    data,
+    previous,
+    loading: !settled,
+    error: settled ? result.error : null,
+    period,
+    setPeriod,
+    refresh,
+  };
 }

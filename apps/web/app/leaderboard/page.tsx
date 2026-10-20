@@ -22,11 +22,18 @@ import { useLeaderboard } from '../../features/leaderboard/hooks/useLeaderboard'
  */
 export default function LeaderboardPage() {
   const { user, signingOut, handleSignOut, unavailable, retry } = useSignedInUser();
-  const { data, loading, error, period, setPeriod, refresh } = useLeaderboard('monthly');
+  const { data, previous, loading, error, period, setPeriod, refresh } = useLeaderboard('monthly');
   const [userRewardScore, setUserRewardScore] = useState<number | null>(null);
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
-  const rawRankings = useMemo(() => data?.rankings ?? [], [data]);
+  // Switching period keeps the previous period's rows on screen, dimmed, until the
+  // new ones arrive (no skeleton flash); if that request fails they are dropped.
+  const board = data ?? (loading ? previous : null);
+  const showingPrevious = !data && board !== null;
+  // Dim the rows whenever they are being replaced (a period switch or a Refresh), so a
+  // Refresh click has a visible effect and the old rows can't be operated meanwhile.
+  const busy = loading && board !== null;
+  const rawRankings = useMemo(() => board?.rankings ?? [], [board]);
 
   // Fetch user rewards score as fallback if leaderboard has score = 0 or unranked
   useEffect(() => {
@@ -149,21 +156,21 @@ export default function LeaderboardPage() {
 
           {/* ── Period tabs + refresh, one row (S-2) ─────────────────── */}
           <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
-            <PeriodTabs active={period} onChange={setPeriod} disabled={loading} />
+            <PeriodTabs active={period} onChange={setPeriod} />
             <PixelButton
               variant="ghost"
               onClick={refresh}
-              disabled={loading}
               aria-label="Refresh rankings"
+              aria-busy={loading}
               className="min-h-11 sm:min-h-0"
               style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem' }}
             >
-              {loading ? 'Updating…' : 'Refresh'}
+              Refresh
             </PixelButton>
           </div>
 
           {/* ── Summary Stats Strip ──────────────────────────────────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5 transition-opacity ${busy ? 'opacity-60' : ''}`}>
             <div
               className="pixel-panel flex flex-col justify-center px-3 py-2.5"
               style={{ background: 'var(--color-cream-2)' }}
@@ -183,7 +190,7 @@ export default function LeaderboardPage() {
             >
               <span className="font-label text-[10px] uppercase text-bark">Your Ranking</span>
               <span className="font-numeric text-lg text-ink truncate mt-0.5">
-                {!data
+                {!board
                   ? '—'
                   : myEntry
                     ? `#${myEntry.rank} of ${rankings.length} (${displayScore} pts)`
@@ -207,9 +214,9 @@ export default function LeaderboardPage() {
           {/* ── Leaderboard Table ────────────────────────────────────── */}
           {/* With nothing loaded and a failure, show only the banner: an empty
               table would read as "no catches" when the truth is "couldn't load". */}
-          {(data || !error) && (
-            <div className="mt-4">
-              {!data ? (
+          {(board || !error) && (
+            <div className={`mt-4 transition-opacity ${busy ? 'opacity-60' : ''}`} aria-busy={busy} inert={busy}>
+              {!board ? (
                 <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Loading rankings">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div
@@ -233,6 +240,8 @@ export default function LeaderboardPage() {
                   currentUserAvatarUrl={user.avatar_url}
                   period={period}
                   onVisibleEntries={(shown) => {
+                    // Rows about to be replaced don't need their avatars looked up.
+                    if (showingPrevious) return;
                     const ids = shown.map((e) => e.user_id);
                     setVisibleIds((prev) => (prev.join(',') === ids.join(',') ? prev : ids));
                   }}
