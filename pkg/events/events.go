@@ -56,3 +56,28 @@ type SessionEnded struct {
 	SessionID  string    `json:"session_id"`
 	Reason     string    `json:"reason"` // EMPTY | ADMIN_CLOSED | TIMEOUT_24H
 }
+
+// RabbitMQ topology for profile changes: Account publishes, Study Session and
+// Leaderboard each consume their own queue, so a rename shows up in active
+// rooms and on the leaderboard without the user signing in again (UC-07 S-2).
+const (
+	AccountExchange = "fisher.account"
+	AccountDLX      = "fisher.account.dlx"
+
+	// One queue per consumer, each bound to the profile routing key, so both
+	// get every event and a slow one never holds the other back.
+	SessionProfileQueue     = "session.profile-events"
+	SessionProfileDLQ       = "session.profile-events.dlq"
+	LeaderboardProfileQueue = "leaderboard.profile-events"
+	LeaderboardProfileDLQ   = "leaderboard.profile-events.dlq"
+
+	RoutingKeyProfileUpdated = "profile.updated"
+)
+
+// ProfileUpdated is published by Account after a user changes their display name.
+type ProfileUpdated struct {
+	EventID     string    `json:"event_id"`
+	OccurredAt  time.Time `json:"occurred_at"`
+	UserID      string    `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+}
