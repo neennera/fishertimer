@@ -166,6 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The orange buttons use a dark label (5.2:1 contrast instead of 2.7:1), and their hover state lightens instead of darkening.
 - **[web]**: The header's admin and dev page links are full contrast and 44px tall, and on phones the header stays on one line.
 - **[web]**: The page no longer bounces when scrolled past the top or bottom, so the header stays attached to the top of the window.
+- **[web]**: For users who are not admins, the avatar and Sign out button stay at the right end of the header instead of sitting next to the title.
 
 ### Fixed
 
