@@ -25,6 +25,7 @@ export function RoomCard({ room, mine, busy, onJoin, onOpen }: RoomCardProps) {
       )}
     >
       <div className="min-w-0 flex-1">
+        {mine && <p className="pixel-room-card__meta">Your line is still in the water</p>}
         <p className="pixel-room-card__name" title={room.name}>
           {room.name}
         </p>
