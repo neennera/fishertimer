@@ -161,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[account]**: A new user who finished Google sign-in lands on `/welcome` (the display-name form) by default instead of the non-existent `/signup`.
 - **[account]**: `GET /profile` (open to anyone) returns only `user_id`, `display_name`, `avatar_url` and `created_at`: the e-mail and role are no longer exposed.
 - **[web]**: The orange buttons use a dark label (5.2:1 contrast instead of 2.7:1), and their hover state lightens instead of darkening.
+- **[web]**: The header's admin and dev page links are full contrast and 44px tall, and on phones the header stays on one line.
 
 ### Fixed
 
