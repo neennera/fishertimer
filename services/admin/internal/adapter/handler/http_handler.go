@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/neennera/fishertimer/services/admin/internal/adapter/middleware"
@@ -167,11 +168,11 @@ func writeError(w http.ResponseWriter, err error) {
 	msg := "internal error"
 	switch {
 	case errors.Is(err, domain.ErrInvalid):
-		code, msg = http.StatusBadRequest, err.Error()
+		code, msg = http.StatusBadRequest, publicMessage(err, domain.ErrInvalid, "The request is not valid.")
 	case errors.Is(err, domain.ErrNotFound):
 		code, msg = http.StatusNotFound, "room not found or no longer active"
 	case errors.Is(err, domain.ErrStateChanged):
-		code, msg = http.StatusConflict, err.Error()
+		code, msg = http.StatusConflict, publicMessage(err, domain.ErrStateChanged, "The room changed. Refresh and try again.")
 	case errors.Is(err, domain.ErrUpstream):
 		code, msg = http.StatusBadGateway, "study session service is unavailable, please retry"
 		log.Printf("admin: upstream error: %v", err)
@@ -179,6 +180,17 @@ func writeError(w http.ResponseWriter, err error) {
 		log.Printf("admin: internal error: %v", err)
 	}
 	writeJSON(w, code, map[string]string{"error": msg})
+}
+
+// publicMessage is the text after the sentinel's own prefix: errors are built
+// as "<sentinel>: <sentence for the admin>", and the "admin: invalid input:"
+// part is for developers, not for the page.
+func publicMessage(err, sentinel error, fallback string) string {
+	msg := strings.TrimPrefix(err.Error(), sentinel.Error()+": ")
+	if msg == "" || msg == sentinel.Error() {
+		return fallback
+	}
+	return msg
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

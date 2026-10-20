@@ -61,7 +61,7 @@ func (s *service) ViewParticipants(ctx context.Context, sessionID string) ([]dom
 func (s *service) ViewSessionDetails(ctx context.Context, sessionID string) (*domain.SessionDetail, error) {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
-		return nil, fmt.Errorf("%w: session_id is required", domain.ErrInvalid)
+		return nil, fmt.Errorf("%w: A room id is required.", domain.ErrInvalid)
 	}
 	sess, err := s.sessions.GetActiveSession(ctx, sessionID)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *service) ViewSessionDetails(ctx context.Context, sessionID string) (*do
 func (s *service) KickUser(ctx context.Context, adminID, sessionID, userID, reason string) (*domain.ModerationResult, error) {
 	sessionID, userID = strings.TrimSpace(sessionID), strings.TrimSpace(userID)
 	if !isUUID(sessionID) || !isUUID(userID) {
-		return nil, fmt.Errorf("%w: session_id and user_id must be UUIDs", domain.ErrInvalid)
+		return nil, fmt.Errorf("%w: That room or user id is not valid.", domain.ErrInvalid)
 	}
 	entry, err := newLog(adminID, domain.ActionKickUser, userID, reason)
 	if err != nil {
@@ -124,7 +124,7 @@ func (s *service) KickUser(ctx context.Context, adminID, sessionID, userID, reas
 func (s *service) EndSession(ctx context.Context, adminID, sessionID, reason string) (*domain.ModerationResult, error) {
 	sessionID = strings.TrimSpace(sessionID)
 	if !isUUID(sessionID) {
-		return nil, fmt.Errorf("%w: session_id must be a UUID", domain.ErrInvalid)
+		return nil, fmt.Errorf("%w: That room id is not valid.", domain.ErrInvalid)
 	}
 	entry, err := newLog(adminID, domain.ActionForceCloseSession, sessionID, reason)
 	if err != nil {
@@ -148,7 +148,7 @@ func (s *service) EndSession(ctx context.Context, adminID, sessionID, reason str
 func (s *service) ViewLogs(ctx context.Context, action string) ([]domain.AdminLog, error) {
 	a := domain.AdminAction(strings.TrimSpace(action))
 	if a != "" && !a.Valid() {
-		return nil, fmt.Errorf("%w: unknown action %q", domain.ErrInvalid, action)
+		return nil, fmt.Errorf("%w: Unknown action %q.", domain.ErrInvalid, action)
 	}
 	return s.logs.List(ctx, a, DefaultLogLimit)
 }
@@ -166,7 +166,7 @@ func (s *service) requireLive(ctx context.Context, sessionID string) (*domain.Se
 func newLog(adminID string, action domain.AdminAction, targetID, reason string) (*domain.AdminLog, error) {
 	// admin_logs.admin_id is a UUID column; the ID comes from the JWT sub.
 	if !isUUID(adminID) {
-		return nil, fmt.Errorf("%w: admin id must be a UUID", domain.ErrInvalid)
+		return nil, fmt.Errorf("%w: Your admin id is not valid. Sign in again.", domain.ErrInvalid)
 	}
 	entry := &domain.AdminLog{AdminID: adminID, Action: action, TargetID: targetID}
 	if r := strings.TrimSpace(reason); r != "" {
