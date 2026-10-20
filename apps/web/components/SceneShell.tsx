@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { HangingSign } from "./HangingSign";
 import { Header } from "./Header";
 import { ParallaxLayer, ParallaxScene } from "./ui/ParallaxScene";
 
@@ -27,13 +28,7 @@ export function SceneShell({ layers, children }: SceneShellProps) {
             it, so it sits above the panel using the wrapper's own height —
             no per-page magic number. */}
         <div className="relative w-full max-w-sm">
-          <div aria-hidden="true" className="absolute inset-x-0 bottom-full flex flex-col">
-            <div className="pixel-sign__board mx-auto">
-              <span className="pixel-sign__board-text">Fisher Timer</span>
-            </div>
-            <div className="pixel-sign__post mx-auto" />
-            <div className="pixel-sign-bird self-end" />
-          </div>
+          <HangingSign />
 
           {children}
         </div>
