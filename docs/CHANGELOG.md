@@ -139,6 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: If a kick or close gets no answer in time, the room page refreshes and says the result is unclear instead of offering a blind retry.
 - **[web]**: Kick and Close room are disabled while the room data is marked out of date.
 - **[web]**: The audit log refreshes on its own, keeps showing the last entries with an "out of date" note when a refresh fails, and says when only the latest 100 are shown.
+- **[web]**: The admin room list, room page and audit log fit a 375px phone: long room names wrap, buttons are 44px tall, and the Kick and Close buttons stack under the title.
 
 ### Fixed
 
