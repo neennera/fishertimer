@@ -117,6 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The name fields no longer cut the text at 100 characters, so the "too long" message shows; names with only spaces or invisible characters are rejected as empty.
 - **[account]**: Display names are limited to 30 characters (as in the sign-up and edit-name wireframes), counted in characters rather than bytes.
 - **[account]**: Display names with control characters, or made only of spaces and invisible characters, are rejected.
+- **[account]**: `/profile`, `/statistics` and `/rewards` answer 404 (not 500) for an id that is not a UUID.
 
 ### Fixed
 
