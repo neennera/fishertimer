@@ -81,5 +81,8 @@ type SignInResult struct {
 	SignUp      *SignUpTicket
 }
 
-// MaxDisplayNameLength matches users.display_name VARCHAR(100).
-const MaxDisplayNameLength = 100
+// MaxDisplayNameLength is the longest display name we accept, in characters.
+// It is 30 to match the sign-up and edit-name wireframes ("max 30 characters")
+// and to keep names readable on the leaderboard and room rosters. The column
+// is VARCHAR(100), so the limit can be raised later without a migration.
+const MaxDisplayNameLength = 30
