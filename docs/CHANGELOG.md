@@ -87,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The "admin page" and "dev page" links in the header show only to signed-in admins. Hiding the links is not a security check: the admin service still refuses non-admins.
 - **[web]**: The home page uses hand-drawn pixel sprites (study room, trophy, goldfish and a gear) instead of generic icons.
 - **[web]**: The home page shows the swaying "Fisher Timer" signboard with the bird on top of the hero panel, the same sign as on the sign-in page, instead of a plain title.
+- **[web]**: The admin pages and the dev tools page open only for a signed-in admin. Others see "Sign in to continue", a Retry banner or "Admins only" instead. The admin service already refused non-admins for the data.
 
 ### Fixed
 - **[eslint-config]**: ESLint linted no `.ts` / `.tsx` file at all (flat config only matches `.js` unless a config names other files), so `pnpm lint` passed without checking anything. `base.js` now matches TS files, parses JSX in `.tsx` (Babel 8 no longer does by default), and turns off the core rules that misfire on TypeScript without type information (typescript-eslint's eslint-recommended list plus `no-unused-vars`; tsc checks these). typescript-eslint itself does not support TypeScript 7. Lint now reports real findings: 16 warnings remain in admin, leaderboard, auth, styleguide and the dev seed route.
