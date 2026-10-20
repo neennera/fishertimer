@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: `lib/use-mocks.ts`, the single mock/real switch behind `lib/auth.ts` and `lib/profile.ts`. `useSignOut` and `SessionUnavailableAlert` in `components/profile/ProfileShell.tsx`.
 - **[leaderboard]**: Handler tests (`http_handler_test.go`: period handling, empty list is `[]` not `null`, 502 and 500 JSON errors that don't leak internal text, JSON 405, CORS preflight) and usecase tests for a Reward-service outage (cold cache gives `ErrUpstream`, warm cache serves the stale ranking). The handler had no tests.
 - **[web]**: `friendlyApiError()` in `lib/client-api.ts`: one place that turns an API failure (HTTP status, timeout, no network, unparseable answer) into a sentence a person can act on.
+- **[admin]**: Tests for the host-kick rule (also in upper-case UUIDs), the 500-character reason limit counted in characters, messages without internal prefixes at the HTTP layer, and the Study Session 400 text (`session_service_repo_test.go`).
 
 ### Changed
 - **[admin]**: Room state is read from Study Session (`ListActiveSession` with its `participant_count`, `GetParticipants` with `display_name`) instead of the in-memory stub; one participants call per room is no longer needed. `ViewSessionDetails` is no longer mocked. Kick/close now send the explicit `KICKED` / `ADMIN_CLOSED` reasons.
@@ -82,6 +83,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[leaderboard]**: Errors are JSON `{"error": "..."}` with a message safe to show. A Reward service that is down, slow or answering an error is now `502` (`domain.ErrUpstream`); anything else is `500`; wrong method is a JSON `405`. The underlying error is logged, not sent. It used to be a `500` with the raw `text/plain` error ("reward service returned status 503").
 - **[web]**: `/leaderboard` loads through `clientApiFetch` (15 s timeout, `friendlyApiError`) instead of `apiFetch`, so a hung or failing API ends in a readable message with a Retry button rather than a spinner that never stops or a raw `API error [leaderboard] 502 ...`. `clientApiFetch` accepts a bare `?query` endpoint. `apiFetch` is unchanged (the timer still uses it).
 - **[web]**: Leaderboard rows no longer print each user's full user id ("Fisher ID: ...") under their name; they show the number of fish caught. A missing display name reads "Unknown angler" instead of the user id. Rows tighten up on phones so names stay readable (two lines instead of cut to a few letters), the period tabs and Refresh are 44px tall below the `sm` breakpoint, and the table header row is exposed to screen readers as column headers.
+- **[admin]**: Errors the page shows are plain sentences. The "admin: invalid input:" / "admin: room or participant state has changed:" prefixes and Study Session's own wording ("study-session: ...", the internal request path) are no longer sent to the client: the handler sends the sentence after the prefix (`publicMessage`) and the Study Session client logs the upstream text and sends a fixed sentence per status.
+- **[admin]**: The moderation reason limit (500) now counts characters, as the README says, instead of bytes. A 200-character Thai reason (600 bytes) that the form allows was rejected.
+- **[admin]**: The host can't be removed through `POST .../participants/{userId}/kick` (400 "The host can't be removed. Close the room instead."; nothing is sent to Study Session or audited). The UI already hid the button, but the API let a host be kicked, which left the room with no host. Needs confirming with the team: the spec does not cover it.
+- **[web]**: `adminApiFetch` gives up after 15 s (`REQUEST_TIMEOUT_MS`) with a plain message instead of hanging, and never shows a raw "500 Internal Server Error": a response without an `{error}` body gets a written sentence per status. A kick or close that gets no answer is reported as "isn't clear whether that went through", the dialog closes and the room refreshes, instead of inviting a blind retry.
+- **[web]**: `usePolling` (rooms, room detail, audit log) skips a tick while the previous request is still running, pauses while the tab is hidden and refreshes when it is shown, stops after a 401 / 403 (the page shows the Sign in banner, and Retry restarts it), and only applies the newest answer.
+- **[web]**: The audit log page polls like the other pages, has Retry, and says "Latest 100 entries" when it reached the service's limit. Its intro no longer says "every" action.
+- **[web]**: Admin pages are usable at 375px: room titles and participant names wrap (long unbroken names too) instead of being cut to a few letters, the room header stacks, and the nav tabs, Remove, log filters, Retry and the modal close button are 44px tall below the `sm` breakpoint.
+- **[web]**: `PixelModal` (shared) gets a unique title id (`useId`), keeps Tab inside the dialog, and returns focus to the control that opened it.
 
 ### Fixed
 - **[web]**: A network error, timeout or 5xx on `GET /me` no longer counts as signed out. `getSession` has a new `unavailable` result, and `/account`, `/profile/[userId]` and `/leaderboard` show a "couldn't reach the server" banner with a Retry button instead of bouncing the user to `/signin` (Account audit B2).
@@ -118,6 +127,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Leaderboard: a failed first load no longer shows "No Catches This Period Yet", "Unranked (0 pts)" and "Current Leader" next to the error; with nothing loaded and an error, only the banner and Retry show.
 - **[web]**: Leaderboard: switching period while the request fails no longer leaves the previous period's rows under the new tab. `useLeaderboard` keeps its data per period, and a failed refresh of the period on screen keeps its rows and says so.
 - **[web]**: Leaderboard: the avatar lookup no longer cancels and repeats its own profile requests; each ranked user is asked for once.
+- **[web]**: Admin: Remove and Close room are disabled (with a tooltip) while the page shows "Out of date · retrying", so a moderator can't act on a list that may no longer be true; the confirm buttons of an already open dialog too.
+- **[web]**: Admin: a first-load failure shows "The admin service had a problem. Try again in a moment." with a Retry button instead of "500 Internal Server Error" and nothing to press.
+- **[web]**: Admin: a session that expires while a room is open no longer freezes the page on "Out of date · retrying" with disabled buttons and no way out; it shows the Sign in banner.
+- **[admin]**: Study Session's 400 for a bad room id no longer shows the internal `GET /api/v1/study-session/...` path to the admin.
 
 ### Fixed
 

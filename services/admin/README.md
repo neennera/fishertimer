@@ -26,10 +26,11 @@ account service's session JWT itself (`ft_session` cookie or
 | POST | `/api/v1/admin/sessions/{id}/end` | Study Session `EndSession()` (`ADMIN_CLOSED`), logs `FORCE_CLOSE_SESSION` |
 | GET | `/api/v1/admin/logs?action=` | Audit log, newest first (max 100) |
 
-Kick / end take an optional body `{"reason": "..."}` (max 500 characters) and
-return `{"status", "session_ended", "log"}`.
+Kick / end take an optional body `{"reason": "..."}` (max 500 characters, counted
+as characters, not bytes) and return `{"status", "session_ended", "log"}`. The room's
+host can't be kicked (`400`): close the room instead.
 
-Errors are `{"error": "..."}`: `400` invalid input, `404` room not live,
+Errors are `{"error": "..."}` with a sentence meant to be shown to the admin: `400` invalid input, `404` room not live,
 `409` the room has already ended or the participant has already left (nothing
 changed or logged), `502` Study Session unreachable (retry).
 

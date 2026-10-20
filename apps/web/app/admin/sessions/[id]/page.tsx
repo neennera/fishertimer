@@ -15,14 +15,22 @@ import { formatDateTime } from '../../../../features/admin/components/format';
 import {
   AdminError,
   StaleNotice,
+  UNKNOWN_OUTCOME_MESSAGE,
   adminErrorMessage,
+  isUnknownOutcome,
 } from '../../../../features/admin/components/AdminError';
 import { usePolling } from '../../../../features/admin/hooks/usePolling';
 import { AdminApiError } from '../../../../lib/admin-api';
 import type { AdminParticipant } from '../../../../features/admin/types';
 
-/** 409 from a kick / close: the room or member changed since it was shown. */
-const isStateChanged = (e: unknown) => e instanceof AdminApiError && e.status === 409;
+/**
+ * Cases where the page should refresh and say what happened rather than keep
+ * the dialog open for a blind retry: a 409 (the room or member changed since it
+ * was shown) or no answer in time (the action may have gone through).
+ */
+const isStateChanged = (e: unknown) => (e instanceof AdminApiError && e.status === 409) || isUnknownOutcome(e);
+const changedMessage = (e: unknown, fallback: string) =>
+  isUnknownOutcome(e) ? UNKNOWN_OUTCOME_MESSAGE : adminErrorMessage(e, fallback);
 
 /** Admin — one live session's detail and its members, refreshed every few seconds. */
 export default function AdminSessionDetailPage() {
@@ -64,7 +72,7 @@ export default function AdminSessionDetailPage() {
     } catch (e: unknown) {
       if (isStateChanged(e)) {
         // Member already left or room ended: nothing changed, show the current state (UC-10 E-3).
-        setNotice(adminErrorMessage(e, 'This room has changed.'));
+        setNotice(changedMessage(e, 'This room has changed.'));
         setKickTarget(null);
         setKickReason('');
         await refresh();
@@ -95,7 +103,7 @@ export default function AdminSessionDetailPage() {
       await refresh();
     } catch (e: unknown) {
       if (isStateChanged(e)) {
-        setNotice(adminErrorMessage(e, 'This room has already closed.'));
+        setNotice(changedMessage(e, 'This room has already closed.'));
         setConfirmingEnd(false);
         setEndReason('');
         await refresh();
@@ -125,7 +133,7 @@ export default function AdminSessionDetailPage() {
               </button>
             </PixelAlert>
           )}
-          {error ? <AdminError error={error} fallback="Failed to load the room" /> : null}
+          {error ? <AdminError error={error} fallback="Failed to load the room" onRetry={refresh} /> : null}
 
           {ended && (
             <div className="pixel-placeholder mt-5 flex flex-col items-center gap-3 py-10 text-center">
@@ -146,9 +154,9 @@ export default function AdminSessionDetailPage() {
 
           {session && (
             <>
-              <div className="mt-1 flex items-start justify-between gap-4">
+              <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h1 id="room-heading" className="truncate font-display text-4xl leading-none" title={session.title}>
+                  <h1 id="room-heading" className="[overflow-wrap:anywhere] font-display text-4xl leading-none" title={session.title}>
                     {session.title}
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -159,7 +167,13 @@ export default function AdminSessionDetailPage() {
                     </span>
                   </div>
                 </div>
-                <PixelButton variant="danger" className="flex-none" onClick={() => setConfirmingEnd(true)}>
+                <PixelButton
+                  variant="danger"
+                  className="flex-none self-start"
+                  onClick={() => setConfirmingEnd(true)}
+                  disabled={stale}
+                  title={stale ? 'Out of date: wait for the list to refresh' : undefined}
+                >
                   Close room
                 </PixelButton>
               </div>
@@ -176,7 +190,7 @@ export default function AdminSessionDetailPage() {
                     <li key={p.user_id} className="pixel-tile pixel-room-card">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate font-display text-xl leading-none">
+                          <span className="min-w-0 [overflow-wrap:anywhere] font-display text-xl leading-none">
                             {p.display_name ?? 'Unnamed angler'}
                           </span>
                           {p.is_host && <PixelBadge className="pixel-badge--wood">HOST</PixelBadge>}
@@ -186,8 +200,10 @@ export default function AdminSessionDetailPage() {
                       {!p.is_host && (
                         <PixelButton
                           variant="danger"
-                          className="pixel-btn--sm flex-none"
+                          className="pixel-btn--sm min-h-11 flex-none sm:min-h-0"
                           onClick={() => setKickTarget(p)}
+                          disabled={stale}
+                          title={stale ? 'Out of date: wait for the list to refresh' : undefined}
                           aria-label={`Remove ${name(p)}`}
                         >
                           Remove
@@ -221,7 +237,7 @@ export default function AdminSessionDetailPage() {
           <PixelButton variant="ghost" onClick={closeKick} disabled={kicking}>
             Cancel
           </PixelButton>
-          <PixelButton variant="danger" onClick={confirmKick} disabled={kicking}>
+          <PixelButton variant="danger" onClick={confirmKick} disabled={kicking || stale}>
             {kicking ? 'Removing…' : 'Remove'}
           </PixelButton>
         </div>
@@ -245,7 +261,7 @@ export default function AdminSessionDetailPage() {
           <PixelButton variant="ghost" onClick={closeEnd} disabled={ending}>
             Cancel
           </PixelButton>
-          <PixelButton variant="danger" onClick={confirmEnd} disabled={ending}>
+          <PixelButton variant="danger" onClick={confirmEnd} disabled={ending || stale}>
             {ending ? 'Closing…' : 'Close room'}
           </PixelButton>
         </div>

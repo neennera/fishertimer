@@ -16,8 +16,8 @@ export function AdminNav({ active }: { active: 'sessions' | 'logs' }) {
           aria-current={l.key === active ? 'page' : undefined}
           className={
             l.key === active
-              ? 'pixel-btn pixel-btn--sm'
-              : 'pixel-btn pixel-btn--sm pixel-btn--ghost'
+              ? 'pixel-btn pixel-btn--sm min-h-11 sm:min-h-0'
+              : 'pixel-btn pixel-btn--sm pixel-btn--ghost min-h-11 sm:min-h-0'
           }
         >
           {l.label}
