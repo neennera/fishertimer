@@ -93,7 +93,8 @@ export function Header({
         <Link
           href="/account"
           className="pixel-btn pixel-btn--ghost pixel-btn--icon pixel-header__avatar"
-          style={{ marginLeft: 0 }}
+          // The admin links already push everything right; without them the avatar does.
+          style={user.isAdmin ? { marginLeft: 0 } : undefined}
           title={`${user.displayName} — your account`}
           aria-label="Your account"
         >
