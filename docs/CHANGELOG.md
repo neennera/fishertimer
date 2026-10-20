@@ -109,6 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[go.work]**: Raised the workspace Go version from 1.22 to 1.25.0, the minimum required by `google.golang.org/grpc` v1.84.
 - **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
 - **[web]**: API calls give up after 15 seconds and show an error instead of loading forever.
+- **[web]**: Error alerts are read out by screen readers straight away (`role="alert"`).
 
 ### Fixed
 
