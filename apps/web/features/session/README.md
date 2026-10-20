@@ -8,7 +8,7 @@ Study rooms (UC-01 Create, UC-02 Join, UC-03 Leave). Pages: `app/rooms/page.tsx`
 | `useActor.ts` | The signed-in user from `lib/auth.ts`. |
 | `useRoomList.ts` | Active rooms + the user's current room, refreshed every 4s and on tab focus. |
 | `useRoomActions.ts` | Join / create, including the "already in a room" detour (UC-01 E-2, UC-02 E-3): leave the old room, then retry. |
-| `useRoom.ts` | One room kept live: roster every 2s (NFR: 2s sync), room timers every 3s, heartbeat every 10s. Reports `removed` with the reason when the user is kicked, timed out, idle or the room closes. |
+| `useRoom.ts` | One room kept live: roster every 2s (NFR: 2s sync), room timers every 3s, heartbeat every 10s and whenever the tab becomes visible (hidden tabs beat about once a minute; the server allows 120s). Reports `removed` with the reason when the user is kicked, timed out, idle or the room closes; the room page turns a closed room's `end_reason` into the lake notice. |
 | `summary.ts` | The leave summary (UC-03 step 5): cycles and focus time from the user's own timer read just before leaving; fish from Reward with `awarded_at` inside the stay. |
 | `components/RoomDock.tsx` | The room drawn as a pier: one angler per participant, line and bobber following their timer (`.pixel-dock` / `.pixel-angler` in `pixel.css`), plus the accessible roster list. |
 | `components/angler.ts` | Timer state → dock state (`focus`, `paused`, `caught`, `rest`, `idle`) and a stable colour per user. |

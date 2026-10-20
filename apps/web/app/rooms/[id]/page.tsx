@@ -38,14 +38,17 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const [summary, setSummary] = useState<SessionSummary | null>(null);
 
   // Removed by someone else (kick, idle, timeout, room closed): back to the
-  // list with the reason.
+  // list with the reason. A closed room says why it closed when it can.
+  const endReason = room?.end_reason;
   useEffect(() => {
     if (presence.kind === "removed") {
-      router.replace(`/rooms?notice=${presence.reason || "SESSION_ENDED"}`);
+      const closedBy = endReason === "ADMIN_CLOSED" || endReason === "TIMEOUT_24H" ? endReason : null;
+      const notice = presence.reason === "SESSION_ENDED" || !presence.reason ? (closedBy ?? "SESSION_ENDED") : presence.reason;
+      router.replace(`/rooms?notice=${notice}`);
     } else if (presence.kind === "not_found") {
       router.replace("/rooms?notice=ROOM_NOT_FOUND");
     }
-  }, [presence, router]);
+  }, [presence, endReason, router]);
 
   const me = participants.find((p) => p.user_id === actor?.userId);
 
@@ -142,7 +145,9 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <main className="flex flex-1 justify-center px-4 pt-6 pb-16 sm:pt-10">
-      <div className="grid w-full max-w-5xl content-start items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] xl:max-w-6xl xl:grid-cols-[minmax(0,1fr)_26rem]">
+      {/* grid-cols-1 caps the phone column at the screen width; without it the
+          implicit column grows to fit the clock and the dock. */}
+      <div className="grid w-full max-w-5xl grid-cols-1 content-start items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] xl:max-w-6xl xl:grid-cols-[minmax(0,1fr)_26rem]">
         {/* At least as tall as the timer beside it; the dock takes the extra height. */}
         <PixelPanel as="section" aria-labelledby="room-heading" className="flex flex-col gap-5 md:self-stretch">
           <div className="flex items-start justify-between gap-4">
@@ -177,7 +182,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
         {/* The timer is what the user came for: first on phones. */}
         <div className="order-first md:order-none">
-          <TimerPanel owner={{ sessionId: id, userId: actor.userId }} />
+          <TimerPanel owner={{ sessionId: id, userId: actor.userId }} joinedAt={me?.joined_at} />
         </div>
       </div>
 

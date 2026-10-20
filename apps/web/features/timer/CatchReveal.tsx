@@ -28,20 +28,21 @@ export interface CatchRevealProps {
 
 /**
  * UC-09 step 9: after a work block completes, reel in what it caught. The
- * fish are read from Reward (awarded at or after the block's end).
+ * fish are read from Reward (awarded at or after the block's end). Render it
+ * with `key={block.cycleId}` so each block starts from a fresh "reeling in".
  */
 export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak, onSkipBreak }: CatchRevealProps) {
   const [fish, setFish] = useState<CaughtFish[] | null>(null);
   const [looking, setLooking] = useState(true);
+  // Known to catch nothing, so there is nothing to wait for.
+  const tooShort = !!block && block.minutes > 0 && block.minutes < MIN_REWARD_MINUTES;
 
   useEffect(() => {
-    if (!block) return;
+    if (!block || tooShort) return;
     let cancelled = false;
     const timers: number[] = [];
     const from = new Date(new Date(block.completedAt).getTime() - 5_000);
 
-    setFish(null);
-    setLooking(true);
     LOOK_AFTER_MS.forEach((delay, i) => {
       timers.push(
         window.setTimeout(async () => {
@@ -62,13 +63,13 @@ export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak
       cancelled = true;
       timers.forEach((t) => window.clearTimeout(t));
     };
-  }, [block, userId]);
+  }, [block, userId, tooShort]);
 
   if (!block) return null;
-  const tooShort = block.minutes > 0 && block.minutes < MIN_REWARD_MINUTES;
-  const best = fish?.[0] ?? null;
-  const caught = fish?.reduce((n, f) => n + f.count, 0) ?? 0;
-  const stage = looking ? "waiting" : best ? "caught" : "empty";
+  const waiting = looking && !tooShort;
+  const best = tooShort ? null : (fish?.[0] ?? null);
+  const caught = tooShort ? 0 : (fish?.reduce((n, f) => n + f.count, 0) ?? 0);
+  const stage = waiting ? "waiting" : best ? "caught" : "empty";
 
   function then(action?: () => void) {
     onClose();
@@ -90,7 +91,7 @@ export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak
 
       {/* Tall enough for a caught fish, so the dialog doesn't jump when it lands. */}
       <div className="mt-4 flex min-h-28 flex-col items-center justify-center text-center" aria-live="polite">
-        {looking ? (
+        {waiting ? (
           <p className="pixel-catch__waiting">Reeling it in…</p>
         ) : best ? (
           <>
@@ -133,7 +134,7 @@ export function CatchReveal({ block, userId, onClose, breakMinutes, onStartBreak
         </div>
         <div className="pixel-catch-stats__item">
           <dt>Catch</dt>
-          <dd>{looking ? "…" : caught}</dd>
+          <dd>{waiting ? "…" : caught}</dd>
         </div>
       </dl>
 

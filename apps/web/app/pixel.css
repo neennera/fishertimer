@@ -351,6 +351,58 @@
     margin-top: calc(var(--px) * 2);
   }
 
+  /* A field whose error must not be missed (the create-room name): thicker
+     rust frame, tinted fill, and the message in its own callout with a "!"
+     badge. Put it on PixelInput's className. */
+  .pixel-field--loud .pixel-input[aria-invalid="true"] {
+    background: color-mix(in srgb, var(--color-rust) 8%, white);
+    box-shadow: inset 0 0 0 calc(var(--px) * 1.5) var(--color-rust);
+  }
+  .pixel-field--loud .pixel-error {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--px) * 2.5);
+    padding: calc(var(--px) * 2) calc(var(--px) * 3);
+    clip-path: var(--pixclip);
+    background: color-mix(in srgb, var(--color-rust) 14%, transparent);
+  }
+  .pixel-field--loud .pixel-error::before {
+    content: "!";
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: calc(var(--px) * 5);
+    height: calc(var(--px) * 5);
+    clip-path: var(--pixclip);
+    background: var(--color-rust);
+    color: var(--color-cream);
+    font-family: var(--font-numeric);
+  }
+
+  /* One short shake when a submit is refused; reduced motion stops it via
+     the global override. */
+  .pixel-shake {
+    animation: pixel-shake 0.36s steps(6, end);
+  }
+  @keyframes pixel-shake {
+    0%,
+    100% {
+      transform: none;
+    }
+    20% {
+      transform: translateX(calc(var(--px) * -2));
+    }
+    40% {
+      transform: translateX(calc(var(--px) * 2));
+    }
+    60% {
+      transform: translateX(calc(var(--px) * -1.5));
+    }
+    80% {
+      transform: translateX(calc(var(--px) * 1.5));
+    }
+  }
+
   /* Same slot as .pixel-label (font, tracking, case) but red, and always
      mounted with a reserved line-height — even with no message — so a
      field's error appearing/disappearing never shifts the panel around it. */

@@ -17,7 +17,12 @@ import {
 const ROOM_REFRESH_MS = 2000;
 /** Everyone's timer state on the dock. */
 const TIMERS_REFRESH_MS = 3000;
-/** Presence ping; the server auto-leaves after ~60s without one (UC-03 E-3). */
+/**
+ * Presence ping; the server auto-leaves after 120s without one (UC-03 E-3).
+ * Browsers slow timers in a hidden tab to about one a minute, so the
+ * server's limit leaves room for that, and a beat goes out as soon as the
+ * tab is visible again.
+ */
 const HEARTBEAT_MS = 10_000;
 
 export type RoomPresence =
@@ -115,13 +120,17 @@ export function useRoom(actor: Actor | null, sessionId: string): LiveRoom {
 
   const member = presence.kind === "member";
 
+  // Both refreshes set state only after their fetch resolves, which
+  // react-hooks/set-state-in-effect cannot see through the await.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the await
     void refresh();
     const id = window.setInterval(() => void refresh(), ROOM_REFRESH_MS);
     return () => window.clearInterval(id);
   }, [refresh]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the await
     void refreshTimers();
     const id = window.setInterval(() => void refreshTimers(), TIMERS_REFRESH_MS);
     return () => window.clearInterval(id);
@@ -139,9 +148,16 @@ export function useRoom(actor: Actor | null, sessionId: string): LiveRoom {
         // A missed beat is fine; the server allows several.
       }
     };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void beat();
+    };
     void beat();
     const id = window.setInterval(beat, HEARTBEAT_MS);
-    return () => window.clearInterval(id);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [actor, member, sessionId, noticeRemoval]);
 
   return { room, participants, timers, presence, stale, refresh, markLeaving };

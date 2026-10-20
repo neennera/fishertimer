@@ -10,8 +10,10 @@ Contains components, custom React hooks, and view models specific to the timer d
 | `TimerPanel.tsx` | Phase track (Focus / Break), countdown, progress, a length picker before each block and break (UC-05 steps 2 and 10), and per-state controls: Start / Pause / Resume, Reset, Stop, Skip break. Space, R and S shortcuts; the countdown shows in the tab title. |
 | `DurationPicker.tsx` | Presets plus - / +, kept inside the server's limits (E-1). |
 | `TimerSettingsForm.tsx` | Default lengths (UpdateTimerSetting), in the panel's gear modal and on `/settings`. |
-| `CatchReveal.tsx` | After a work block: reels in the fish Reward awarded for it (UC-09 step 9). |
+| `CatchReveal.tsx` | After a work block: reels in the fish Reward awarded for it (UC-09 step 9). A block under 15 minutes says at once that nothing bit. |
+| `IdleWarning.tsx` | The last 3 minutes before Study Session moves an idle user out (UC-05 E-8), as a countdown. `idleDeadline()` mirrors the server's `usecase.IsIdle`. |
 
 `TimerPanel` runs inside every study room (`app/rooms/[id]/page.tsx`) with the
-real room id and signed-in user. `app/timer/page.tsx` is still a standalone
-demo with a fixed owner (UUIDs `...0001` / `...0002`).
+real room id and signed-in user; the room passes `joinedAt` to turn on the idle
+warning. The timer never runs outside a room: `app/timer/page.tsx` sends the
+user to their current room, or to the lake.

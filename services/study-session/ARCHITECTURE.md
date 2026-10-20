@@ -68,7 +68,7 @@ The relay stops at the first failure so events keep their order. It assumes one 
 ## Presence and automatic removal
 
 The room page sends `Heartbeat` every 10s. `Sweeper` (every 5s) removes participants through the normal `LeaveSession`, so the same events go out:
-- no heartbeat for 60s: `DISCONNECT_TIMEOUT` (UC-03 E-3);
+- no heartbeat for 120s: `DISCONNECT_TIMEOUT` (UC-03 E-3). Browsers slow a hidden tab's timers to about one a minute, so the limit leaves room for that; the page also beats as soon as the tab is visible again;
 - no running work cycle for 10 minutes, read from Study Timer (`usecase.IsIdle`, UC-05 E-8): `IDLE_TIMEOUT`. Skipped while Study Timer is unreachable, so an outage never kicks anyone;
 - rooms older than 24 hours are ended with `TIMEOUT_24H` (UC-03 E-6).
 

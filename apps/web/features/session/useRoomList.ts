@@ -36,6 +36,9 @@ export function useRoomList(actor: Actor | null): RoomList {
   }, [actor]);
 
   useEffect(() => {
+    // refresh sets state only after its fetch resolves, which the rule
+    // cannot see through the await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the await
     void refresh();
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();

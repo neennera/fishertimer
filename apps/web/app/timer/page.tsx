@@ -1,25 +1,49 @@
-import { Header } from "../../components/Header";
-import { TimerPanel } from "../../features/timer/TimerPanel";
-import type { TimerOwner } from "../../features/timer/timer.api";
+"use client";
 
-// Demo only: the timer is not linked to a signed-in user or a real room yet.
-// Once rooms (UC-01/02) land, the room id and the signed-in user id replace
-// these fixed values. They are UUIDs because timer_db keys timers by UUID.
-const DEMO_OWNER: TimerOwner = {
-  sessionId: "00000000-0000-0000-0000-000000000001",
-  userId: "00000000-0000-0000-0000-000000000002",
-};
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { SessionHeader } from "../../components/SessionHeader";
+import { ParallaxScene } from "../../components/ui/ParallaxScene";
+import { getMySession } from "../../features/session/session.api";
+import { useActor } from "../../features/session/useActor";
+import { SIGNIN_SCENE_LAYERS } from "../../lib/scenes/signin-scene";
 
+/**
+ * The timer only runs inside a room (UC-05: the user is an active
+ * participant), so this sends the user to the room they are in, or to the
+ * lake to pick or open one. The lake also handles being signed out.
+ */
 export default function TimerPage() {
+  const router = useRouter();
+  const actorState = useActor();
+
+  useEffect(() => {
+    if (actorState.status === "loading") return;
+    if (actorState.status === "signed_out") {
+      router.replace("/rooms");
+      return;
+    }
+    let cancelled = false;
+    getMySession(actorState.actor)
+      .then((me) => {
+        if (!cancelled) router.replace(me.in_session && me.session ? `/rooms/${me.session.id}` : "/rooms");
+      })
+      .catch(() => {
+        if (!cancelled) router.replace("/rooms");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [actorState, router]);
+
   return (
     <div className="flex min-h-screen flex-col">
-      <div className="pixel-scene" aria-hidden="true" />
-      <Header />
-      {/* Sits in the sky, above the horizon, so the scene frames the panel. */}
-      <main className="flex flex-1 items-start justify-center px-4 pt-[12vh] pb-12">
-        <div className="w-full max-w-md">
-          <TimerPanel owner={DEMO_OWNER} />
-        </div>
+      <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
+      <SessionHeader />
+      <main className="flex flex-1 items-start justify-center px-4 pt-12 pb-16">
+        <p className="pixel-panel w-full max-w-md text-center text-sm text-bark" aria-live="polite">
+          Finding your dock…
+        </p>
       </main>
     </div>
   );

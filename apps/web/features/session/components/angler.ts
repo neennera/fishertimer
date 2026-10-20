@@ -24,7 +24,8 @@ export function anglerState(timer: TimerState | undefined): AnglerState {
 export const ANGLER_COPY: Record<AnglerState, { chip: string; chipClass: string; mark: string }> = {
   focus: { chip: 'Focusing', chipClass: 'pixel-chip--running', mark: '' },
   paused: { chip: 'Paused', chipClass: 'pixel-chip--paused', mark: '' },
-  caught: { chip: 'Caught one!', chipClass: 'pixel-chip--done', mark: '!' },
+  // Not "caught a fish": blocks under 15 minutes finish without one (UC-09 E-3).
+  caught: { chip: 'Block done!', chipClass: 'pixel-chip--done', mark: '!' },
   rest: { chip: 'On a break', chipClass: 'pixel-chip--rest', mark: 'z' },
   idle: { chip: 'Ready', chipClass: '', mark: '' },
 };

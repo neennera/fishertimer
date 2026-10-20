@@ -66,6 +66,12 @@ export interface StartOptions {
 /** Below this a completed work block catches nothing (UC-09 E-3). */
 export const MIN_REWARD_MINUTES = 15;
 
+/**
+ * With no work block running for this long, Study Session moves the user
+ * out of the room (UC-05 E-8). Mirrors IDLE_TIMEOUT_MINUTES there.
+ */
+export const IDLE_TIMEOUT_MINUTES = 10;
+
 export function getTimer({ sessionId, userId }: TimerOwner): Promise<TimerState> {
   const query = new URLSearchParams({ session_id: sessionId, user_id: userId });
   return apiFetch<TimerState>('timer', `state?${query}`);
