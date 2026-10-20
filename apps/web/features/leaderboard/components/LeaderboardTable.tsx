@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RankEntry } from '../types';
 import { cx } from '../../../lib/cx';
 import { PixelButton } from '../../../components/ui/PixelButton';
+import { hasVisibleText, initials as initialsOf } from '../../../lib/initials';
 
 export const LEADERBOARD_PAGE_SIZE = 5;
 
@@ -21,7 +22,7 @@ const EMPTY_FISH = '/sprites/fish/Ghostfish.png';
 
 // An account with no usable display name still gets a readable row.
 const UNKNOWN_ANGLER = 'Unknown angler';
-const nameOf = (entry: RankEntry) => entry.display_name.trim() || UNKNOWN_ANGLER;
+const nameOf = (entry: RankEntry) => (hasVisibleText(entry.display_name) ? entry.display_name.trim() : UNKNOWN_ANGLER);
 
 export interface LeaderboardTableProps {
   entries: RankEntry[];
@@ -35,6 +36,8 @@ export interface LeaderboardTableProps {
   period?: string;
   /** Current user's avatar url if available. */
   currentUserAvatarUrl?: string | null;
+  /** Called with the rows on the page being shown, each time the page or the list changes. */
+  onVisibleEntries?: (entries: RankEntry[]) => void;
 }
 
 /**
@@ -52,6 +55,7 @@ export function LeaderboardTable({
   currentUserScore,
   period,
   currentUserAvatarUrl,
+  onVisibleEntries,
 }: LeaderboardTableProps) {
 
   const [page, setPage] = useState(0);
@@ -69,6 +73,14 @@ export function LeaderboardTable({
 
   const current = Math.min(page, pageCount - 1);
   const visible = entries.slice(current * LEADERBOARD_PAGE_SIZE, (current + 1) * LEADERBOARD_PAGE_SIZE);
+  const visibleKey = visible.map((e) => e.user_id).join(',');
+  const onVisibleRef = useRef(onVisibleEntries);
+  onVisibleRef.current = onVisibleEntries;
+  useEffect(() => {
+    onVisibleRef.current?.(visible);
+    // visibleKey stands for `visible`: a new array each render, the same rows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey]);
   const meIndex = currentUserId != null ? entries.findIndex((e) => e.user_id === currentUserId) : -1;
   const me = meIndex !== -1 ? entries[meIndex] : undefined;
 
@@ -189,12 +201,8 @@ function Row({
   const [failedAvatar, setFailedAvatar] = useState(false);
   const podium = RANK_BADGES[entry.rank];
   const name = nameOf(entry);
-  const initials = (entry.display_name.trim() ? name : '?')
-    .split(/\s+/)
-    .map((p) => Array.from(p)[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  // The shared helper: whole emoji, no invisible characters, "?" for a nameless row.
+  const rowInitials = initialsOf(entry.display_name);
 
   const showAvatar = Boolean(entry.avatar_url && !failedAvatar);
 
@@ -253,14 +261,14 @@ function Row({
               onError={() => setFailedAvatar(true)}
             />
           ) : (
-            initials
+            rowInitials
           )}
         </span>
 
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className="font-numeric text-base tracking-wide break-words line-clamp-2 sm:truncate sm:line-clamp-none"
+              className="font-numeric text-base tracking-wide break-words line-clamp-2 sm:block sm:truncate"
               style={{ fontSize: 'calc(var(--px) * 5.2)' }}
               title={name}
             >

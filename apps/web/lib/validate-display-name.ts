@@ -6,7 +6,10 @@
 export const DISPLAY_NAME_MAX_LENGTH = 30;
 
 const CONTROL_CHARACTER = /\p{Cc}/u;
-const INVISIBLE_OR_SPACE = /^[\s​‌‍⁠﻿]*$/u;
+// Zero-width space / non-joiner / joiner, word joiner and BOM: shown as nothing, and
+// not removed by trim(). Built from code points so the source holds no invisible characters.
+const ZERO_WIDTH = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff].map((c) => String.fromCharCode(c)).join('');
+const INVISIBLE_OR_SPACE = new RegExp(`^[\\s${ZERO_WIDTH}]*$`, 'u');
 
 export function validateDisplayName(name: string): string | undefined {
   const trimmed = name.trim();

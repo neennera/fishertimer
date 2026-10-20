@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { SessionUnavailableAlert } from "../../../components/profile/ProfileShell";
 import { PixelAlert } from "../../../components/ui/PixelAlert";
 import { PixelButton } from "../../../components/ui/PixelButton";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
@@ -77,6 +78,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     } finally {
       setLeaving(false);
     }
+  }
+
+  if (actorState.status === "unavailable") {
+    return (
+      <Centered>
+        <SessionUnavailableAlert onRetry={actorState.retry} />
+      </Centered>
+    );
   }
 
   if (actorState.status === "signed_out") {

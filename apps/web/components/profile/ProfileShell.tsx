@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Header } from "../Header";
 import { PixelAlert } from "../ui/PixelAlert";
 import { PixelButton } from "../ui/PixelButton";
-import { getSession, signOut, type SessionUser } from "../../lib/auth";
+import { getSession, onSessionRecovered, signOut, type SessionUser } from "../../lib/auth";
 
 export const SIGN_OUT_FAILED_MESSAGE = "Couldn't sign you out. Check your connection and try again.";
 export const SESSION_UNAVAILABLE_MESSAGE = "Couldn't reach the server to check your sign-in. Check your connection and try again.";
@@ -70,6 +70,16 @@ export function useSignedInUser() {
     setAttempt((n) => n + 1);
   }
 
+  // Another component's Retry got an answer: look again instead of staying on the banner.
+  useEffect(
+    () =>
+      onSessionRecovered(() => {
+        setUnavailable(false);
+        setAttempt((n) => n + 1);
+      }),
+    [],
+  );
+
   return { user, setUser, signingOut, signOutError, handleSignOut, unavailable, retry };
 }
 
@@ -78,7 +88,7 @@ export function SessionUnavailableAlert({ onRetry, className }: { onRetry: () =>
   return (
     <PixelAlert className={`flex flex-wrap items-center justify-between gap-3 ${className ?? ""}`}>
       <span>{SESSION_UNAVAILABLE_MESSAGE}</span>
-      <PixelButton small onClick={onRetry}>
+      <PixelButton small className="min-h-11 sm:min-h-0" onClick={onRetry}>
         Retry
       </PixelButton>
     </PixelAlert>

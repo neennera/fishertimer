@@ -176,19 +176,41 @@ export async function getSession(): Promise<Session> {
   return pendingSession;
 }
 
+// Several components on a page each ask for the session. When the check failed
+// and a later one (any component's Retry) succeeds, the others still showing
+// "couldn't check your sign-in" are told, so one Retry clears every banner.
+let lastCheckUnavailable = false;
+const recoveredListeners = new Set<() => void>();
+
+/** Calls `listener` when a session check succeeds after one had failed. Returns the unsubscribe. */
+export function onSessionRecovered(listener: () => void): () => void {
+  recoveredListeners.add(listener);
+  return () => recoveredListeners.delete(listener);
+}
+
+function settle(session: Session): Session {
+  if (session.status === 'unavailable') {
+    lastCheckUnavailable = true;
+  } else if (lastCheckUnavailable) {
+    lastCheckUnavailable = false;
+    recoveredListeners.forEach((listener) => listener());
+  }
+  return session;
+}
+
 async function fetchSession(): Promise<Session> {
   try {
     const user = await clientApiFetch<SessionUser>('auth', 'me');
     cachedSession = { status: 'signed_in', user };
-    return cachedSession;
+    return settle(cachedSession);
   } catch (err) {
     if (err instanceof ClientApiError && err.status === 401) {
       cachedSession = { status: 'signed_out' };
-      return cachedSession;
+      return settle(cachedSession);
     }
     // Network error, timeout or 5xx: we don't know. Not cached, so the next
     // call (a Retry) asks again.
-    return { status: 'unavailable' };
+    return settle({ status: 'unavailable' });
   }
 }
 

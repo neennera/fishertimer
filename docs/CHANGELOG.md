@@ -91,6 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The audit log page polls like the other pages, has Retry, and says "Latest 100 entries" when it reached the service's limit. Its intro no longer says "every" action.
 - **[web]**: Admin pages are usable at 375px: room titles and participant names wrap (long unbroken names too) instead of being cut to a few letters, the room header stacks, and the nav tabs, Remove, log filters, Retry and the modal close button are 44px tall below the `sm` breakpoint.
 - **[web]**: `PixelModal` (shared) gets a unique title id (`useId`), keeps Tab inside the dialog, and returns focus to the control that opened it.
+- **[web]**: A failed sign-in check (offline, timeout, 5xx) is handled the same way on every page, not only where `useSignedInUser` is used: `useActor` (rooms, room detail, timer settings) has an `unavailable` state with Retry instead of "Sign in to ...", `SessionHeader` shows a Retry button where Sign in would be, and `/dev` shows the banner. `lib/auth.ts` `onSessionRecovered` tells every other component showing the failure when one Retry succeeds, so a single Retry clears the header and the page banner together. `Header` has a new `onRetrySession` prop.
+- **[web]**: Leaderboard avatars are fetched for the page of rows being shown (the table reports them through `onVisibleEntries`) instead of the first 15 of the whole ranking: users on later pages now get their photo, a long ranking costs a few requests per page, and a failed lookup is retried the next time that page is shown.
 
 ### Fixed
 - **[web]**: A network error, timeout or 5xx on `GET /me` no longer counts as signed out. `getSession` has a new `unavailable` result, and `/account`, `/profile/[userId]` and `/leaderboard` show a "couldn't reach the server" banner with a Retry button instead of bouncing the user to `/signin` (Account audit B2).
@@ -131,6 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Admin: a first-load failure shows "The admin service had a problem. Try again in a moment." with a Retry button instead of "500 Internal Server Error" and nothing to press.
 - **[web]**: Admin: a session that expires while a room is open no longer freezes the page on "Out of date · retrying" with disabled buttons and no way out; it shows the Sign in banner.
 - **[admin]**: Study Session's 400 for a bad room id no longer shows the internal `GET /api/v1/study-session/...` path to the admin.
+- **[web]**: Initials are built by character, never by UTF-16 unit: "Bob 🐟" gave a lone surrogate (a broken glyph), flags and family emoji were cut, and a name starting with an invisible character (zero-width space, direction mark, soft hyphen) got an invisible initial. `lib/initials.ts` (header, room dock, profile, leaderboard) now uses grapheme segmentation and ignores leading invisible characters; `initials()` returns "?" when a name has nothing visible (so the header's account link and avatars are never blank), and a leaderboard name that is empty or only invisible characters reads "Unknown angler" (`hasVisibleText`).
+- **[web]**: Leaderboard: long names keep their ellipsis from `sm` up (`sm:block sm:truncate` instead of `line-clamp-none`), and the Retry buttons are 44px tall on phones.
+- **[web]**: A Retry in `useActor` no longer replaces an identical signed-in actor with a new object, which made room, settings and room-list hooks refetch once more.
+- **[web]**: The invisible-character set in `lib/validate-display-name.ts` is built from code points instead of literal zero-width characters hidden in the source.
 
 ### Fixed
 

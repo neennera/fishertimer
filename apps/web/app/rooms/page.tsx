@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SessionUnavailableAlert } from "../../components/profile/ProfileShell";
 import { PixelAlert } from "../../components/ui/PixelAlert";
 import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelPanel } from "../../components/ui/PixelPanel";
@@ -76,7 +77,9 @@ export default function RoomsPage() {
             </PixelAlert>
           )}
 
-          {actorState.status === "signed_out" ? (
+          {actorState.status === "unavailable" ? (
+            <SessionUnavailableAlert className="mt-6" onRetry={actorState.retry} />
+          ) : actorState.status === "signed_out" ? (
             <div className="pixel-placeholder mt-6 text-center">
               <p>Sign in to join a room and start fishing for focus.</p>
               <Link href="/signin" className="pixel-btn mt-4">
