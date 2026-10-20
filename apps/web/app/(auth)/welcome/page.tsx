@@ -83,7 +83,6 @@ function WelcomeForm() {
           value={name}
           onChange={(event) => setName(event.target.value)}
           aria-invalid={displayedError ? "true" : undefined}
-          maxLength={100}
         />
 
         <p className="pixel-field-error" role={displayedError || submitError ? "alert" : undefined}>

@@ -175,7 +175,6 @@ export function DisplayName(props: DisplayNameProps) {
               aria-label="Display name"
               aria-invalid={shownError ? "true" : undefined}
               aria-describedby={shownError ? errorId : undefined}
-              maxLength={100}
               // Width fallback where field-sizing isn't supported.
               size={Math.max(8, draft.length + 1)}
             />
