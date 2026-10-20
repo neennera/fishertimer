@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '../../components/Header';
 import { ParallaxScene } from '../../components/ui/ParallaxScene';
@@ -9,7 +9,7 @@ import { PixelAlert } from '../../components/ui/PixelAlert';
 import { PixelButton } from '../../components/ui/PixelButton';
 import { SessionUnavailableAlert, useSignedInUser } from '../../components/profile/ProfileShell';
 import { SIGNIN_SCENE_LAYERS } from '../../lib/scenes/signin-scene';
-import { getRewards } from '../../lib/profile';
+import { getPublicProfile, getRewards } from '../../lib/profile';
 import { PeriodTabs } from '../../features/leaderboard/components/PeriodTabs';
 import { LeaderboardTable } from '../../features/leaderboard/components/LeaderboardTable';
 import { useLeaderboard } from '../../features/leaderboard/hooks/useLeaderboard';
@@ -26,7 +26,7 @@ export default function LeaderboardPage() {
   const [userRewardScore, setUserRewardScore] = useState<number | null>(null);
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
-  const rawRankings = data?.rankings ?? [];
+  const rawRankings = useMemo(() => data?.rankings ?? [], [data]);
 
   // Fetch user rewards score as fallback if leaderboard has score = 0 or unranked
   useEffect(() => {
@@ -42,30 +42,38 @@ export default function LeaderboardPage() {
     };
   }, [user?.user_id]);
 
-  // Fetch avatar for users in ranking who don't have avatar_url
+  // Fetch the avatar of ranked users the API sent none for. Each user is asked
+  // for once (a user with no photo is not asked again), at most 15 per ranking,
+  // and a late answer is still kept if the ranking has changed meanwhile.
+  const requestedAvatars = useRef(new Set<string>());
+  const mounted = useRef(true);
   useEffect(() => {
-    if (rawRankings.length === 0) return;
-    let cancelled = false;
-    const missingUserIds = rawRankings
-      .map((r) => r.user_id)
-      .filter((uid) => uid && !userAvatars[uid] && (!user || uid !== user.user_id));
-
-    // Fetch in batches of up to 15
-    const toFetch = Array.from(new Set(missingUserIds)).slice(0, 15);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const toFetch = Array.from(
+      new Set(
+        rawRankings
+          .map((r) => r.user_id)
+          .filter((uid) => uid && uid !== user?.user_id && !requestedAvatars.current.has(uid))
+      )
+    ).slice(0, 15);
     toFetch.forEach((uid) => {
-      import('../../lib/profile').then(({ getPublicProfile }) => {
-        getPublicProfile(uid).then((prof) => {
-          if (!cancelled && prof?.avatar_url) {
+      requestedAvatars.current.add(uid);
+      getPublicProfile(uid)
+        .then((prof) => {
+          if (mounted.current && prof?.avatar_url) {
             setUserAvatars((prev) => ({ ...prev, [uid]: prof.avatar_url }));
           }
-        }).catch(() => {});
-      });
+        })
+        .catch(() => {
+          // A missing photo falls back to initials; not worth an error.
+        });
     });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [rawRankings, userAvatars, user]);
+  }, [rawRankings, user?.user_id]);
 
   const rankings = rawRankings.map((entry) => {
     const isMe = user && entry.user_id === user.user_id;
