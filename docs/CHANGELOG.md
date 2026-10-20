@@ -114,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: When the sign-in check fails (offline, timeout, server error) the Account, Profile and Leaderboard pages show a Retry banner instead of sending the user to the sign-in page.
 - **[web]**: If signing out fails, the header shows a message instead of doing nothing.
 - **[web]**: The Google sign-in button is no longer stuck on "Signing in" after the browser Back button or a failed start.
+- **[web]**: The name fields no longer cut the text at 100 characters, so the "too long" message shows; names with only spaces or invisible characters are rejected as empty.
 
 ### Fixed
 
