@@ -147,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The page header shows a Retry button instead of Sign in when the sign-in check fails.
 - **[web]**: The Retry buttons are 44px tall on phones.
 - **[web]**: The leaderboard fetches avatars only for the rows on the page being shown, and tries again later for a user whose lookup failed.
+- **[web]**: Avatar initials keep a whole emoji and ignore invisible characters; a name with no visible text shows as "Unknown angler".
 
 ### Fixed
 
