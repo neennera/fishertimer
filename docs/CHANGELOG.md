@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Header shows fish sprites beside the wordmark, plus small "admin page" and "dev page" links.
 - **[web]**: Idle warning in the room's timer panel (UC-05 E-8): for the last 3 minutes before Study Session moves an idle participant out, a countdown says to start a focus block. The deadline mirrors `usecase.IsIdle` (the later of `joined_at` and the timer's `last_updated` while it is stopped, plus `IDLE_TIMEOUT_MINUTES`).
 - **[account]**: Changing a display name publishes a `profile.updated` event to RabbitMQ (exchange `fisher.account`). The publisher never blocks the rename: events queue in memory and are retried with backoff if the broker is down.
+- **[study-session]**: Room rosters pick up a renamed user: Study Session consumes `profile.updated` (queue `session.profile-events`, with a dead-letter queue and capped retry backoff) and updates the display name of that user's participant rows.
 
 ### Changed
 - **[study-session]**: `SESSION_DISCONNECT_TIMEOUT_SECONDS` defaults to 120 (was 60). Browsers slow a hidden tab's timers to about one a minute, so with 60s a student studying in another tab could be removed mid-block (`DISCONNECT_TIMEOUT`). The room page also sends a heartbeat as soon as the tab is visible again.
