@@ -19,6 +19,10 @@ const RANK_BADGES: Record<number, { medal: string; label: string }> = {
 const SCORE_FISH = '/sprites/fish/Goldfish.png';
 const EMPTY_FISH = '/sprites/fish/Ghostfish.png';
 
+// An account with no usable display name still gets a readable row.
+const UNKNOWN_ANGLER = 'Unknown angler';
+const nameOf = (entry: RankEntry) => entry.display_name.trim() || UNKNOWN_ANGLER;
+
 export interface LeaderboardTableProps {
   entries: RankEntry[];
   /** user_id of the currently signed-in user. */
@@ -98,13 +102,12 @@ export function LeaderboardTable({
           {/* Header row */}
           <div
             role="row"
-            className="flex items-center gap-3 px-4 pt-2"
+            className="flex items-center gap-2 px-3 pt-2 sm:gap-3 sm:px-4"
             style={{ color: 'var(--color-bark)', fontSize: 'calc(var(--px) * 3.6)' }}
-            aria-hidden="true"
           >
-            <span className="w-12 text-center font-label uppercase tracking-widest">Rank</span>
-            <span className="flex-1 font-label uppercase tracking-widest pl-2">Users</span>
-            <span className="w-28 text-right font-label uppercase tracking-widest">Score</span>
+            <span role="columnheader" className="w-10 text-center font-label uppercase tracking-widest sm:w-12">Rank</span>
+            <span role="columnheader" className="flex-1 font-label uppercase tracking-widest pl-2">Users</span>
+            <span role="columnheader" className="w-20 text-right font-label uppercase tracking-widest sm:w-28">Score</span>
           </div>
           <hr className="pixel-rule" aria-hidden="true" />
 
@@ -156,7 +159,7 @@ export function LeaderboardTable({
                 isMe
                 entry={{
                   user_id: currentUserId,
-                  display_name: currentUserName ?? currentUserId,
+                  display_name: currentUserName ?? '',
                   avatar_url: currentUserAvatarUrl ?? undefined,
                   rank: 0,
                   reward_count: 0,
@@ -185,9 +188,10 @@ function Row({
 }) {
   const [failedAvatar, setFailedAvatar] = useState(false);
   const podium = RANK_BADGES[entry.rank];
-  const initials = (entry.display_name || entry.user_id)
-    .split(' ')
-    .map((p) => p[0])
+  const name = nameOf(entry);
+  const initials = (entry.display_name.trim() ? name : '?')
+    .split(/\s+/)
+    .map((p) => Array.from(p)[0] ?? '')
     .join('')
     .slice(0, 2)
     .toUpperCase();
@@ -197,10 +201,10 @@ function Row({
   return (
     <li
       role="row"
-      aria-label={`Rank ${entry.rank}: ${entry.display_name}, ${entry.score} points`}
+      aria-label={`Rank ${entry.rank}: ${name}, ${entry.score} points`}
       onClick={clickable ? onClick : undefined}
       className={cx(
-        'pixel-panel flex items-center gap-3 px-4 py-3 transition-transform duration-75',
+        'pixel-panel flex items-center gap-2 px-3 py-3 transition-transform duration-75 sm:gap-3 sm:px-4',
         isMe ? 'pixel-rank-row--me' : podium && 'pixel-rank-row--podium',
         clickable && 'cursor-pointer hover:opacity-90 active:scale-[0.99]',
       )}
@@ -208,7 +212,7 @@ function Row({
     >
       {/* Rank number / medal */}
       <div
-        className="w-12 flex flex-col items-center justify-center font-numeric shrink-0"
+        className="w-10 flex flex-col items-center justify-center font-numeric shrink-0 sm:w-12"
         role="cell"
         aria-label={`Rank ${entry.rank}`}
       >
@@ -234,7 +238,7 @@ function Row({
       </div>
 
       {/* Avatar & name */}
-      <div className="flex-1 flex items-center gap-3 min-w-0" role="cell">
+      <div className="flex-1 flex items-center gap-2 min-w-0 sm:gap-3" role="cell">
         <span
           className="pixel-rank-row__avatar w-9 h-9 shrink-0 flex items-center justify-center font-label font-bold text-xs overflow-hidden"
           aria-hidden="true"
@@ -256,10 +260,11 @@ function Row({
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className="font-numeric text-base tracking-wide truncate"
+              className="font-numeric text-base tracking-wide break-words line-clamp-2 sm:truncate sm:line-clamp-none"
               style={{ fontSize: 'calc(var(--px) * 5.2)' }}
+              title={name}
             >
-              {entry.display_name || entry.user_id}
+              {name}
             </span>
             {isMe && (
               <span
@@ -279,14 +284,18 @@ function Row({
             className="text-xs truncate font-label opacity-75"
             style={{ fontSize: 'calc(var(--px) * 2.8)' }}
           >
-            {isMe ? (entry.rank > 0 ? 'Your ranking' : 'Your ranking · Unranked') : `Fisher ID: ${entry.user_id}`}
+            {isMe
+              ? entry.rank > 0
+                ? 'Your ranking'
+                : 'Your ranking · Unranked'
+              : `${entry.reward_count} fish caught`}
           </span>
         </div>
       </div>
 
       {/* Score */}
       <div
-        className="w-28 text-right flex items-center justify-end gap-1.5 shrink-0"
+        className="w-20 text-right flex items-center justify-end gap-1.5 shrink-0 sm:w-28"
         role="cell"
         aria-label={`${entry.score} points from ${entry.reward_count} fish`}
         title={`${entry.reward_count} fish`}

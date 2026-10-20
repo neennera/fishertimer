@@ -52,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Header shows fish sprites beside the wordmark, plus small "admin page" and "dev page" links.
 - **[account]**: Handler tests (`http_handler_test.go`: method guards, `/me`, sign-out cookies, sign-up and update-profile status codes, profile/statistics/rewards status codes, open-redirect neutralising, every OAuth callback redirect) and usecase tests (`service_edge_test.go`: concurrent first sign-up, invisible/control-only names, malformed ids). The handler layer had no tests.
 - **[web]**: `lib/use-mocks.ts`, the single mock/real switch behind `lib/auth.ts` and `lib/profile.ts`. `useSignOut` and `SessionUnavailableAlert` in `components/profile/ProfileShell.tsx`.
+- **[leaderboard]**: Handler tests (`http_handler_test.go`: period handling, empty list is `[]` not `null`, 502 and 500 JSON errors that don't leak internal text, JSON 405, CORS preflight) and usecase tests for a Reward-service outage (cold cache gives `ErrUpstream`, warm cache serves the stale ranking). The handler had no tests.
+- **[web]**: `friendlyApiError()` in `lib/client-api.ts`: one place that turns an API failure (HTTP status, timeout, no network, unparseable answer) into a sentence a person can act on.
 
 ### Changed
 - **[admin]**: Room state is read from Study Session (`ListActiveSession` with its `participant_count`, `GetParticipants` with `display_name`) instead of the in-memory stub; one participants call per room is no longer needed. `ViewSessionDetails` is no longer mocked. Kick/close now send the explicit `KICKED` / `ADMIN_CLOSED` reasons.
@@ -77,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: `PixelAlert` is `role="alert"` for the `error` tone and `role="status"` for `warn` (it was always `status`), so failed actions are announced straight away; an explicit `role` still overrides.
 - **[web]**: `NEXT_PUBLIC_USE_MOCKS` unset now means the real backend in a production build (mocks only in `next dev`), so a missing variable can no longer ship fake sign-ins. `false` and `true` behave as before. `.env.example` updated.
 - **[web]**: `clientApiFetch` gives up after 15 s (`REQUEST_TIMEOUT_MS`), so "Saving..." and "Signing in..." can no longer spin forever on a hung gateway. Needs `AbortSignal.any` (Chrome 116, Safari 17.4, Firefox 124).
+- **[leaderboard]**: Errors are JSON `{"error": "..."}` with a message safe to show. A Reward service that is down, slow or answering an error is now `502` (`domain.ErrUpstream`); anything else is `500`; wrong method is a JSON `405`. The underlying error is logged, not sent. It used to be a `500` with the raw `text/plain` error ("reward service returned status 503").
+- **[web]**: `/leaderboard` loads through `clientApiFetch` (15 s timeout, `friendlyApiError`) instead of `apiFetch`, so a hung or failing API ends in a readable message with a Retry button rather than a spinner that never stops or a raw `API error [leaderboard] 502 ...`. `clientApiFetch` accepts a bare `?query` endpoint. `apiFetch` is unchanged (the timer still uses it).
+- **[web]**: Leaderboard rows no longer print each user's full user id ("Fisher ID: ...") under their name; they show the number of fish caught. A missing display name reads "Unknown angler" instead of the user id. Rows tighten up on phones so names stay readable (two lines instead of cut to a few letters), the period tabs and Refresh are 44px tall below the `sm` breakpoint, and the table header row is exposed to screen readers as column headers.
 
 ### Fixed
 - **[web]**: A network error, timeout or 5xx on `GET /me` no longer counts as signed out. `getSession` has a new `unavailable` result, and `/account`, `/profile/[userId]` and `/leaderboard` show a "couldn't reach the server" banner with a Retry button instead of bouncing the user to `/signin` (Account audit B2).
@@ -110,6 +115,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Admin Collaboration**: Configured Admin service to directly send commands to Study Session (`LeaveSession()` to kick participants and `EndSession()` to close rooms).
 - **[go.work]**: Raised the workspace Go version from 1.22 to 1.25.0, the minimum required by `google.golang.org/grpc` v1.84.
 - **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
+- **[web]**: Leaderboard: a failed first load no longer shows "No Catches This Period Yet", "Unranked (0 pts)" and "Current Leader" next to the error; with nothing loaded and an error, only the banner and Retry show.
+- **[web]**: Leaderboard: switching period while the request fails no longer leaves the previous period's rows under the new tab. `useLeaderboard` keeps its data per period, and a failed refresh of the period on screen keeps its rows and says so.
+- **[web]**: Leaderboard: the avatar lookup no longer cancels and repeats its own profile requests; each ranked user is asked for once.
 
 ### Fixed
 

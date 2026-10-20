@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '../../components/Header';
 import { ParallaxScene } from '../../components/ui/ParallaxScene';
 import { PixelPanel } from '../../components/ui/PixelPanel';
+import { PixelAlert } from '../../components/ui/PixelAlert';
 import { PixelButton } from '../../components/ui/PixelButton';
 import { SessionUnavailableAlert, useSignedInUser } from '../../components/profile/ProfileShell';
 import { SIGNIN_SCENE_LAYERS } from '../../lib/scenes/signin-scene';
-import { getRewards } from '../../lib/profile';
+import { getPublicProfile, getRewards } from '../../lib/profile';
 import { PeriodTabs } from '../../features/leaderboard/components/PeriodTabs';
 import { LeaderboardTable } from '../../features/leaderboard/components/LeaderboardTable';
 import { useLeaderboard } from '../../features/leaderboard/hooks/useLeaderboard';
@@ -25,7 +26,7 @@ export default function LeaderboardPage() {
   const [userRewardScore, setUserRewardScore] = useState<number | null>(null);
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
-  const rawRankings = data?.rankings ?? [];
+  const rawRankings = useMemo(() => data?.rankings ?? [], [data]);
 
   // Fetch user rewards score as fallback if leaderboard has score = 0 or unranked
   useEffect(() => {
@@ -41,30 +42,38 @@ export default function LeaderboardPage() {
     };
   }, [user?.user_id]);
 
-  // Fetch avatar for users in ranking who don't have avatar_url
+  // Fetch the avatar of ranked users the API sent none for. Each user is asked
+  // for once (a user with no photo is not asked again), at most 15 per ranking,
+  // and a late answer is still kept if the ranking has changed meanwhile.
+  const requestedAvatars = useRef(new Set<string>());
+  const mounted = useRef(true);
   useEffect(() => {
-    if (rawRankings.length === 0) return;
-    let cancelled = false;
-    const missingUserIds = rawRankings
-      .map((r) => r.user_id)
-      .filter((uid) => uid && !userAvatars[uid] && (!user || uid !== user.user_id));
-
-    // Fetch in batches of up to 15
-    const toFetch = Array.from(new Set(missingUserIds)).slice(0, 15);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const toFetch = Array.from(
+      new Set(
+        rawRankings
+          .map((r) => r.user_id)
+          .filter((uid) => uid && uid !== user?.user_id && !requestedAvatars.current.has(uid))
+      )
+    ).slice(0, 15);
     toFetch.forEach((uid) => {
-      import('../../lib/profile').then(({ getPublicProfile }) => {
-        getPublicProfile(uid).then((prof) => {
-          if (!cancelled && prof?.avatar_url) {
+      requestedAvatars.current.add(uid);
+      getPublicProfile(uid)
+        .then((prof) => {
+          if (mounted.current && prof?.avatar_url) {
             setUserAvatars((prev) => ({ ...prev, [uid]: prof.avatar_url }));
           }
-        }).catch(() => {});
-      });
+        })
+        .catch(() => {
+          // A missing photo falls back to initials; not worth an error.
+        });
     });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [rawRankings, userAvatars, user]);
+  }, [rawRankings, user?.user_id]);
 
   const rankings = rawRankings.map((entry) => {
     const isMe = user && entry.user_id === user.user_id;
@@ -145,7 +154,8 @@ export default function LeaderboardPage() {
               onClick={refresh}
               disabled={loading}
               aria-label="Refresh rankings"
-              style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem', minHeight: 0 }}
+              className="min-h-11 sm:min-h-0"
+              style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem' }}
             >
               {loading ? 'Updating…' : 'Refresh'}
             </PixelButton>
@@ -172,47 +182,59 @@ export default function LeaderboardPage() {
             >
               <span className="font-label text-[10px] uppercase text-bark">Your Ranking</span>
               <span className="font-numeric text-lg text-ink truncate mt-0.5">
-                {myEntry ? `#${myEntry.rank} of ${rankings.length} (${displayScore} pts)` : `Unranked (${displayScore} pts)`}
+                {!data
+                  ? '—'
+                  : myEntry
+                    ? `#${myEntry.rank} of ${rankings.length} (${displayScore} pts)`
+                    : `Unranked (${displayScore} pts)`}
               </span>
             </div>
           </div>
 
-          {/* ── Error Banner (E-3) ───────────────────────────────────── */}
+          {/* ── Error banner: what happened, and Retry ───────────────── */}
           {error && (
-            <div className="pixel-alert mt-4" role="alert">
-              {error}
-            </div>
+            <PixelAlert className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {data ? `${error} Showing the last rankings loaded.` : error}
+              </span>
+              <PixelButton small onClick={refresh} disabled={loading}>
+                {loading ? 'Retrying…' : 'Retry'}
+              </PixelButton>
+            </PixelAlert>
           )}
 
           {/* ── Leaderboard Table ────────────────────────────────────── */}
-          <div className="mt-4">
-            {loading && !data ? (
-              <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Loading rankings">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="pixel-panel animate-pulse"
-                    style={{
-                      height: '4rem',
-                      background: 'var(--color-cream-2)',
-                      opacity: 1 - i * 0.12,
-                    }}
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-            ) : (
-              <LeaderboardTable
-                entries={rankings}
-                currentUserId={user.user_id}
-                currentUserName={user.display_name}
-                currentUserScore={displayScore}
-                currentUserAvatarUrl={user.avatar_url}
-                period={period}
-              />
-            )}
-          </div>
-
+          {/* With nothing loaded and a failure, show only the banner: an empty
+              table would read as "no catches" when the truth is "couldn't load". */}
+          {(data || !error) && (
+            <div className="mt-4">
+              {!data ? (
+                <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Loading rankings">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="pixel-panel animate-pulse"
+                      style={{
+                        height: '4rem',
+                        background: 'var(--color-cream-2)',
+                        opacity: 1 - i * 0.12,
+                      }}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <LeaderboardTable
+                  entries={rankings}
+                  currentUserId={user.user_id}
+                  currentUserName={user.display_name}
+                  currentUserScore={displayScore}
+                  currentUserAvatarUrl={user.avatar_url}
+                  period={period}
+                />
+              )}
+            </div>
+          )}
 
           {/* ── Bottom Action Navigation ─ */}
           <hr className="pixel-rule mt-6" aria-hidden="true" />
