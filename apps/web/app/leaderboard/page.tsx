@@ -42,9 +42,12 @@ export default function LeaderboardPage() {
     };
   }, [user?.user_id]);
 
-  // Fetch the avatar of ranked users the API sent none for. Each user is asked
-  // for once (a user with no photo is not asked again), at most 15 per ranking,
-  // and a late answer is still kept if the ranking has changed meanwhile.
+  // Fetch the avatar of the users on the page being shown (the table reports
+  // them as the page changes), so a long ranking costs a few requests per page
+  // instead of one per user. A user is asked for once and not again, unless
+  // the lookup failed, which is tried again when their page is shown next.
+  // A late answer is still kept if the ranking has changed meanwhile.
+  const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const requestedAvatars = useRef(new Set<string>());
   const mounted = useRef(true);
   useEffect(() => {
@@ -54,13 +57,9 @@ export default function LeaderboardPage() {
     };
   }, []);
   useEffect(() => {
-    const toFetch = Array.from(
-      new Set(
-        rawRankings
-          .map((r) => r.user_id)
-          .filter((uid) => uid && uid !== user?.user_id && !requestedAvatars.current.has(uid))
-      )
-    ).slice(0, 15);
+    const toFetch = visibleIds.filter(
+      (uid) => uid && uid !== user?.user_id && !requestedAvatars.current.has(uid)
+    );
     toFetch.forEach((uid) => {
       requestedAvatars.current.add(uid);
       getPublicProfile(uid)
@@ -70,10 +69,12 @@ export default function LeaderboardPage() {
           }
         })
         .catch(() => {
-          // A missing photo falls back to initials; not worth an error.
+          // A missing photo falls back to initials, and the next time this
+          // page is shown the lookup is tried again.
+          requestedAvatars.current.delete(uid);
         });
     });
-  }, [rawRankings, user?.user_id]);
+  }, [visibleIds, user?.user_id]);
 
   const rankings = rawRankings.map((entry) => {
     const isMe = user && entry.user_id === user.user_id;
@@ -231,6 +232,10 @@ export default function LeaderboardPage() {
                   currentUserScore={displayScore}
                   currentUserAvatarUrl={user.avatar_url}
                   period={period}
+                  onVisibleEntries={(shown) => {
+                    const ids = shown.map((e) => e.user_id);
+                    setVisibleIds((prev) => (prev.join(',') === ids.join(',') ? prev : ids));
+                  }}
                 />
               )}
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RankEntry } from '../types';
 import { cx } from '../../../lib/cx';
 import { PixelButton } from '../../../components/ui/PixelButton';
@@ -35,6 +35,8 @@ export interface LeaderboardTableProps {
   period?: string;
   /** Current user's avatar url if available. */
   currentUserAvatarUrl?: string | null;
+  /** Called with the rows on the page being shown, each time the page or the list changes. */
+  onVisibleEntries?: (entries: RankEntry[]) => void;
 }
 
 /**
@@ -52,6 +54,7 @@ export function LeaderboardTable({
   currentUserScore,
   period,
   currentUserAvatarUrl,
+  onVisibleEntries,
 }: LeaderboardTableProps) {
 
   const [page, setPage] = useState(0);
@@ -69,6 +72,14 @@ export function LeaderboardTable({
 
   const current = Math.min(page, pageCount - 1);
   const visible = entries.slice(current * LEADERBOARD_PAGE_SIZE, (current + 1) * LEADERBOARD_PAGE_SIZE);
+  const visibleKey = visible.map((e) => e.user_id).join(',');
+  const onVisibleRef = useRef(onVisibleEntries);
+  onVisibleRef.current = onVisibleEntries;
+  useEffect(() => {
+    onVisibleRef.current?.(visible);
+    // visibleKey stands for `visible`: a new array each render, the same rows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey]);
   const meIndex = currentUserId != null ? entries.findIndex((e) => e.user_id === currentUserId) : -1;
   const me = meIndex !== -1 ? entries[meIndex] : undefined;
 
