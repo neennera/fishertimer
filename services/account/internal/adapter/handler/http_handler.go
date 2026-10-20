@@ -311,7 +311,8 @@ func (h *HTTPHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user)
+	// Anyone may call this, so only the public view leaves: no e-mail, no role.
+	writeJSON(w, http.StatusOK, user.Public())
 }
 
 func (h *HTTPHandler) Statistics(w http.ResponseWriter, r *http.Request) {
