@@ -1,7 +1,7 @@
 // Auth data layer (UC-06 Sign In / Sign Up). The only file, besides its mock
 // counterpart, that knows whether auth data is real or mocked. Components
 // call these functions and never touch fetch or lib/mocks/auth.mock.ts
-// directly. Toggled by NEXT_PUBLIC_USE_MOCKS (see .env.example).
+// directly. Toggled by NEXT_PUBLIC_USE_MOCKS (see lib/use-mocks.ts, .env.example).
 //
 // Real contract: the account service (services/account/internal/adapter/
 // handler/http_handler.go), reached through the gateway's /api/auth/* alias,
@@ -42,11 +42,10 @@ import {
   type MockAuthScenario,
 } from './mocks/auth.mock';
 import { validateDisplayName } from './validate-display-name';
+import { USE_MOCKS } from './use-mocks';
 
 export type { AuthErrorCode, UserRole };
 export { AUTH_ERROR_MESSAGES };
-
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 
 const GOOGLE_LOGIN_PATH = '/api/auth/google/login';
 
