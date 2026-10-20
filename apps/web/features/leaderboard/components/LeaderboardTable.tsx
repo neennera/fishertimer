@@ -102,13 +102,12 @@ export function LeaderboardTable({
           {/* Header row */}
           <div
             role="row"
-            className="flex items-center gap-3 px-4 pt-2"
+            className="flex items-center gap-2 px-3 pt-2 sm:gap-3 sm:px-4"
             style={{ color: 'var(--color-bark)', fontSize: 'calc(var(--px) * 3.6)' }}
-            aria-hidden="true"
           >
-            <span className="w-12 text-center font-label uppercase tracking-widest">Rank</span>
-            <span className="flex-1 font-label uppercase tracking-widest pl-2">Users</span>
-            <span className="w-28 text-right font-label uppercase tracking-widest">Score</span>
+            <span role="columnheader" className="w-10 text-center font-label uppercase tracking-widest sm:w-12">Rank</span>
+            <span role="columnheader" className="flex-1 font-label uppercase tracking-widest pl-2">Users</span>
+            <span role="columnheader" className="w-20 text-right font-label uppercase tracking-widest sm:w-28">Score</span>
           </div>
           <hr className="pixel-rule" aria-hidden="true" />
 
@@ -205,7 +204,7 @@ function Row({
       aria-label={`Rank ${entry.rank}: ${name}, ${entry.score} points`}
       onClick={clickable ? onClick : undefined}
       className={cx(
-        'pixel-panel flex items-center gap-3 px-4 py-3 transition-transform duration-75',
+        'pixel-panel flex items-center gap-2 px-3 py-3 transition-transform duration-75 sm:gap-3 sm:px-4',
         isMe ? 'pixel-rank-row--me' : podium && 'pixel-rank-row--podium',
         clickable && 'cursor-pointer hover:opacity-90 active:scale-[0.99]',
       )}
@@ -213,7 +212,7 @@ function Row({
     >
       {/* Rank number / medal */}
       <div
-        className="w-12 flex flex-col items-center justify-center font-numeric shrink-0"
+        className="w-10 flex flex-col items-center justify-center font-numeric shrink-0 sm:w-12"
         role="cell"
         aria-label={`Rank ${entry.rank}`}
       >
@@ -239,7 +238,7 @@ function Row({
       </div>
 
       {/* Avatar & name */}
-      <div className="flex-1 flex items-center gap-3 min-w-0" role="cell">
+      <div className="flex-1 flex items-center gap-2 min-w-0 sm:gap-3" role="cell">
         <span
           className="pixel-rank-row__avatar w-9 h-9 shrink-0 flex items-center justify-center font-label font-bold text-xs overflow-hidden"
           aria-hidden="true"
@@ -261,7 +260,7 @@ function Row({
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className="font-numeric text-base tracking-wide truncate"
+              className="font-numeric text-base tracking-wide break-words line-clamp-2 sm:truncate sm:line-clamp-none"
               style={{ fontSize: 'calc(var(--px) * 5.2)' }}
               title={name}
             >
@@ -296,7 +295,7 @@ function Row({
 
       {/* Score */}
       <div
-        className="w-28 text-right flex items-center justify-end gap-1.5 shrink-0"
+        className="w-20 text-right flex items-center justify-end gap-1.5 shrink-0 sm:w-28"
         role="cell"
         aria-label={`${entry.score} points from ${entry.reward_count} fish`}
         title={`${entry.reward_count} fish`}
