@@ -1,10 +1,17 @@
 module github.com/neennera/fishertimer/services/leaderboard
 
-go 1.24
+go 1.25.0
+
+require (
+	github.com/neennera/fishertimer/pkg/events v0.0.0
+	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/redis/go-redis/v9 v9.22.0
+)
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/redis/go-redis/v9 v9.22.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 )
+
+replace github.com/neennera/fishertimer/pkg/events => ../../pkg/events

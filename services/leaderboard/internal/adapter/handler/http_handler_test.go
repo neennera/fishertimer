@@ -20,6 +20,8 @@ type stubUsecase struct {
 	period string
 }
 
+func (s *stubUsecase) RenameUser(context.Context, string, string) error { return nil }
+
 func (s *stubUsecase) ViewLeaderboard(_ context.Context, period string) (*domain.CachedRanking, error) {
 	s.period = period
 	return s.result, s.err

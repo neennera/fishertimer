@@ -14,10 +14,29 @@ import (
 
 type mockRepository struct {
 	cache map[string]*domain.CachedRanking
+	names map[string]string
 }
 
 func newMockRepo() *mockRepository {
-	return &mockRepository{cache: make(map[string]*domain.CachedRanking)}
+	return &mockRepository{cache: make(map[string]*domain.CachedRanking), names: make(map[string]string)}
+}
+
+func (r *mockRepository) SetDisplayName(_ context.Context, userID, displayName string) error {
+	r.names[userID] = displayName
+	return nil
+}
+
+func (r *mockRepository) GetDisplayNames(_ context.Context) (map[string]string, error) {
+	out := make(map[string]string, len(r.names))
+	for k, v := range r.names {
+		out[k] = v
+	}
+	return out, nil
+}
+
+func (r *mockRepository) DeleteCachedRankings(_ context.Context) error {
+	r.cache = make(map[string]*domain.CachedRanking)
+	return nil
 }
 
 func (r *mockRepository) GetCachedRanking(_ context.Context, period string) (*domain.CachedRanking, error) {

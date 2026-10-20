@@ -17,7 +17,14 @@ const (
 	cacheTTL = 10 * time.Minute
 
 	keyPrefix = "leaderboard:ranking:"
+
+	// namesKey is a hash of user id to the display name chosen after the
+	// rewards were recorded. No TTL: it must outlive the ranking cache.
+	namesKey = "leaderboard:names"
 )
+
+// periods are the cached rankings, one key each.
+var periods = []string{"weekly", "monthly", "all-time"}
 
 // RedisRepository implements domain.Repository backed by Redis.
 //
@@ -76,6 +83,29 @@ func (r *RedisRepository) SetCachedRanking(ctx context.Context, ranking *domain.
 		return err
 	}
 	return r.client.Set(ctx, key, data, cacheTTL).Err()
+}
+
+// SetDisplayName remembers a renamed user's current name.
+func (r *RedisRepository) SetDisplayName(ctx context.Context, userID, displayName string) error {
+	return r.client.HSet(ctx, namesKey, userID, displayName).Err()
+}
+
+// GetDisplayNames returns every remembered name, keyed by user id.
+func (r *RedisRepository) GetDisplayNames(ctx context.Context) (map[string]string, error) {
+	names, err := r.client.HGetAll(ctx, namesKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	return names, nil
+}
+
+// DeleteCachedRankings drops every period's cached ranking.
+func (r *RedisRepository) DeleteCachedRankings(ctx context.Context) error {
+	keys := make([]string, len(periods))
+	for i, p := range periods {
+		keys[i] = keyPrefix + p
+	}
+	return r.client.Del(ctx, keys...).Err()
 }
 
 // Close releases the underlying Redis connection pool.
