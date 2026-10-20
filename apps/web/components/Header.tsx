@@ -75,13 +75,13 @@ export function Header({
 
       <nav
         aria-label="Developer pages"
-        className="ml-auto flex items-center gap-3 font-label"
+        className="ml-auto flex items-center gap-1 font-label sm:gap-3"
         style={{ fontSize: "calc(var(--px) * 3.6)" }}
       >
-        <Link href="/admin" className="opacity-75 hover:opacity-100 underline-offset-4 hover:underline">
+        <Link href="/admin" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
           admin page
         </Link>
-        <Link href="/dev" className="opacity-75 hover:opacity-100 underline-offset-4 hover:underline">
+        <Link href="/dev" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
           dev page
         </Link>
       </nav>
