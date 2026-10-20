@@ -12,7 +12,7 @@ const BRAND_FISH = ["/sprites/fish/Goldfish.png", "/sprites/fish/Clownfish.png",
 
 export interface HeaderProps {
   /** Omitted while signed out. The bar keeps the same height either way. */
-  user?: { displayName: string; avatarUrl?: string } | null;
+  user?: { displayName: string; avatarUrl?: string; isAdmin?: boolean } | null;
   /** Shows the sign-out button (only alongside `user`). */
   onSignOut?: () => void;
   /** Disables the sign-out button while the request is in flight. */
@@ -73,18 +73,20 @@ export function Header({
         <span className="pixel-header__title">Fisher Timer</span>
       </Link>
 
-      <nav
-        aria-label="Developer pages"
-        className="ml-auto flex items-center gap-1 font-label sm:gap-3"
-        style={{ fontSize: "calc(var(--px) * 3.6)" }}
-      >
-        <Link href="/admin" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
-          admin page
-        </Link>
-        <Link href="/dev" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
-          dev page
-        </Link>
-      </nav>
+      {user?.isAdmin && (
+        <nav
+          aria-label="Developer pages"
+          className="ml-auto flex items-center gap-1 font-label sm:gap-3"
+          style={{ fontSize: "calc(var(--px) * 3.6)" }}
+        >
+          <Link href="/admin" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
+            admin page
+          </Link>
+          <Link href="/dev" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
+            dev page
+          </Link>
+        </nav>
+      )}
 
 
       {user && initials && (

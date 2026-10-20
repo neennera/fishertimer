@@ -120,7 +120,7 @@ export function ProfileShell({
   return (
     <div className="pixel-wood min-h-screen">
       <Header
-        user={viewer ? { displayName: viewer.display_name, avatarUrl: viewer.avatar_url } : null}
+        user={viewer ? { displayName: viewer.display_name, avatarUrl: viewer.avatar_url, isAdmin: viewer.role === "ADMIN" } : null}
         onSignOut={onSignOut}
         signingOut={signingOut}
       />
