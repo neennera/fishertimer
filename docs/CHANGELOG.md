@@ -136,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Admin requests give up after 15 seconds, and failures say what happened in plain words instead of "500 Internal Server Error".
 - **[web]**: Admin polling skips a tick while a request is still running, pauses in a hidden tab, stops after a 401 or 403, and never lets an old slow answer replace a newer one.
 - **[web]**: Admin load errors have a Retry button (not shown for a 403, where a different account is the fix).
+- **[web]**: If a kick or close gets no answer in time, the room page refreshes and says the result is unclear instead of offering a blind retry.
 
 ### Fixed
 
