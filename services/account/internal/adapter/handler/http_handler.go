@@ -33,6 +33,8 @@ const (
 const (
 	DefaultNextPath   = "/"
 	DefaultSignUpPath = "/signup"
+	// Where a failed sign-in lands when the remembered `next` is gone.
+	DefaultErrorPath = "/signin"
 )
 
 // Options carries the transport-level settings main.go derives from config.
@@ -118,28 +120,39 @@ func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
 	// Where to land, as asked for at login. Read before the cookies are cleared.
-	nextPath := safePath(cookieValue(r, NextCookie), DefaultNextPath)
+	// A lost cookie (10-minute lifetime, e.g. a slow Google consent screen)
+	// still has to land somewhere that can show ?auth_error=, so errors fall
+	// back to the sign-in page rather than the home page.
+	rememberedNext := safePath(cookieValue(r, NextCookie), "")
+	nextPath := rememberedNext
+	if nextPath == "" {
+		nextPath = DefaultNextPath
+	}
+	errorPath := rememberedNext
+	if errorPath == "" {
+		errorPath = DefaultErrorPath
+	}
 	signUpPath := safePath(cookieValue(r, SignUpPathCookie), DefaultSignUpPath)
 	h.clearCookie(w, StateCookie)
 	h.clearCookie(w, NextCookie)
 	h.clearCookie(w, SignUpPathCookie)
 
 	if errParam := query.Get("error"); errParam != "" { // user pressed Cancel
-		h.redirectTo(w, r, nextPath, errParam)
+		h.redirectTo(w, r, errorPath, errParam)
 		return
 	}
 
 	// Constant-time compare so the check cannot be probed byte by byte.
 	expected := cookieValue(r, StateCookie)
 	if expected == "" || subtle.ConstantTimeCompare([]byte(query.Get("state")), []byte(expected)) != 1 {
-		h.redirectTo(w, r, nextPath, "invalid_state")
+		h.redirectTo(w, r, errorPath, "invalid_state")
 		return
 	}
 
 	result, err := h.uc.CompleteSignIn(r.Context(), query.Get("code"))
 	if err != nil {
 		log.Printf("account: sign-in failed: %v", err)
-		h.redirectTo(w, r, nextPath, "login_failed")
+		h.redirectTo(w, r, errorPath, "login_failed")
 		return
 	}
 
