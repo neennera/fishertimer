@@ -23,17 +23,29 @@ export interface CreateRoomModalProps {
 export function CreateRoomModal({ open, onClose, onCreate }: CreateRoomModalProps) {
   const [name, setName] = useState("");
   const [limit, setLimit] = useState<number>(ROOM_RULES.maxLimit);
-  const [touched, setTouched] = useState(false);
+  // Errors stay hidden until the first Open room press, then follow the input.
+  const [submitted, setSubmitted] = useState(false);
+  const [shaking, setShaking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const errors = validateRoom(name, limit);
-  const showErrors = touched ? errors : {};
+  const showErrors = submitted ? errors : {};
 
-  async function handleSubmit(event: FormEvent) {
+  function close() {
+    setSubmitted(false);
+    setServerError(null);
+    onClose();
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setTouched(true);
-    if (errors.name || errors.limit) return;
+    setSubmitted(true);
+    if (errors.name || errors.limit) {
+      setShaking(true);
+      if (errors.name) (event.currentTarget.elements.namedItem("name") as HTMLInputElement | null)?.focus();
+      return;
+    }
     setSubmitting(true);
     setServerError(null);
     const error = await onCreate(name.trim(), limit);
@@ -42,24 +54,27 @@ export function CreateRoomModal({ open, onClose, onCreate }: CreateRoomModalProp
     else {
       setName("");
       setLimit(ROOM_RULES.maxLimit);
-      setTouched(false);
+      setSubmitted(false);
     }
   }
 
   return (
-    <PixelModal open={open} onClose={onClose} title="Open a new room">
+    <PixelModal open={open} onClose={close} title="Open a new room">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
-        <PixelInput
-          label="Room name"
-          placeholder="e.g. Midterm grind"
-          value={name}
-          maxLength={ROOM_RULES.maxNameLength + 10}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => setTouched(true)}
-          error={showErrors.name}
-          hint={`${[...name.trim()].length}/${ROOM_RULES.maxNameLength} · every room is public`}
-          autoFocus
-        />
+        <div className={shaking && showErrors.name ? "pixel-shake" : undefined} onAnimationEnd={() => setShaking(false)}>
+          <PixelInput
+            className="pixel-field--loud"
+            label="Room name"
+            name="name"
+            placeholder="e.g. Midterm grind"
+            value={name}
+            maxLength={ROOM_RULES.maxNameLength + 10}
+            onChange={(e) => setName(e.target.value)}
+            error={showErrors.name}
+            hint={`${[...name.trim()].length}/${ROOM_RULES.maxNameLength} · every room is public`}
+            autoFocus
+          />
+        </div>
 
         <fieldset className="flex flex-col gap-2">
           <legend className="pixel-label">Spots on the dock</legend>
@@ -92,7 +107,7 @@ export function CreateRoomModal({ open, onClose, onCreate }: CreateRoomModalProp
         {serverError && <PixelAlert>{serverError}</PixelAlert>}
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <PixelButton variant="ghost" onClick={onClose}>
+          <PixelButton variant="ghost" onClick={close}>
             Cancel
           </PixelButton>
           <PixelButton type="submit" disabled={submitting}>
