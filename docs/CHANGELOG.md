@@ -113,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: A production build talks to the real backend unless `NEXT_PUBLIC_USE_MOCKS=true`; mocks stay the default only in `next dev`.
 - **[web]**: When the sign-in check fails (offline, timeout, server error) the Account, Profile and Leaderboard pages show a Retry banner instead of sending the user to the sign-in page.
 - **[web]**: If signing out fails, the header shows a message instead of doing nothing.
+- **[web]**: The Google sign-in button is no longer stuck on "Signing in" after the browser Back button or a failed start.
 
 ### Fixed
 
