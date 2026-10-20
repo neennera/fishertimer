@@ -1,9 +1,5 @@
 import Link from "next/link";
 import { ArrowRight } from "pixelarticons/react/ArrowRight";
-import { Fish } from "pixelarticons/react/Fish";
-import { Gear } from "pixelarticons/react/Gear";
-import { Trophy } from "pixelarticons/react/Trophy";
-import { Users } from "pixelarticons/react/Users";
 import { Footer } from "../components/Footer";
 import { SessionHeader } from "../components/SessionHeader";
 import { ParallaxScene } from "../components/ui/ParallaxScene";
@@ -21,19 +17,19 @@ const STEPS = [
 // is also the way to the timer.
 const DESTINATIONS = [
   {
-    icon: Users,
+    sprite: "/sprites/ui/icon-room.png",
     title: "Study rooms",
     description: "Join or create a room and use the focus timer with others.",
     href: "/rooms",
   },
   {
-    icon: Trophy,
+    sprite: "/sprites/ui/trophy.png",
     title: "Leaderboard",
     description: "See how your fish score ranks this week, month or all time.",
     href: "/leaderboard",
   },
   {
-    icon: Fish,
+    sprite: "/sprites/fish/Goldfish.png",
     title: "My fish",
     description: "Your catch, stats and account.",
     href: "/account",
@@ -67,7 +63,8 @@ export default function Home() {
               Start Studying
             </Link>
             <Link href="/settings" className="pixel-btn pixel-btn--ghost min-h-11">
-              <Gear aria-hidden="true" className="h-5 w-5" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/sprites/ui/gear.png" alt="" className="pixel-sprite h-6 w-6" />
               Timer defaults
             </Link>
           </div>
@@ -97,14 +94,15 @@ export default function Home() {
             Go to
           </h2>
           <ul className="mt-4 flex flex-col gap-3">
-            {DESTINATIONS.map(({ icon: Icon, title, description, href }) => (
+            {DESTINATIONS.map(({ sprite, title, description, href }) => (
               <li key={title}>
                 <Link
                   href={href}
                   className="group flex min-h-16 items-center gap-4 p-4 transition-transform duration-75 hover:-translate-y-0.5 focus-visible:-translate-y-0.5"
                   style={{ background: "var(--color-tile)" }}
                 >
-                  <Icon aria-hidden="true" className="h-8 w-8 flex-none" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={sprite} alt="" className="pixel-sprite h-12 w-12 flex-none" />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="font-display text-xl">{title}</span>
                     <span className="text-base text-ink">{description}</span>
