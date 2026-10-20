@@ -83,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The welcome form starts with the name from the Google profile. The user can change it, a name over 30 characters shows the error right away, and a missing or expired sign-up sends them back to sign in.
 - **[web]**: The home page shows a "Go to" list (Study rooms, Leaderboard, My fish) with larger text and an arrow on each row, instead of four small cards. The separate Study Timer card is gone because `/timer` already redirects to `/rooms`; the route still works.
 - **[web]**: The home page title and tagline are larger, and Start Studying and Timer defaults are two side-by-side buttons that are at least 44px tall.
+- **[web]**: The "admin page" and "dev page" links in the header show only to signed-in admins. Hiding the links is not a security check: the admin service still refuses non-admins.
 
 ### Fixed
 - **[eslint-config]**: ESLint linted no `.ts` / `.tsx` file at all (flat config only matches `.js` unless a config names other files), so `pnpm lint` passed without checking anything. `base.js` now matches TS files, parses JSX in `.tsx` (Babel 8 no longer does by default), and turns off the core rules that misfire on TypeScript without type information (typescript-eslint's eslint-recommended list plus `no-unused-vars`; tsc checks these). typescript-eslint itself does not support TypeScript 7. Lint now reports real findings: 16 warnings remain in admin, leaderboard, auth, styleguide and the dev seed route.
