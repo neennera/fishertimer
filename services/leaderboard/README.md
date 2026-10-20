@@ -16,6 +16,8 @@ It is a stateless, cache-optimized service designed with Hexagonal / Clean Archi
   - `GET /api/v1/leaderboard?period={weekly|monthly|all-time}` — Full ranking response with cache metadata (`CachedRanking`).
   - `GET /api/v1/leaderboard/rankings?period={weekly|monthly|all-time}` — Lightweight array of rankings (`[]RankEntry`).
 
+**Errors** are JSON `{"error": "..."}`: `502` when the Reward service is down, slow (5 s timeout) or answering an error and there is no cached ranking to fall back on, `500` for anything else, `405` for a method other than `GET`. If a cached ranking exists it is served instead (`cached: true`). An unknown or missing `period` is treated as `all-time`.
+
 ---
 
 ## UC-08 Caching & Invalidation Architecture
