@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -46,7 +48,7 @@ func (h *HTTPHandler) withCORS(next http.HandlerFunc) http.HandlerFunc {
 // Implements UC-08: S-1 cache check → S-3 compute if stale → return CachedRanking.
 func (h *HTTPHandler) ViewLeaderboard(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -57,7 +59,7 @@ func (h *HTTPHandler) ViewLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.uc.ViewLeaderboard(r.Context(), period)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.writeUsecaseError(w, err)
 		return
 	}
 
@@ -74,7 +76,7 @@ func (h *HTTPHandler) ViewLeaderboard(w http.ResponseWriter, r *http.Request) {
 // Returns only the []RankEntry array (lighter payload for UI polling).
 func (h *HTTPHandler) GetRanking(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -85,7 +87,7 @@ func (h *HTTPHandler) GetRanking(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.uc.ViewLeaderboard(r.Context(), period)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.writeUsecaseError(w, err)
 		return
 	}
 
@@ -96,6 +98,24 @@ func (h *HTTPHandler) GetRanking(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rankings)
+}
+
+// writeUsecaseError answers a failed ranking with a JSON {"error": ...} and a
+// message safe to show: the Reward service being down is a 502, anything else a
+// 500. The underlying error is logged, never sent to the client.
+func (h *HTTPHandler) writeUsecaseError(w http.ResponseWriter, err error) {
+	log.Printf("leaderboard: view failed: %v", err)
+	if errors.Is(err, domain.ErrUpstream) {
+		writeError(w, http.StatusBadGateway, "the ranking is temporarily unavailable")
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "could not load the leaderboard")
+}
+
+func writeError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": message})
 }
 
 func (h *HTTPHandler) Health(w http.ResponseWriter, r *http.Request) {

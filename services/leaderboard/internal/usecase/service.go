@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -132,7 +133,7 @@ func tierScore(r domain.FishReward) int {
 func (s *service) computeRanking(ctx context.Context, period string) ([]domain.RankEntry, error) {
 	allRewards, err := s.rewardClient.ViewAllRewards(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", domain.ErrUpstream, err)
 	}
 
 	start := periodStart(period)

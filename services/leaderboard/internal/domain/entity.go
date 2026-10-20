@@ -8,6 +8,9 @@ import (
 var (
 	ErrNotFound = errors.New("leaderboard: resource not found")
 	ErrInvalid  = errors.New("leaderboard: invalid input")
+	// ErrUpstream wraps a failure of the Reward service (down, timing out,
+	// answering an error), so the handler can answer 502 instead of 500.
+	ErrUpstream = errors.New("leaderboard: reward service unavailable")
 )
 
 // RankEntry is a single row in the leaderboard for a given period.
