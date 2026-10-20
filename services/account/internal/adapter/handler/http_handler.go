@@ -32,7 +32,7 @@ const (
 // Where the browser is sent after Google when the caller did not say.
 const (
 	DefaultNextPath   = "/"
-	DefaultSignUpPath = "/signup"
+	DefaultSignUpPath = "/welcome"
 	// Where a failed sign-in lands when the remembered `next` is gone.
 	DefaultErrorPath = "/signin"
 )
