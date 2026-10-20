@@ -72,3 +72,30 @@ export async function clientApiFetch<T>(
 
   return res.json() as Promise<T>;
 }
+
+/**
+ * A sentence a person can act on for any failure of clientApiFetch: what
+ * happened and what to do, never the backend's raw body or a parser message.
+ * `what` completes "Couldn't load ..." (e.g. "the leaderboard").
+ */
+export function friendlyApiError(err: unknown, what: string): string {
+  if (err instanceof ClientApiError) {
+    if (err.status === 401 || err.status === 403) {
+      return 'Your session has expired. Sign in again.';
+    }
+    if (err.status === 404) {
+      return `Couldn't find ${what}.`;
+    }
+    if (err.status >= 500) {
+      return `Couldn't load ${what} right now. Try again in a moment.`;
+    }
+    return `Couldn't load ${what}. Try again.`;
+  }
+  if (err instanceof DOMException && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+    return `The server took too long to answer. Try again to load ${what}.`;
+  }
+  if (err instanceof SyntaxError) {
+    return `Got an unexpected answer while loading ${what}. Try again in a moment.`;
+  }
+  return `Couldn't reach the server. Check your connection and try again to load ${what}.`;
+}
