@@ -39,7 +39,11 @@ export async function clientApiFetch<T>(
   init?: RequestInit
 ): Promise<T> {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  const url = `/api/${service}/${cleanEndpoint}`;
+  // A bare query ("?period=weekly") goes on /api/<service> itself, with no
+  // trailing slash for Next to redirect.
+  const url = cleanEndpoint === '' || cleanEndpoint.startsWith('?')
+    ? `/api/${service}${cleanEndpoint}`
+    : `/api/${service}/${cleanEndpoint}`;
 
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const res = await fetch(url, {
