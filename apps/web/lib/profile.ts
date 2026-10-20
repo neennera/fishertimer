@@ -2,7 +2,7 @@
 //   GET profile?id=     200 full user · 400 no id · 404 unknown
 //   GET statistics?id=  200 TimerStatistics · 404 · 502 timer down
 //   GET rewards?id=     200 RewardsSummary · 404 · 502 reward down
-// Mocked unless NEXT_PUBLIC_USE_MOCKS is "false", in the same shapes.
+// Mocked per NEXT_PUBLIC_USE_MOCKS (see lib/use-mocks.ts), in the same shapes.
 
 import type { SessionUser } from './auth';
 import { ClientApiError, clientApiFetch } from './client-api';
@@ -12,8 +12,7 @@ import { MOCK_SCENARIO_PARAM, mockDelay, readMockAuthState } from './mocks/auth.
 import { MOCK_PROFILES } from './mocks/profile.mock';
 import { MOCK_REWARDS, MOCK_REWARDS_UNAVAILABLE } from './mocks/rewards.mock';
 import type { RewardsSummary, TimerStatistics } from './profile-types';
-
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
+import { USE_MOCKS } from './use-mocks';
 
 // No e-mail, no role.
 export type PublicProfile = Pick<SessionUser, 'user_id' | 'display_name' | 'avatar_url' | 'created_at'>;

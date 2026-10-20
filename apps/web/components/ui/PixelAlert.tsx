@@ -11,6 +11,8 @@ export interface PixelAlertProps extends HTMLAttributes<HTMLDivElement> {
  * exchange failed, account creation failed, save failed.
  *
  * Write the message as what happened and what to do — never an apology.
+ * An `error` is announced to screen readers straight away (role="alert"), a
+ * `warn` politely (role="status"); pass `role` to override.
  */
 export function PixelAlert({
   tone = "error",
@@ -19,7 +21,7 @@ export function PixelAlert({
 }: PixelAlertProps) {
   return (
     <div
-      role="status"
+      role={tone === "error" ? "alert" : "status"}
       className={cx(
         "pixel-alert",
         tone === "warn" && "pixel-alert--warn",

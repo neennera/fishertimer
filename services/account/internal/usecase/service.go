@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/neennera/fishertimer/services/account/internal/domain"
@@ -149,7 +150,14 @@ func (s *service) CompleteSignUp(ctx context.Context, token, displayName string)
 		UpdatedAt:   now,
 	}
 	if err := s.repo.CreateUser(ctx, user); err != nil {
-		return nil, err
+		// Two submits racing (two tabs): the other one created the account
+		// between our lookup and insert and we hit UNIQUE(email). Sign into
+		// that account, as the sequential double-submit above does.
+		existing, lookupErr := s.repo.GetUserByEmail(ctx, ticket.Email)
+		if lookupErr != nil {
+			return nil, err
+		}
+		return s.newSession(existing)
 	}
 	return s.newSession(user)
 }
@@ -195,15 +203,27 @@ func (s *service) UpdateProfile(ctx context.Context, token, displayName string) 
 }
 
 func (s *service) GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error) {
-	if strings.TrimSpace(userID) == "" {
-		return nil, domain.ErrInvalid
+	if err := checkUserID(userID); err != nil {
+		return nil, err
 	}
 	return s.repo.GetUserByID(ctx, userID)
 }
 
-func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+// checkUserID separates a missing id (400) from one that can never match an
+// account (404), so a malformed id does not reach Postgres.
+func checkUserID(userID string) error {
 	if strings.TrimSpace(userID) == "" {
-		return nil, domain.ErrInvalid
+		return domain.ErrInvalid
+	}
+	if !domain.IsUserID(userID) {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+	if err := checkUserID(userID); err != nil {
+		return nil, err
 	}
 	// Confirm the account exists before asking the timer service, so a
 	// made-up id can't be used to probe study-timer's data.
@@ -214,8 +234,8 @@ func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domai
 }
 
 func (s *service) GetRewards(ctx context.Context, userID string) (*domain.RewardsSummary, error) {
-	if strings.TrimSpace(userID) == "" {
-		return nil, domain.ErrInvalid
+	if err := checkUserID(userID); err != nil {
+		return nil, err
 	}
 	// Confirm the account exists before asking the reward service, so a
 	// made-up id can't be used to probe reward's data.
@@ -257,13 +277,35 @@ func summarizeRewards(catches []domain.UnlockedReward) *domain.RewardsSummary {
 	return summary
 }
 
-// validDisplayName trims the name and checks it fits users.display_name.
+// validDisplayName trims the name and checks it fits users.display_name and
+// shows something: no control characters, and not only invisible ones
+// (zero-width space/joiners, BOM, word joiner) that TrimSpace leaves behind.
 func validDisplayName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > domain.MaxDisplayNameLength {
 		return "", domain.ErrInvalid
 	}
+	visible := false
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return "", domain.ErrInvalid
+		}
+		if !unicode.IsSpace(r) && !isInvisible(r) {
+			visible = true
+		}
+	}
+	if !visible {
+		return "", domain.ErrInvalid
+	}
 	return name, nil
+}
+
+func isInvisible(r rune) bool {
+	switch r {
+	case '\u200b', '\u200c', '\u200d', '\u2060', '\ufeff':
+		return true
+	}
+	return false
 }
 
 // newUserID returns a version 4 UUID, matching the `user_id uuid` column.

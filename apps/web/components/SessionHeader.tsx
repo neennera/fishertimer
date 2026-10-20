@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSession, signOut, type SessionUser } from "../lib/auth";
+import { getSession, type SessionUser } from "../lib/auth";
 import { Header } from "./Header";
+import { PixelAlert } from "./ui/PixelAlert";
+import { useSignOut } from "./profile/ProfileShell";
 
 export interface SessionHeaderProps {
   className?: string;
@@ -14,7 +16,10 @@ export function SessionHeader({ className }: SessionHeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [signedOut, setSignedOut] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
+  const { signingOut, signOutError, handleSignOut } = useSignOut(() => {
+    setUser(null);
+    router.replace("/signin");
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -29,26 +34,16 @@ export function SessionHeader({ className }: SessionHeaderProps) {
     };
   }, []);
 
-  async function handleSignOut() {
-    setSigningOut(true);
-    try {
-      await signOut();
-      setUser(null);
-      router.replace("/signin");
-    } catch {
-      // Gateway unreachable: the cookie is still set, so stay signed in and
-      // let them try again.
-      setSigningOut(false);
-    }
-  }
-
   return (
-    <Header
-      className={className}
-      user={user ? { displayName: user.display_name, avatarUrl: user.avatar_url } : null}
-      onSignOut={handleSignOut}
-      signingOut={signingOut}
-      showSignIn={signedOut}
-    />
+    <>
+      <Header
+        className={className}
+        user={user ? { displayName: user.display_name, avatarUrl: user.avatar_url } : null}
+        onSignOut={handleSignOut}
+        signingOut={signingOut}
+        showSignIn={signedOut}
+      />
+      {signOutError && <PixelAlert className="mx-auto mt-3 w-full max-w-3xl">{signOutError}</PixelAlert>}
+    </>
   );
 }

@@ -26,6 +26,13 @@ export class ClientApiError extends Error {
   }
 }
 
+// A call that takes longer than this is abandoned, so a hung gateway shows an
+// error instead of a spinner that never stops.
+export const REQUEST_TIMEOUT_MS = 15_000;
+
+// Thrown (as a plain TypeError / AbortError / TimeoutError, not a
+// ClientApiError) when the request never gets an answer. Callers treat any
+// non-ClientApiError as "couldn't reach the server".
 export async function clientApiFetch<T>(
   service: ClientServiceName,
   endpoint: string,
@@ -34,9 +41,11 @@ export async function clientApiFetch<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `/api/${service}/${cleanEndpoint}`;
 
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const res = await fetch(url, {
     credentials: 'same-origin',
     ...init,
+    signal: init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
     headers: {
       'Content-Type': 'application/json',
       ...init?.headers,

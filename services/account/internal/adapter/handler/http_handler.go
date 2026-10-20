@@ -33,6 +33,8 @@ const (
 const (
 	DefaultNextPath   = "/"
 	DefaultSignUpPath = "/signup"
+	// Where a failed sign-in lands when the remembered `next` is gone.
+	DefaultErrorPath = "/signin"
 )
 
 // Options carries the transport-level settings main.go derives from config.
@@ -76,6 +78,11 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *HTTPHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	if !h.opts.OAuthConfigured {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"error": "google oauth is not configured: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI",
@@ -105,31 +112,47 @@ func (h *HTTPHandler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 //	e-mail is new         -> no row written, go to the sign-up page with a
 //	                         15-minute ticket cookie holding the identity
 func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	query := r.URL.Query()
 
 	// Where to land, as asked for at login. Read before the cookies are cleared.
-	nextPath := safePath(cookieValue(r, NextCookie), DefaultNextPath)
+	// A lost cookie (10-minute lifetime, e.g. a slow Google consent screen)
+	// still has to land somewhere that can show ?auth_error=, so errors fall
+	// back to the sign-in page rather than the home page.
+	rememberedNext := safePath(cookieValue(r, NextCookie), "")
+	nextPath := rememberedNext
+	if nextPath == "" {
+		nextPath = DefaultNextPath
+	}
+	errorPath := rememberedNext
+	if errorPath == "" {
+		errorPath = DefaultErrorPath
+	}
 	signUpPath := safePath(cookieValue(r, SignUpPathCookie), DefaultSignUpPath)
 	h.clearCookie(w, StateCookie)
 	h.clearCookie(w, NextCookie)
 	h.clearCookie(w, SignUpPathCookie)
 
 	if errParam := query.Get("error"); errParam != "" { // user pressed Cancel
-		h.redirectTo(w, r, nextPath, errParam)
+		h.redirectTo(w, r, errorPath, errParam)
 		return
 	}
 
 	// Constant-time compare so the check cannot be probed byte by byte.
 	expected := cookieValue(r, StateCookie)
 	if expected == "" || subtle.ConstantTimeCompare([]byte(query.Get("state")), []byte(expected)) != 1 {
-		h.redirectTo(w, r, nextPath, "invalid_state")
+		h.redirectTo(w, r, errorPath, "invalid_state")
 		return
 	}
 
 	result, err := h.uc.CompleteSignIn(r.Context(), query.Get("code"))
 	if err != nil {
 		log.Printf("account: sign-in failed: %v", err)
-		h.redirectTo(w, r, nextPath, "login_failed")
+		h.redirectTo(w, r, errorPath, "login_failed")
 		return
 	}
 
@@ -152,6 +175,11 @@ func (h *HTTPHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 //
 //	GET -> 200 + the user, or 401 if there is no valid session
 func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	user, err := h.uc.Authenticate(r.Context(), bearerOrCookie(r))
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "sign in required"})
@@ -200,8 +228,7 @@ func (h *HTTPHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, session.User)
 }
 
-
-//	PATCH {"display_name": "..."} -> 200 + the updated user, refreshes ft_session
+// PATCH {"display_name": "..."} -> 200 + the updated user, refreshes ft_session
 func (h *HTTPHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -238,7 +265,6 @@ func (h *HTTPHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	h.setCookie(w, SessionCookie, session.Token, h.opts.SessionMaxAge)
 	writeJSON(w, http.StatusOK, session.User)
 }
-
 
 func (h *HTTPHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -317,6 +343,11 @@ func (h *HTTPHandler) Rewards(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) SignOut(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
 	h.clearCookie(w, SessionCookie)
 	h.clearCookie(w, SignUpCookie)
 	writeJSON(w, http.StatusOK, map[string]any{"signed_out": true})
