@@ -134,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[admin]**: Kicking a room's host is refused with a message to close the room instead, so a room is never left without its host.
 - **[admin]**: Admin API errors are plain sentences ("The host can't be removed. Close the room instead.") instead of internal text like `admin: invalid input: ...`.
 - **[web]**: Admin requests give up after 15 seconds, and failures say what happened in plain words instead of "500 Internal Server Error".
+- **[web]**: Admin polling skips a tick while a request is still running, pauses in a hidden tab, stops after a 401 or 403, and never lets an old slow answer replace a newer one.
 
 ### Fixed
 
