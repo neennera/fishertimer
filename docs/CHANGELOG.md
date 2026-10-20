@@ -160,6 +160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Switching between Weekly, Monthly and All-time keeps the old rows on screen, dimmed, until the new ones arrive, instead of flashing a loading skeleton.
 - **[account]**: A new user who finished Google sign-in lands on `/welcome` (the display-name form) by default instead of the non-existent `/signup`.
 - **[account]**: `GET /profile` (open to anyone) returns only `user_id`, `display_name`, `avatar_url` and `created_at`: the e-mail and role are no longer exposed.
+- **[web]**: The orange buttons use a dark label (5.2:1 contrast instead of 2.7:1), and their hover state lightens instead of darkening.
 
 ### Fixed
 
