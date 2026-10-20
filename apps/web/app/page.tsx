@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { Clock } from "pixelarticons/react/Clock";
+import { Fish } from "pixelarticons/react/Fish";
+import { Gear } from "pixelarticons/react/Gear";
+import { Trophy } from "pixelarticons/react/Trophy";
+import { Users } from "pixelarticons/react/Users";
 import { SessionHeader } from "../components/SessionHeader";
 import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelPanel } from "../components/ui/PixelPanel";
@@ -6,25 +11,25 @@ import { SIGNIN_SCENE_LAYERS } from "../lib/scenes/signin-scene";
 
 const FEATURES = [
   {
-    emoji: "⏱️",
+    icon: Clock,
     title: "Study Timer",
     description: "Focus and rest cycles to keep you on track",
     href: "/timer",
   },
   {
-    emoji: "👥",
+    icon: Users,
     title: "Study Sessions",
     description: "Join and create study rooms with peers",
     href: "/rooms",
   },
   {
-    emoji: "🐟",
+    icon: Fish,
     title: "FishTank Rewards",
     description: "Earn fish by finishing focus sessions",
     href: "/account",
   },
   {
-    emoji: "🏆",
+    icon: Trophy,
     title: "Leaderboard",
     description: "See how your fish score ranks",
     href: "/leaderboard",
@@ -46,19 +51,18 @@ export default function Home() {
             className="font-display leading-tight"
             style={{ fontSize: "calc(var(--px) * 10)" }}
           >
-            🎣 Fisher Timer
+            <Fish aria-hidden="true" className="mr-2 inline-block h-[1em] w-[1em] align-[-0.1em]" />
+            Fisher Timer
           </h1>
           <p className="mt-2 text-bark">
             Study in focused sessions, catch fish, climb the leaderboard.
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {FEATURES.map(({ emoji, title, description, href }) => {
+            {FEATURES.map(({ icon: Icon, title, description, href }) => {
               const body = (
                 <>
-                  <span className="text-3xl" aria-hidden="true">
-                    {emoji}
-                  </span>
+                  <Icon aria-hidden="true" className="h-8 w-8" />
                   <h2 className="font-display">{title}</h2>
                   <p className="text-bark">{description}</p>
                   <span className="mt-auto pt-2 font-label text-xs text-bark">
@@ -93,7 +97,8 @@ export default function Home() {
               Start Studying
             </Link>
             <Link href="/settings" className="underline underline-offset-4">
-              ⚙️ Timer defaults
+              <Gear aria-hidden="true" className="mr-1 inline-block h-[1.1em] w-[1.1em] align-[-0.15em]" />
+              Timer defaults
             </Link>
           </div>
         </PixelPanel>
