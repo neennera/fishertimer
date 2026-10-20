@@ -228,8 +228,7 @@ func (h *HTTPHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, session.User)
 }
 
-
-//	PATCH {"display_name": "..."} -> 200 + the updated user, refreshes ft_session
+// PATCH {"display_name": "..."} -> 200 + the updated user, refreshes ft_session
 func (h *HTTPHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -266,7 +265,6 @@ func (h *HTTPHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	h.setCookie(w, SessionCookie, session.Token, h.opts.SessionMaxAge)
 	writeJSON(w, http.StatusOK, session.User)
 }
-
 
 func (h *HTTPHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
