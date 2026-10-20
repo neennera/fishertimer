@@ -149,6 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The leaderboard fetches avatars only for the rows on the page being shown, and tries again later for a user whose lookup failed.
 - **[web]**: Avatar initials keep a whole emoji and ignore invisible characters; a name with no visible text shows as "Unknown angler".
 - **[web]**: The admin tabs (Live Rooms, Audit Log) sit under the heading on both pages, so they no longer move when the intro text changes length.
+- **[web]**: Switching between Weekly, Monthly and All-time keeps the old rows on screen, dimmed, until the new ones arrive, instead of flashing a loading skeleton.
 
 ### Fixed
 
