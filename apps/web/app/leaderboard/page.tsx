@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '../../components/Header';
 import { ParallaxScene } from '../../components/ui/ParallaxScene';
 import { PixelPanel } from '../../components/ui/PixelPanel';
+import { PixelAlert } from '../../components/ui/PixelAlert';
 import { PixelButton } from '../../components/ui/PixelButton';
 import { SessionUnavailableAlert, useSignedInUser } from '../../components/profile/ProfileShell';
 import { SIGNIN_SCENE_LAYERS } from '../../lib/scenes/signin-scene';
@@ -172,47 +173,59 @@ export default function LeaderboardPage() {
             >
               <span className="font-label text-[10px] uppercase text-bark">Your Ranking</span>
               <span className="font-numeric text-lg text-ink truncate mt-0.5">
-                {myEntry ? `#${myEntry.rank} of ${rankings.length} (${displayScore} pts)` : `Unranked (${displayScore} pts)`}
+                {!data
+                  ? '—'
+                  : myEntry
+                    ? `#${myEntry.rank} of ${rankings.length} (${displayScore} pts)`
+                    : `Unranked (${displayScore} pts)`}
               </span>
             </div>
           </div>
 
-          {/* ── Error Banner (E-3) ───────────────────────────────────── */}
+          {/* ── Error banner: what happened, and Retry ───────────────── */}
           {error && (
-            <div className="pixel-alert mt-4" role="alert">
-              {error}
-            </div>
+            <PixelAlert className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {data ? `${error} Showing the last rankings loaded.` : error}
+              </span>
+              <PixelButton small onClick={refresh} disabled={loading}>
+                {loading ? 'Retrying…' : 'Retry'}
+              </PixelButton>
+            </PixelAlert>
           )}
 
           {/* ── Leaderboard Table ────────────────────────────────────── */}
-          <div className="mt-4">
-            {loading && !data ? (
-              <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Loading rankings">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="pixel-panel animate-pulse"
-                    style={{
-                      height: '4rem',
-                      background: 'var(--color-cream-2)',
-                      opacity: 1 - i * 0.12,
-                    }}
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-            ) : (
-              <LeaderboardTable
-                entries={rankings}
-                currentUserId={user.user_id}
-                currentUserName={user.display_name}
-                currentUserScore={displayScore}
-                currentUserAvatarUrl={user.avatar_url}
-                period={period}
-              />
-            )}
-          </div>
-
+          {/* With nothing loaded and a failure, show only the banner: an empty
+              table would read as "no catches" when the truth is "couldn't load". */}
+          {(data || !error) && (
+            <div className="mt-4">
+              {!data ? (
+                <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Loading rankings">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="pixel-panel animate-pulse"
+                      style={{
+                        height: '4rem',
+                        background: 'var(--color-cream-2)',
+                        opacity: 1 - i * 0.12,
+                      }}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <LeaderboardTable
+                  entries={rankings}
+                  currentUserId={user.user_id}
+                  currentUserName={user.display_name}
+                  currentUserScore={displayScore}
+                  currentUserAvatarUrl={user.avatar_url}
+                  period={period}
+                />
+              )}
+            </div>
+          )}
 
           {/* ── Bottom Action Navigation ─ */}
           <hr className="pixel-rule mt-6" aria-hidden="true" />
