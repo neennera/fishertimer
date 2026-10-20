@@ -6,9 +6,9 @@ const LINKS = [
 ] as const;
 
 /** Tab links shared by every admin page. */
-export function AdminNav({ active }: { active: 'sessions' | 'logs' }) {
+export function AdminNav({ active, className }: { active: 'sessions' | 'logs'; className?: string }) {
   return (
-    <nav aria-label="Admin" className="flex flex-wrap gap-2">
+    <nav aria-label="Admin" className={`flex flex-wrap gap-2 ${className ?? ''}`}>
       {LINKS.map((l) => (
         <Link
           key={l.key}
@@ -16,8 +16,8 @@ export function AdminNav({ active }: { active: 'sessions' | 'logs' }) {
           aria-current={l.key === active ? 'page' : undefined}
           className={
             l.key === active
-              ? 'pixel-btn pixel-btn--sm'
-              : 'pixel-btn pixel-btn--sm pixel-btn--ghost'
+              ? 'pixel-btn pixel-btn--sm min-h-11 sm:min-h-0'
+              : 'pixel-btn pixel-btn--sm pixel-btn--ghost min-h-11 sm:min-h-0'
           }
         >
           {l.label}

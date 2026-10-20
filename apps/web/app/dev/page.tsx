@@ -5,14 +5,14 @@ import { Header } from '../../components/Header';
 import { ParallaxScene } from '../../components/ui/ParallaxScene';
 import { PixelButton } from '../../components/ui/PixelButton';
 import { PixelPanel } from '../../components/ui/PixelPanel';
-import { useSignedInUser } from '../../components/profile/ProfileShell';
+import { SessionUnavailableAlert, useSignedInUser } from '../../components/profile/ProfileShell';
 import { SIGNIN_SCENE_LAYERS } from '../../lib/scenes/signin-scene';
 
 type Result = { ok: true; output: string } | { ok: false; error: string; output?: string };
 
 /** Developer tools. Signed-in only; the seed API refuses to run in production. */
 export default function DevPage() {
-  const { user, signingOut, handleSignOut } = useSignedInUser();
+  const { user, signingOut, handleSignOut, unavailable, retry } = useSignedInUser();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -61,6 +61,8 @@ export default function DevPage() {
             Seeds this month&apos;s mock fish for your account, plus mock competitors for the
             leaderboard. Existing seeded rewards are deleted first.
           </p>
+
+          {unavailable && <SessionUnavailableAlert className="mt-5" onRetry={retry} />}
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <PixelButton onClick={runSeed} disabled={!user || running}>

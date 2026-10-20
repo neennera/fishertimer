@@ -97,3 +97,11 @@ type TokenService interface {
 	IssueSignUp(profile *GoogleProfile) (token string, ticket *SignUpTicket, err error)
 	VerifySignUp(token string) (*SignUpTicket, error)
 }
+
+// EventPublisher is the driven port for announcing profile changes to the other
+// services (UC-07 S-2: profile.updated). Implemented by internal/adapter/amqp.
+type EventPublisher interface {
+	// PublishProfileUpdated hands the change to the broker without making the
+	// caller wait: a rename must not fail or stall because RabbitMQ is down.
+	PublishProfileUpdated(userID, displayName string, at time.Time)
+}

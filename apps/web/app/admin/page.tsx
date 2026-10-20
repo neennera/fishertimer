@@ -12,27 +12,26 @@ import { usePolling } from '../../features/admin/hooks/usePolling';
 
 /** Admin — every live room (refreshed every few seconds), each opening its detail + members. */
 export default function AdminPage() {
-  const { data: sessions, error, stale } = usePolling(listSessions, 'sessions');
+  const { data: sessions, error, stale, refresh } = usePolling(listSessions, 'sessions');
   const full = sessions?.filter((s) => s.participant_count >= s.max_participants).length ?? 0;
 
   return (
     <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
       <div className="w-full max-w-2xl">
         <PixelPanel as="section" aria-labelledby="admin-heading">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
-              <h1 id="admin-heading" className="font-display text-4xl leading-none">
-                Live Rooms
-              </h1>
-              <p className="mt-2 text-sm text-bark">
-                Every open room on the lake. Inspect one to remove an angler or close it.
-              </p>
-            </div>
-            <AdminNav active="sessions" />
+          <div>
+            <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
+            <h1 id="admin-heading" className="font-display text-4xl leading-none">
+              Live Rooms
+            </h1>
+            <p className="mt-2 text-sm text-bark">
+              Every open room on the lake. Inspect one to remove an angler or close it.
+            </p>
           </div>
+          {/* Under the heading on every admin page, so it never moves with the intro text's length. */}
+          <AdminNav active="sessions" className="mt-4" />
 
-          {error ? <AdminError error={error} fallback="Failed to load rooms" /> : null}
+          {error ? <AdminError error={error} fallback="Failed to load rooms" onRetry={refresh} /> : null}
 
           {!error && (
             <>
@@ -67,7 +66,7 @@ export default function AdminPage() {
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="pixel-room-card__name" title={s.title}>
+                        <p className="pixel-room-card__name whitespace-normal [overflow-wrap:anywhere]" title={s.title}>
                           {s.title}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -78,7 +77,7 @@ export default function AdminPage() {
                           </span>
                         </div>
                       </div>
-                      <Link href={`/admin/sessions/${s.session_id}`} className="pixel-btn">
+                      <Link href={`/admin/sessions/${s.session_id}`} className="pixel-btn flex-none">
                         Inspect
                       </Link>
                     </li>

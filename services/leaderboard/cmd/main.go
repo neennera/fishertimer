@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/neennera/fishertimer/services/leaderboard/config"
+	leaderboardAMQP "github.com/neennera/fishertimer/services/leaderboard/internal/adapter/amqp"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/repository"
@@ -40,6 +41,11 @@ func main() {
 
 	// ── 3. Usecase ───────────────────────────────────────────────────────────
 	uc := usecase.New(repo, rewardClient)
+
+	// ── 3b. Renames from Account (profile.updated) ───────────────────────────
+	consumerCtx, stopConsumer := context.WithCancel(context.Background())
+	defer stopConsumer()
+	go leaderboardAMQP.NewProfileConsumer(cfg.RabbitMQURL, uc).Run(consumerCtx)
 
 	// ── 4. HTTP handler & router ─────────────────────────────────────────────
 	h := handler.New(uc)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -50,7 +51,7 @@ func (c *HTTPSessionClient) KickParticipant(ctx context.Context, sessionID, user
 		return false, err
 	}
 	if res.Status == "already_left" {
-		return false, fmt.Errorf("%w: participant has already left", domain.ErrStateChanged)
+		return false, fmt.Errorf("%w: This participant has already left the room.", domain.ErrStateChanged)
 	}
 	return res.SessionEnded, nil
 }
@@ -79,14 +80,16 @@ func (c *HTTPSessionClient) post(ctx context.Context, path string, body any, out
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		msg := upstreamMessage(resp.Body)
+		// Study Session's own wording ("study-session: invalid input: ...") is
+		// for logs, not for the admin: log it, and send a plain sentence.
+		log.Printf("admin: study session answered %d to POST %s: %s", resp.StatusCode, path, upstreamMessage(resp.Body))
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return fmt.Errorf("%w: %s", domain.ErrNotFound, msg)
+			return fmt.Errorf("%w: This room is no longer active.", domain.ErrNotFound)
 		case http.StatusConflict:
-			return fmt.Errorf("%w: %s", domain.ErrStateChanged, msg)
+			return fmt.Errorf("%w: The room changed before the action could finish.", domain.ErrStateChanged)
 		case http.StatusBadRequest:
-			return fmt.Errorf("%w: %s", domain.ErrInvalid, msg)
+			return fmt.Errorf("%w: The study session service rejected the request.", domain.ErrInvalid)
 		}
 		return fmt.Errorf("%w: POST %s returned %d", domain.ErrUpstream, path, resp.StatusCode)
 	}

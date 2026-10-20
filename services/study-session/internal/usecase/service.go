@@ -34,6 +34,11 @@ type Usecase interface {
 	GetSession(ctx context.Context, sessionID string) (*domain.StudySession, error)
 	// GetMySession returns the room the user is in, or (nil, nil, nil).
 	GetMySession(ctx context.Context, userID string) (*domain.StudySession, *domain.Participant, error)
+	// RenameParticipant applies a display-name change from Account (the
+	// profile.updated event) to the room the user is currently in, so the
+	// roster, the room dock and later rewards show the new name. A user who is
+	// not in a room is a no-op.
+	RenameParticipant(ctx context.Context, userID, displayName string) error
 	// Heartbeat records presence. When the user is no longer in the room it
 	// reports active = false and, when known, why.
 	Heartbeat(ctx context.Context, sessionID, userID string) (active bool, reason string, err error)
@@ -197,6 +202,18 @@ func (s *service) GetMySession(ctx context.Context, userID string) (*domain.Stud
 		return nil, nil, err
 	}
 	return sess, p, nil
+}
+
+func (s *service) RenameParticipant(ctx context.Context, userID, displayName string) error {
+	if !isUUID(userID) {
+		return fmt.Errorf("%w: user id must be a UUID", domain.ErrInvalid)
+	}
+	name := strings.TrimSpace(displayName)
+	if name == "" {
+		return fmt.Errorf("%w: display name is required", domain.ErrInvalid)
+	}
+	_, err := s.repo.RenameParticipant(ctx, userID, cleanDisplayName(name))
+	return err
 }
 
 func (s *service) Heartbeat(ctx context.Context, sessionID, userID string) (bool, string, error) {

@@ -19,6 +19,8 @@ export interface HeaderProps {
   signingOut?: boolean;
   /** Only once known signed out, so it never flashes while loading. */
   showSignIn?: boolean;
+  /** The sign-in check failed (offline, timeout): shows Retry instead of Sign in. */
+  onRetrySession?: () => void;
   className?: string;
 }
 
@@ -37,6 +39,7 @@ export function Header({
   onSignOut,
   signingOut = false,
   showSignIn = false,
+  onRetrySession,
   className,
 }: HeaderProps) {
   // Keyed by URL, so a new avatar gets a fresh attempt.
@@ -114,6 +117,18 @@ export function Header({
         <Link href="/signin" className="pixel-btn pixel-btn--sm pixel-header__action">
           Sign in
         </Link>
+      )}
+
+      {!user && onRetrySession && (
+        <PixelButton
+          small
+          className="pixel-header__action min-h-11 sm:min-h-0"
+          onClick={onRetrySession}
+          aria-label="Retry sign-in check"
+          title="Couldn't check your sign-in. Try again."
+        >
+          Retry
+        </PixelButton>
       )}
 
       {user && onSignOut && (

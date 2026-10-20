@@ -14,12 +14,38 @@ import (
 type InMemoryRepository struct {
 	mu    sync.RWMutex
 	cache map[string]*domain.CachedRanking
+	names map[string]string
 }
 
 func NewInMemory() *InMemoryRepository {
 	return &InMemoryRepository{
 		cache: make(map[string]*domain.CachedRanking),
+		names: make(map[string]string),
 	}
+}
+
+func (r *InMemoryRepository) SetDisplayName(ctx context.Context, userID, displayName string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.names[userID] = displayName
+	return nil
+}
+
+func (r *InMemoryRepository) GetDisplayNames(ctx context.Context) (map[string]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[string]string, len(r.names))
+	for k, v := range r.names {
+		out[k] = v
+	}
+	return out, nil
+}
+
+func (r *InMemoryRepository) DeleteCachedRankings(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cache = make(map[string]*domain.CachedRanking)
+	return nil
 }
 
 // GetCachedRanking returns the cached ranking for the given period, or nil if

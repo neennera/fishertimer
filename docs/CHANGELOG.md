@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Added `/dev` page and dev-only `POST /api/dev/seed` route (docker exec into the reward Mongo container) to run the 004 seed with one click. Returns 404 in production.
 - **[web]**: Header shows fish sprites beside the wordmark, plus small "admin page" and "dev page" links.
 - **[web]**: Idle warning in the room's timer panel (UC-05 E-8): for the last 3 minutes before Study Session moves an idle participant out, a countdown says to start a focus block. The deadline mirrors `usecase.IsIdle` (the later of `joined_at` and the timer's `last_updated` while it is stopped, plus `IDLE_TIMEOUT_MINUTES`).
+- **[account]**: Changing a display name publishes a `profile.updated` event to RabbitMQ (exchange `fisher.account`). The publisher never blocks the rename: events queue in memory and are retried with backoff if the broker is down.
+- **[study-session]**: Room rosters pick up a renamed user: Study Session consumes `profile.updated` (queue `session.profile-events`, with a dead-letter queue and capped retry backoff) and updates the display name of that user's participant rows.
+- **[leaderboard]**: The leaderboard remembers display names from `profile.updated` (queue `leaderboard.profile-events`), drops cached rankings so the new name shows right away, and never caches a ranking computed across a rename.
+- **[account]**: New route `GET /api/v1/account/signup/pending` returns the e-mail and the Google profile name of the pending sign-up (from the `ft_signup` cookie), or 401 when the ticket is gone.
 
 ### Changed
 - **[study-session]**: `SESSION_DISCONNECT_TIMEOUT_SECONDS` defaults to 120 (was 60). Browsers slow a hidden tab's timers to about one a minute, so with 60s a student studying in another tab could be removed mid-block (`DISCONNECT_TIMEOUT`). The room page also sends a heartbeat as soon as the tab is visible again.
@@ -75,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Kept full production implementation of `/account` from `main` using `ProfileShell`, `ProfileSections`, and live session management.
 - **[reward]**: `POST /api/v1/reward/award` now really awards rewards (replaces the fake "Golden Salmon" stub). New request `{ user_id, session_id, cycle_id, work_minutes, participant_count, display_name? }`, response `{ cycle_id, already_awarded, rewards }`. Draws one reward per 15 work minutes from `reward_items` and stores one `user_rewards` row per draw. Safe to retry: the same `cycle_id` returns the stored rewards instead of awarding twice (rows get an `_id` derived from the cycle, so no schema change is needed). **Breaking:** study-timer's current `{ user_id, reason }` payload now gets a 400 until it sends the new fields.
 - **[reward]**: Changed drop weights to COMMON 30, UNCOMMON 25, RARE 12, EPIC 6, LEGENDARY 3 (was 50 / 25 / 10 / 4 / 1) in `002_seed_reward_items.js` and `memory_repo.go`. Re-run 002 on an existing volume to apply. Updated `database/README.md` to match.
+- **[web]**: The welcome form starts with the name from the Google profile. The user can change it, a name over 30 characters shows the error right away, and a missing or expired sign-up sends them back to sign in.
 
 ### Fixed
 - **[eslint-config]**: ESLint linted no `.ts` / `.tsx` file at all (flat config only matches `.js` unless a config names other files), so `pnpm lint` passed without checking anything. `base.js` now matches TS files, parses JSX in `.tsx` (Babel 8 no longer does by default), and turns off the core rules that misfire on TypeScript without type information (typescript-eslint's eslint-recommended list plus `no-unused-vars`; tsc checks these). typescript-eslint itself does not support TypeScript 7. Lint now reports real findings: 16 warnings remain in admin, leaderboard, auth, styleguide and the dev seed route.
@@ -108,6 +113,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Admin Collaboration**: Configured Admin service to directly send commands to Study Session (`LeaveSession()` to kick participants and `EndSession()` to close rooms).
 - **[go.work]**: Raised the workspace Go version from 1.22 to 1.25.0, the minimum required by `google.golang.org/grpc` v1.84.
 - **[proto]**: Revised the Study Timer contract (`proto/studytimer/v1/timer.proto`): added a `GetTimer` RPC so the CRUD set is complete (Start / Get / Pause-Resume / Reset), replaced the free-text `status` and `phase` fields with the `TimerStatus` and `TimerPhase` enums, and added `duration_seconds` and `remaining_seconds` to `TimerStateResponse` so clients can render a countdown.
+- **[web]**: API calls give up after 15 seconds and show an error instead of loading forever.
+- **[web]**: Error alerts are read out by screen readers straight away (`role="alert"`).
+- **[web]**: A production build talks to the real backend unless `NEXT_PUBLIC_USE_MOCKS=true`; mocks stay the default only in `next dev`.
+- **[web]**: When the sign-in check fails (offline, timeout, server error) the Account, Profile and Leaderboard pages show a Retry banner instead of sending the user to the sign-in page.
+- **[web]**: If signing out fails, the header shows a message instead of doing nothing.
+- **[web]**: The Google sign-in button is no longer stuck on "Signing in" after the browser Back button or a failed start.
+- **[web]**: The name fields no longer cut the text at 100 characters, so the "too long" message shows; names with only spaces or invisible characters are rejected as empty.
+- **[account]**: Display names are limited to 30 characters (as in the sign-up and edit-name wireframes), counted in characters rather than bytes.
+- **[account]**: Display names with control characters, or made only of spaces and invisible characters, are rejected.
+- **[account]**: `/profile`, `/statistics` and `/rewards` answer 404 (not 500) for an id that is not a UUID.
+- **[account]**: Submitting the sign-up form in two tabs at once signs in to the account that was created, instead of failing with a 500.
+- **[account]**: `/auth/google`, `/auth/google/callback`, `/me` and `/auth/signout` answer 405 for the wrong HTTP method.
+- **[account]**: If the `next` cookie expired during the Google consent screen, a failed sign-in lands on `/signin` (which can show the error) instead of the home page.
+- **[web]**: Leaderboard requests no longer go through a redirect to a trailing-slash URL.
+- **[leaderboard]**: Errors come back as JSON `{"error": ...}` with a message that is safe to show; a Reward service outage is a 502 instead of a 500 carrying the raw error text.
+- **[web]**: A failed leaderboard load says what happened and what to do, and switching periods never shows the previous period's rows under the new tab.
+- **[web]**: When the leaderboard fails to load, a banner with a Retry button replaces the empty table (rows already loaded stay visible).
+- **[web]**: The leaderboard period tabs and Refresh button are 44px tall on phones.
+- **[web]**: The leaderboard asks for each user's avatar once (no repeated requests on every update) and keeps a late answer.
+- **[web]**: A ranked user without a display name shows as "Unknown angler" instead of an empty row.
+- **[web]**: Each leaderboard row shows "N fish caught" instead of the raw user id.
+- **[web]**: The leaderboard table fits a 375px phone (narrower rank and score columns, long names wrap) and its column headers are exposed to screen readers.
+- **[admin]**: The 500 character limit on a kick or close reason counts characters, not bytes, so a long Thai reason that the form allows is no longer rejected.
+- **[admin]**: Kicking a room's host is refused with a message to close the room instead, so a room is never left without its host.
+- **[admin]**: Admin API errors are plain sentences ("The host can't be removed. Close the room instead.") instead of internal text like `admin: invalid input: ...`.
+- **[web]**: Admin requests give up after 15 seconds, and failures say what happened in plain words instead of "500 Internal Server Error".
+- **[web]**: Admin polling skips a tick while a request is still running, pauses in a hidden tab, stops after a 401 or 403, and never lets an old slow answer replace a newer one.
+- **[web]**: Admin load errors have a Retry button (not shown for a 403, where a different account is the fix).
+- **[web]**: If a kick or close gets no answer in time, the room page refreshes and says the result is unclear instead of offering a blind retry.
+- **[web]**: Kick and Close room are disabled while the room data is marked out of date.
+- **[web]**: The audit log refreshes on its own, keeps showing the last entries with an "out of date" note when a refresh fails, and says when only the latest 100 are shown.
+- **[web]**: The admin room list, room page and audit log fit a 375px phone: long room names wrap, buttons are 44px tall, and the Kick and Close buttons stack under the title.
+- **[web]**: Dialogs keep Tab inside them, give focus back to the button that opened them, and use a unique title id.
+- **[web]**: The dialog close button is 44px on phones.
+- **[web]**: When a Retry after a failed sign-in check succeeds, every other "couldn't check your sign-in" banner on the page clears too.
+- **[web]**: Rooms, a room, Settings and Dev tools show the Retry banner when the sign-in check fails, instead of acting as if the user were signed out; `/timer` sends them to the rooms page, which shows the banner.
+- **[web]**: The page header shows a Retry button instead of Sign in when the sign-in check fails.
+- **[web]**: The Retry buttons are 44px tall on phones.
+- **[web]**: The leaderboard fetches avatars only for the rows on the page being shown, and tries again later for a user whose lookup failed.
+- **[web]**: Avatar initials keep a whole emoji and ignore invisible characters; a name with no visible text shows as "Unknown angler".
+- **[web]**: The admin tabs (Live Rooms, Audit Log) sit under the heading on both pages, so they no longer move when the intro text changes length.
+- **[web]**: Switching between Weekly, Monthly and All-time keeps the old rows on screen, dimmed, until the new ones arrive, instead of flashing a loading skeleton.
+- **[account]**: A new user who finished Google sign-in lands on `/welcome` (the display-name form) by default instead of the non-existent `/signup`.
+- **[account]**: `GET /profile` (open to anyone) returns only `user_id`, `display_name`, `avatar_url` and `created_at`: the e-mail and role are no longer exposed.
 
 ### Fixed
 
