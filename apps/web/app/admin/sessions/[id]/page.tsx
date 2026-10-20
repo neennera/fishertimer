@@ -167,7 +167,13 @@ export default function AdminSessionDetailPage() {
                     </span>
                   </div>
                 </div>
-                <PixelButton variant="danger" className="flex-none" onClick={() => setConfirmingEnd(true)}>
+                <PixelButton
+                  variant="danger"
+                  className="flex-none self-start"
+                  onClick={() => setConfirmingEnd(true)}
+                  disabled={stale}
+                  title={stale ? 'Out of date: wait for the list to refresh' : undefined}
+                >
                   Close room
                 </PixelButton>
               </div>
@@ -196,6 +202,8 @@ export default function AdminSessionDetailPage() {
                           variant="danger"
                           className="pixel-btn--sm flex-none"
                           onClick={() => setKickTarget(p)}
+                          disabled={stale}
+                          title={stale ? 'Out of date: wait for the list to refresh' : undefined}
                           aria-label={`Remove ${name(p)}`}
                         >
                           Remove
@@ -229,7 +237,7 @@ export default function AdminSessionDetailPage() {
           <PixelButton variant="ghost" onClick={closeKick} disabled={kicking}>
             Cancel
           </PixelButton>
-          <PixelButton variant="danger" onClick={confirmKick} disabled={kicking}>
+          <PixelButton variant="danger" onClick={confirmKick} disabled={kicking || stale}>
             {kicking ? 'Removing…' : 'Remove'}
           </PixelButton>
         </div>
@@ -253,7 +261,7 @@ export default function AdminSessionDetailPage() {
           <PixelButton variant="ghost" onClick={closeEnd} disabled={ending}>
             Cancel
           </PixelButton>
-          <PixelButton variant="danger" onClick={confirmEnd} disabled={ending}>
+          <PixelButton variant="danger" onClick={confirmEnd} disabled={ending || stale}>
             {ending ? 'Closing…' : 'Close room'}
           </PixelButton>
         </div>
