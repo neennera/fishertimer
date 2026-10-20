@@ -9,6 +9,7 @@ import { PixelPanel } from "../../components/ui/PixelPanel";
 import { cx } from "../../lib/cx";
 import { CatchReveal } from "./CatchReveal";
 import { DurationPicker } from "./DurationPicker";
+import { IdleWarning, idleDeadline } from "./IdleWarning";
 import { MIN_REWARD_MINUTES, type TimerAction, type TimerOwner, type StartOptions } from "./timer.api";
 import { clampMinutes, formatClock, type TimerView } from "./timer-model";
 import { REST_PRESETS, TimerSettingsForm, WORK_PRESETS } from "./TimerSettingsForm";
@@ -41,8 +42,11 @@ const APP_TITLE = "Fisher Timer";
  * the user always knows which one is running.
  *
  * Keyboard: Space runs the primary action, R resets, S stops.
+ *
+ * `joinedAt` (when the user entered the room) turns on the idle warning
+ * shown before Study Session moves an idle user out (UC-05 E-8).
  */
-export function TimerPanel({ owner }: { owner: TimerOwner }) {
+export function TimerPanel({ owner, joinedAt }: { owner: TimerOwner; joinedAt?: string }) {
   const { timer, view, remainingMs, progress, error, completed, dismissCompleted, run, refresh } = useStudyTimer(owner);
   const [workChoice, setWorkChoice] = useState<number | null>(null);
   const [restChoice, setRestChoice] = useState<number | null>(null);
@@ -59,6 +63,7 @@ export function TimerPanel({ owner }: { owner: TimerOwner }) {
   const isRest = timer?.phase === "REST";
   const active = view === "focus" || view === "focus-paused" || view === "rest" || view === "rest-paused";
   const paused = view === "focus-paused" || view === "rest-paused";
+  const idleAt = idleDeadline(timer, joinedAt);
 
   const primary: { label: string; action: TimerAction; options?: StartOptions } | null = (() => {
     switch (view) {
@@ -244,6 +249,8 @@ export function TimerPanel({ owner }: { owner: TimerOwner }) {
           )}
         </div>
       )}
+
+      {idleAt !== null && <IdleWarning deadline={idleAt} />}
 
       {paused && timer && (
         <p className="mt-4 text-xs text-bark">
