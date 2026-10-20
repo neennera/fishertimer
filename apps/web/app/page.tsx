@@ -4,6 +4,7 @@ import { Fish } from "pixelarticons/react/Fish";
 import { Gear } from "pixelarticons/react/Gear";
 import { Trophy } from "pixelarticons/react/Trophy";
 import { Users } from "pixelarticons/react/Users";
+import { Footer } from "../components/Footer";
 import { SessionHeader } from "../components/SessionHeader";
 import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelPanel } from "../components/ui/PixelPanel";
@@ -115,6 +116,8 @@ export default function Home() {
           </ul>
         </PixelPanel>
       </main>
+      <div className="mt-auto" />
+      <Footer />
     </div>
   );
 }
