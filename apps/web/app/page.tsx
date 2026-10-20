@@ -1,103 +1,122 @@
 import Link from "next/link";
+import { ArrowRight } from "pixelarticons/react/ArrowRight";
+import { Footer } from "../components/Footer";
+import { HangingSign } from "../components/HangingSign";
 import { SessionHeader } from "../components/SessionHeader";
 import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelPanel } from "../components/ui/PixelPanel";
 import { SIGNIN_SCENE_LAYERS } from "../lib/scenes/signin-scene";
 
-const FEATURES = [
+// The three steps of a session, in order.
+const STEPS = [
+  { title: "Join a room", description: "Pick an open room or start your own." },
+  { title: "Focus, then rest", description: "Work in timed blocks with breaks." },
+  { title: "Catch a fish", description: "Every finished block earns a fish." },
+];
+
+// Where to go next. The timer itself lives inside a room, so "Study rooms"
+// is also the way to the timer.
+const DESTINATIONS = [
   {
-    emoji: "⏱️",
-    title: "Study Timer",
-    description: "Focus and rest cycles to keep you on track",
-    href: "/timer",
-  },
-  {
-    emoji: "👥",
-    title: "Study Sessions",
-    description: "Join and create study rooms with peers",
+    sprite: "/sprites/ui/icon-room.png",
+    title: "Study rooms",
+    description: "Join or create a room and use the focus timer with others.",
     href: "/rooms",
   },
   {
-    emoji: "🐟",
-    title: "FishTank Rewards",
-    description: "Earn fish by finishing focus sessions",
-    href: "/account",
+    sprite: "/sprites/ui/trophy.png",
+    title: "Leaderboard",
+    description: "See how your fish score ranks this week, month or all time.",
+    href: "/leaderboard",
   },
   {
-    emoji: "🏆",
-    title: "Leaderboard",
-    description: "See how your fish score ranks",
-    href: "/leaderboard",
+    sprite: "/sprites/fish/Goldfish.png",
+    title: "My fish",
+    description: "Your catch, stats and account.",
+    href: "/account",
   },
 ];
 
-const CARD =
-  "pixel-panel flex h-full flex-col gap-1 p-4 text-left transition-transform duration-75";
-
-/** Home: the scene background plus one clickable card per feature. */
+/**
+ * Home: one clear action first (Start Studying), how it works, then the places
+ * to go. Text sits on parchment panels, never straight on the scene.
+ */
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
       <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
       <SessionHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
-        <PixelPanel>
-          <h1
-            className="font-display leading-tight"
-            style={{ fontSize: "calc(var(--px) * 10)" }}
-          >
-            🎣 Fisher Timer
-          </h1>
-          <p className="mt-2 text-bark">
-            Study in focused sessions, catch fish, climb the leaderboard.
-          </p>
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-8 pt-44 sm:pb-12">
+        {/* The sign stands on the top edge of this panel and carries the title. */}
+        <div className="relative">
+          <HangingSign />
+          <PixelPanel as="section" aria-labelledby="home-heading">
+            <h1 id="home-heading" className="sr-only">
+              Fisher Timer
+            </h1>
+            <p className="max-w-prose text-lg text-ink">
+              Study in focused sessions, catch fish, climb the leaderboard.
+            </p>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {FEATURES.map(({ emoji, title, description, href }) => {
-              const body = (
-                <>
-                  <span className="text-3xl" aria-hidden="true">
-                    {emoji}
-                  </span>
-                  <h2 className="font-display">{title}</h2>
-                  <p className="text-bark">{description}</p>
-                  <span className="mt-auto pt-2 font-label text-xs text-bark">
-                    {href ? "Open →" : "Coming soon"}
-                  </span>
-                </>
-              );
-              return href ? (
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link href="/rooms" className="pixel-btn min-h-11">
+                Start Studying
+              </Link>
+              <Link href="/settings" className="pixel-btn pixel-btn--ghost min-h-11">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/sprites/ui/gear.png" alt="" className="pixel-sprite h-6 w-6" />
+                Timer defaults
+              </Link>
+            </div>
+          </PixelPanel>
+        </div>
+
+        <PixelPanel as="section" aria-labelledby="how-heading">
+          <h2 id="how-heading" className="font-display text-2xl">
+            How it works
+          </h2>
+          <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {STEPS.map(({ title, description }, i) => (
+              <li
+                key={title}
+                className="flex flex-col gap-1 p-3 sm:p-4"
+                style={{ background: "var(--color-tile)" }}
+              >
+                <span className="font-label text-sm text-bark">Step {i + 1}</span>
+                <span className="font-display text-xl">{title}</span>
+                <span className="text-base text-ink">{description}</span>
+              </li>
+            ))}
+          </ol>
+        </PixelPanel>
+
+        <PixelPanel as="nav" aria-labelledby="go-heading">
+          <h2 id="go-heading" className="font-display text-2xl">
+            Go to
+          </h2>
+          <ul className="mt-4 flex flex-col gap-3">
+            {DESTINATIONS.map(({ sprite, title, description, href }) => (
+              <li key={title}>
                 <Link
-                  key={title}
                   href={href}
-                  className={`${CARD} hover:-translate-y-0.5 focus-visible:-translate-y-0.5`}
-                  style={{ background: "var(--color-cream-2)" }}
+                  className="group flex min-h-16 items-center gap-4 p-4 transition-transform duration-75 hover:-translate-y-0.5 focus-visible:-translate-y-0.5"
+                  style={{ background: "var(--color-tile)" }}
                 >
-                  {body}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={sprite} alt="" className="pixel-sprite h-12 w-12 flex-none" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-display text-xl">{title}</span>
+                    <span className="text-base text-ink">{description}</span>
+                  </span>
+                  <ArrowRight aria-hidden="true" className="h-6 w-6 flex-none" />
                 </Link>
-              ) : (
-                <div
-                  key={title}
-                  className={`${CARD} opacity-60`}
-                  style={{ background: "var(--color-cream-2)" }}
-                  aria-disabled="true"
-                >
-                  {body}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-4">
-            <Link href="/rooms" className="pixel-btn">
-              Start Studying
-            </Link>
-            <Link href="/settings" className="underline underline-offset-4">
-              ⚙️ Timer defaults
-            </Link>
-          </div>
+              </li>
+            ))}
+          </ul>
         </PixelPanel>
       </main>
+      <div className="mt-auto" />
+      <Footer />
     </div>
   );
 }

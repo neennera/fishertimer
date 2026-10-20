@@ -18,6 +18,9 @@ body {
 /* Pages don't shift sideways when a scrollbar appears. */
 html {
   scrollbar-gutter: stable;
+  /* No rubber-band at the top or bottom of the page: the sticky header would
+     move down with it and show a gap above the bar. */
+  overscroll-behavior-y: none;
 }
 
 body {

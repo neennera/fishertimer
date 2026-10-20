@@ -121,7 +121,7 @@ export default function LeaderboardPage() {
       {/* Fixed to the viewport by its own CSS, like the other pages. */}
       <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
       <Header
-        user={{ displayName: user.display_name, avatarUrl: user.avatar_url }}
+        user={{ displayName: user.display_name, avatarUrl: user.avatar_url, isAdmin: user.role === "ADMIN" }}
         onSignOut={handleSignOut}
         signingOut={signingOut}
       />

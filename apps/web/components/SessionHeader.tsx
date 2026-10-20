@@ -44,7 +44,7 @@ export function SessionHeader({ className }: SessionHeaderProps) {
     <>
       <Header
         className={className}
-        user={user ? { displayName: user.display_name, avatarUrl: user.avatar_url } : null}
+        user={user ? { displayName: user.display_name, avatarUrl: user.avatar_url, isAdmin: user.role === "ADMIN" } : null}
         onSignOut={handleSignOut}
         signingOut={signingOut}
         showSignIn={signedOut}

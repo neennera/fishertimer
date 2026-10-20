@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[study-session]**: Room rosters pick up a renamed user: Study Session consumes `profile.updated` (queue `session.profile-events`, with a dead-letter queue and capped retry backoff) and updates the display name of that user's participant rows.
 - **[leaderboard]**: The leaderboard remembers display names from `profile.updated` (queue `leaderboard.profile-events`), drops cached rankings so the new name shows right away, and never caches a ranking computed across a rename.
 - **[account]**: New route `GET /api/v1/account/signup/pending` returns the e-mail and the Google profile name of the pending sign-up (from the `ft_signup` cookie), or 401 when the ticket is gone.
+- **[web]**: The home page has a short "How it works" section: join a room, focus then rest, catch a fish.
+- **[web]**: The home page ends with two small white lines: "© 2026 Fisher Timer. Made by" the five group members from the README, and "Software Architecture project."
 
 ### Changed
 - **[study-session]**: `SESSION_DISCONNECT_TIMEOUT_SECONDS` defaults to 120 (was 60). Browsers slow a hidden tab's timers to about one a minute, so with 60s a student studying in another tab could be removed mid-block (`DISCONNECT_TIMEOUT`). The room page also sends a heartbeat as soon as the tab is visible again.
@@ -80,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[reward]**: `POST /api/v1/reward/award` now really awards rewards (replaces the fake "Golden Salmon" stub). New request `{ user_id, session_id, cycle_id, work_minutes, participant_count, display_name? }`, response `{ cycle_id, already_awarded, rewards }`. Draws one reward per 15 work minutes from `reward_items` and stores one `user_rewards` row per draw. Safe to retry: the same `cycle_id` returns the stored rewards instead of awarding twice (rows get an `_id` derived from the cycle, so no schema change is needed). **Breaking:** study-timer's current `{ user_id, reason }` payload now gets a 400 until it sends the new fields.
 - **[reward]**: Changed drop weights to COMMON 30, UNCOMMON 25, RARE 12, EPIC 6, LEGENDARY 3 (was 50 / 25 / 10 / 4 / 1) in `002_seed_reward_items.js` and `memory_repo.go`. Re-run 002 on an existing volume to apply. Updated `database/README.md` to match.
 - **[web]**: The welcome form starts with the name from the Google profile. The user can change it, a name over 30 characters shows the error right away, and a missing or expired sign-up sends them back to sign in.
+- **[web]**: The home page shows a "Go to" list (Study rooms, Leaderboard, My fish) with larger text and an arrow on each row, instead of four small cards. The separate Study Timer card is gone because `/timer` already redirects to `/rooms`; the route still works.
+- **[web]**: The home page title and tagline are larger, and Start Studying and Timer defaults are two side-by-side buttons that are at least 44px tall.
+- **[web]**: The "admin page" and "dev page" links in the header show only to signed-in admins. Hiding the links is not a security check: the admin service still refuses non-admins.
+- **[web]**: The home page uses hand-drawn pixel sprites (study room, trophy, goldfish and a gear) instead of generic icons.
+- **[web]**: The home page shows the swaying "Fisher Timer" signboard with the bird on top of the hero panel, the same sign as on the sign-in page, instead of a plain title.
+- **[web]**: The admin pages and the dev tools page open only for a signed-in admin. Others see "Sign in to continue", a Retry banner or "Admins only" instead. The admin service already refused non-admins for the data.
 
 ### Fixed
 - **[eslint-config]**: ESLint linted no `.ts` / `.tsx` file at all (flat config only matches `.js` unless a config names other files), so `pnpm lint` passed without checking anything. `base.js` now matches TS files, parses JSX in `.tsx` (Babel 8 no longer does by default), and turns off the core rules that misfire on TypeScript without type information (typescript-eslint's eslint-recommended list plus `no-unused-vars`; tsc checks these). typescript-eslint itself does not support TypeScript 7. Lint now reports real findings: 16 warnings remain in admin, leaderboard, auth, styleguide and the dev seed route.
@@ -157,6 +165,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: Switching between Weekly, Monthly and All-time keeps the old rows on screen, dimmed, until the new ones arrive, instead of flashing a loading skeleton.
 - **[account]**: A new user who finished Google sign-in lands on `/welcome` (the display-name form) by default instead of the non-existent `/signup`.
 - **[account]**: `GET /profile` (open to anyone) returns only `user_id`, `display_name`, `avatar_url` and `created_at`: the e-mail and role are no longer exposed.
+- **[web]**: The orange buttons use a dark label (5.2:1 contrast instead of 2.7:1), and their hover state lightens instead of darkening.
+- **[web]**: The header's admin and dev page links are full contrast and 44px tall, and on phones the header stays on one line.
+- **[web]**: The page no longer bounces when scrolled past the top or bottom, so the header stays attached to the top of the window.
+- **[web]**: For users who are not admins, the avatar and Sign out button stay at the right end of the header instead of sitting next to the title.
+- **[web]**: `POST /api/dev/seed` now checks the caller's session with the Account service: 401 when signed out, 403 for a non-admin, and an admin can only seed their own account. It still refuses to run in production.
 
 ### Fixed
 
