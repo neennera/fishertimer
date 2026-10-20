@@ -125,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[leaderboard]**: Errors come back as JSON `{"error": ...}` with a message that is safe to show; a Reward service outage is a 502 instead of a 500 carrying the raw error text.
 - **[web]**: A failed leaderboard load says what happened and what to do, and switching periods never shows the previous period's rows under the new tab.
 - **[web]**: When the leaderboard fails to load, a banner with a Retry button replaces the empty table (rows already loaded stay visible).
+- **[web]**: The leaderboard period tabs and Refresh button are 44px tall on phones.
 
 ### Fixed
 
