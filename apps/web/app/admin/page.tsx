@@ -12,7 +12,7 @@ import { usePolling } from '../../features/admin/hooks/usePolling';
 
 /** Admin — every live room (refreshed every few seconds), each opening its detail + members. */
 export default function AdminPage() {
-  const { data: sessions, error, stale } = usePolling(listSessions, 'sessions');
+  const { data: sessions, error, stale, refresh } = usePolling(listSessions, 'sessions');
   const full = sessions?.filter((s) => s.participant_count >= s.max_participants).length ?? 0;
 
   return (
@@ -32,7 +32,7 @@ export default function AdminPage() {
             <AdminNav active="sessions" />
           </div>
 
-          {error ? <AdminError error={error} fallback="Failed to load rooms" /> : null}
+          {error ? <AdminError error={error} fallback="Failed to load rooms" onRetry={refresh} /> : null}
 
           {!error && (
             <>

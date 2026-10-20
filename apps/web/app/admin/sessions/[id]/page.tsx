@@ -125,7 +125,7 @@ export default function AdminSessionDetailPage() {
               </button>
             </PixelAlert>
           )}
-          {error ? <AdminError error={error} fallback="Failed to load the room" /> : null}
+          {error ? <AdminError error={error} fallback="Failed to load the room" onRetry={refresh} /> : null}
 
           {ended && (
             <div className="pixel-placeholder mt-5 flex flex-col items-center gap-3 py-10 text-center">
