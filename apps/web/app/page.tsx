@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock } from "pixelarticons/react/Clock";
+import { ArrowRight } from "pixelarticons/react/ArrowRight";
 import { Fish } from "pixelarticons/react/Fish";
 import { Gear } from "pixelarticons/react/Gear";
 import { Trophy } from "pixelarticons/react/Trophy";
@@ -9,43 +9,39 @@ import { ParallaxScene } from "../components/ui/ParallaxScene";
 import { PixelPanel } from "../components/ui/PixelPanel";
 import { SIGNIN_SCENE_LAYERS } from "../lib/scenes/signin-scene";
 
-const FEATURES = [
-  {
-    icon: Clock,
-    title: "Study Timer",
-    description: "Focus and rest cycles to keep you on track",
-    href: "/timer",
-  },
+// Where to go next. The timer itself lives inside a room, so "Study rooms"
+// is also the way to the timer.
+const DESTINATIONS = [
   {
     icon: Users,
-    title: "Study Sessions",
-    description: "Join and create study rooms with peers",
+    title: "Study rooms",
+    description: "Join or create a room and use the focus timer with others.",
     href: "/rooms",
-  },
-  {
-    icon: Fish,
-    title: "FishTank Rewards",
-    description: "Earn fish by finishing focus sessions",
-    href: "/account",
   },
   {
     icon: Trophy,
     title: "Leaderboard",
-    description: "See how your fish score ranks",
+    description: "See how your fish score ranks this week, month or all time.",
     href: "/leaderboard",
+  },
+  {
+    icon: Fish,
+    title: "My fish",
+    description: "Your catch, stats and account.",
+    href: "/account",
   },
 ];
 
-const CARD =
-  "pixel-panel flex h-full flex-col gap-1 p-4 text-left transition-transform duration-75";
-
-/** Home: the scene background plus one clickable card per feature. */
+/**
+ * Home: one clear action first (Start Studying), how it works, then the places
+ * to go. Text sits on parchment panels, never straight on the scene.
+ */
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
       <ParallaxScene layers={SIGNIN_SCENE_LAYERS} />
       <SessionHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:py-12">
         <PixelPanel>
           <h1
             className="font-display leading-tight"
@@ -58,40 +54,6 @@ export default function Home() {
             Study in focused sessions, catch fish, climb the leaderboard.
           </p>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {FEATURES.map(({ icon: Icon, title, description, href }) => {
-              const body = (
-                <>
-                  <Icon aria-hidden="true" className="h-8 w-8" />
-                  <h2 className="font-display">{title}</h2>
-                  <p className="text-bark">{description}</p>
-                  <span className="mt-auto pt-2 font-label text-xs text-bark">
-                    {href ? "Open →" : "Coming soon"}
-                  </span>
-                </>
-              );
-              return href ? (
-                <Link
-                  key={title}
-                  href={href}
-                  className={`${CARD} hover:-translate-y-0.5 focus-visible:-translate-y-0.5`}
-                  style={{ background: "var(--color-cream-2)" }}
-                >
-                  {body}
-                </Link>
-              ) : (
-                <div
-                  key={title}
-                  className={`${CARD} opacity-60`}
-                  style={{ background: "var(--color-cream-2)" }}
-                  aria-disabled="true"
-                >
-                  {body}
-                </div>
-              );
-            })}
-          </div>
-
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Link href="/rooms" className="pixel-btn">
               Start Studying
@@ -101,6 +63,30 @@ export default function Home() {
               Timer defaults
             </Link>
           </div>
+        </PixelPanel>
+
+        <PixelPanel as="nav" aria-labelledby="go-heading">
+          <h2 id="go-heading" className="font-display text-2xl">
+            Go to
+          </h2>
+          <ul className="mt-4 flex flex-col gap-3">
+            {DESTINATIONS.map(({ icon: Icon, title, description, href }) => (
+              <li key={title}>
+                <Link
+                  href={href}
+                  className="group flex min-h-16 items-center gap-4 p-4 transition-transform duration-75 hover:-translate-y-0.5 focus-visible:-translate-y-0.5"
+                  style={{ background: "var(--color-tile)" }}
+                >
+                  <Icon aria-hidden="true" className="h-8 w-8 flex-none" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-display text-xl">{title}</span>
+                    <span className="text-base text-ink">{description}</span>
+                  </span>
+                  <ArrowRight aria-hidden="true" className="h-6 w-6 flex-none" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         </PixelPanel>
       </main>
     </div>
