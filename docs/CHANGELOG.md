@@ -129,6 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[web]**: The leaderboard asks for each user's avatar once (no repeated requests on every update) and keeps a late answer.
 - **[web]**: A ranked user without a display name shows as "Unknown angler" instead of an empty row.
 - **[web]**: Each leaderboard row shows "N fish caught" instead of the raw user id.
+- **[web]**: The leaderboard table fits a 375px phone (narrower rank and score columns, long names wrap) and its column headers are exposed to screen readers.
 
 ### Fixed
 
