@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[account]**: Changing a display name publishes a `profile.updated` event to RabbitMQ (exchange `fisher.account`). The publisher never blocks the rename: events queue in memory and are retried with backoff if the broker is down.
 - **[study-session]**: Room rosters pick up a renamed user: Study Session consumes `profile.updated` (queue `session.profile-events`, with a dead-letter queue and capped retry backoff) and updates the display name of that user's participant rows.
 - **[leaderboard]**: The leaderboard remembers display names from `profile.updated` (queue `leaderboard.profile-events`), drops cached rankings so the new name shows right away, and never caches a ranking computed across a rename.
+- **[account]**: New route `GET /api/v1/account/signup/pending` returns the e-mail and the Google profile name of the pending sign-up (from the `ft_signup` cookie), or 401 when the ticket is gone.
 
 ### Changed
 - **[study-session]**: `SESSION_DISCONNECT_TIMEOUT_SECONDS` defaults to 120 (was 60). Browsers slow a hidden tab's timers to about one a minute, so with 60s a student studying in another tab could be removed mid-block (`DISCONNECT_TIMEOUT`). The room page also sends a heartbeat as soon as the tab is visible again.
