@@ -20,7 +20,7 @@ Study room lifecycle (UC-01 Create, UC-02 Join, UC-03 Leave, UC-04 Admin kick / 
 | `RABBITMQ_URL` | `amqp://admin:adminpassword@localhost:5672/` | broker |
 | `TIMER_GRPC_TARGET` | `localhost:50051` | Study Timer, for idle detection |
 | `SESSION_MAX_AGE_HOURS` | `24` | auto-end rooms after this (UC-03 E-6), 0 = off |
-| `SESSION_DISCONNECT_TIMEOUT_SECONDS` | `60` | auto-leave without heartbeats (UC-03 E-3), 0 = off |
+| `SESSION_DISCONNECT_TIMEOUT_SECONDS` | `120` | auto-leave without heartbeats (UC-03 E-3), 0 = off. Keep well above 60: hidden tabs beat about once a minute |
 | `IDLE_TIMEOUT_MINUTES` | `10` | auto-leave with no running work cycle (UC-03 E-7), 0 = off |
 | `SESSION_SWEEP_INTERVAL_SECONDS` | `5` | how often the rules above run |
 | `SESSION_OUTBOX_INTERVAL_MS` | `500` | how often queued events are published |
