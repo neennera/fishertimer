@@ -17,6 +17,10 @@
 //   POST /api/auth/signup {display_name}       201 + user, sets ft_session;
 //                                              400 bad name, 401 ticket gone,
 //                                              500 couldn't create
+//   GET  /api/auth/signup/pending              200 {email, suggested_name, picture}
+//                                              for the ft_signup ticket (the Google
+//                                              name to start the form with), 401
+//                                              when the ticket is gone
 //   POST /api/auth/signout                     clears ft_session / ft_signup
 //   PATCH /api/auth/update-profile {display_name}
 //                                              200 + user (refreshes
@@ -87,6 +91,13 @@ export interface AuthError {
   code: string;
   message: string;
 }
+
+// Who is signing up, read from the ft_signup ticket: the e-mail and the name on
+// the Google profile, offered as the starting point of the display name.
+export type PendingSignUp =
+  | { status: 'ready'; email: string; suggestedName: string }
+  | { status: 'expired' }
+  | { status: 'unavailable' };
 
 export type CompleteFirstTimeSetupResult =
   | { ok: true; user: SessionUser }
@@ -211,6 +222,33 @@ async function fetchSession(): Promise<Session> {
     // Network error, timeout or 5xx: we don't know. Not cached, so the next
     // call (a Retry) asks again.
     return settle({ status: 'unavailable' });
+  }
+}
+
+// The pending sign-up behind /welcome. `expired`: no ticket (or it timed out),
+// so the page sends the user back to sign in. `unavailable`: couldn't ask; the
+// form still works, just without the suggested name.
+export async function getPendingSignUp(): Promise<PendingSignUp> {
+  if (USE_MOCKS) {
+    const scenario = readMockAuthState()?.scenario ?? currentMockScenario();
+    if (!scenario || MOCK_SIGN_IN_OUTCOMES[scenario].redirectTo !== 'signup') {
+      // No mock sign-up in progress: the form still shows (empty), as it always did.
+      return mockDelay<PendingSignUp>({ status: 'unavailable' });
+    }
+    // The empty / too-long scenarios start from a blank or over-long name to show their error.
+    const suggestedName =
+      scenario === 'setup-name-empty' ? '' : scenario === 'setup-name-too-long' ? 'a'.repeat(31) : 'Mali Chaiyasit';
+    return mockDelay<PendingSignUp>({ status: 'ready', email: MOCK_NEW_ACCOUNT_EMAIL, suggestedName });
+  }
+
+  try {
+    const pending = await clientApiFetch<{ email: string; suggested_name: string }>('auth', 'signup/pending');
+    return { status: 'ready', email: pending.email, suggestedName: pending.suggested_name ?? '' };
+  } catch (err) {
+    if (err instanceof ClientApiError && err.status === 401) {
+      return { status: 'expired' };
+    }
+    return { status: 'unavailable' };
   }
 }
 

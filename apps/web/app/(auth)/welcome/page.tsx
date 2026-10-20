@@ -1,35 +1,54 @@
 "use client";
 
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PixelButton } from "../../../components/ui/PixelButton";
 import { PixelCheckbox } from "../../../components/ui/PixelCheckbox";
 import { PixelInput } from "../../../components/ui/PixelInput";
 import { PixelModal } from "../../../components/ui/PixelModal";
 import { PixelPanel } from "../../../components/ui/PixelPanel";
-import { AUTH_ERROR_PARAM, completeFirstTimeSetup, getSession } from "../../../lib/auth";
+import { AUTH_ERROR_PARAM, completeFirstTimeSetup, getPendingSignUp, getSession } from "../../../lib/auth";
 import { validateDisplayName } from "../../../lib/validate-display-name";
 
 function WelcomeForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  // Set once the user types: a late suggested name must not overwrite their own.
+  const typed = useRef(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [consentChecked, setConsentChecked] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
-  // GET /me can't say whether a sign-up is pending (that is only in the
-  // ft_signup cookie), so the form always shows; the signup POST finds out.
-  // Someone already signed in has nothing to set up. In mock mode,
+  // Someone already signed in has nothing to set up: go to the account page. Otherwise
+  // read the pending sign-up (GET /me can't say whether one is pending; that is only in
+  // the ft_signup cookie). Its Google name starts the display name; the user can change
+  // it, and a name over the limit shows its error right away. No ticket (or an expired
+  // one) sends them back to sign in; a failed lookup just leaves the field empty. The two
+  // calls are chained so a signed-in user is redirected once, not twice. In mock mode,
   // /welcome?mockScenario=setup-* reaches each 02 state directly.
   useEffect(() => {
     let cancelled = false;
-    void getSession().then((session) => {
-      if (!cancelled && session.status === "signed_in") {
-        router.replace("/account");
+    void (async () => {
+      const session = await getSession();
+      if (cancelled) {
+        return;
       }
-    });
+      if (session.status === "signed_in") {
+        router.replace("/account");
+        return;
+      }
+      const pending = await getPendingSignUp();
+      if (cancelled) {
+        return;
+      }
+      if (pending.status === "expired") {
+        router.replace(`/signin?${AUTH_ERROR_PARAM}=signup_expired`);
+      } else if (pending.status === "ready" && !typed.current) {
+        setName(pending.suggestedName);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -81,7 +100,10 @@ function WelcomeForm() {
         <PixelInput
           label="Display name"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => {
+            typed.current = true;
+            setName(event.target.value);
+          }}
           aria-invalid={displayedError ? "true" : undefined}
         />
 
