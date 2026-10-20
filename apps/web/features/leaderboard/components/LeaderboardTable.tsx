@@ -19,6 +19,10 @@ const RANK_BADGES: Record<number, { medal: string; label: string }> = {
 const SCORE_FISH = '/sprites/fish/Goldfish.png';
 const EMPTY_FISH = '/sprites/fish/Ghostfish.png';
 
+// An account with no usable display name still gets a readable row.
+const UNKNOWN_ANGLER = 'Unknown angler';
+const nameOf = (entry: RankEntry) => entry.display_name.trim() || UNKNOWN_ANGLER;
+
 export interface LeaderboardTableProps {
   entries: RankEntry[];
   /** user_id of the currently signed-in user. */
@@ -156,7 +160,7 @@ export function LeaderboardTable({
                 isMe
                 entry={{
                   user_id: currentUserId,
-                  display_name: currentUserName ?? currentUserId,
+                  display_name: currentUserName ?? '',
                   avatar_url: currentUserAvatarUrl ?? undefined,
                   rank: 0,
                   reward_count: 0,
@@ -185,9 +189,10 @@ function Row({
 }) {
   const [failedAvatar, setFailedAvatar] = useState(false);
   const podium = RANK_BADGES[entry.rank];
-  const initials = (entry.display_name || entry.user_id)
-    .split(' ')
-    .map((p) => p[0])
+  const name = nameOf(entry);
+  const initials = (entry.display_name.trim() ? name : '?')
+    .split(/\s+/)
+    .map((p) => Array.from(p)[0] ?? '')
     .join('')
     .slice(0, 2)
     .toUpperCase();
@@ -197,7 +202,7 @@ function Row({
   return (
     <li
       role="row"
-      aria-label={`Rank ${entry.rank}: ${entry.display_name}, ${entry.score} points`}
+      aria-label={`Rank ${entry.rank}: ${name}, ${entry.score} points`}
       onClick={clickable ? onClick : undefined}
       className={cx(
         'pixel-panel flex items-center gap-3 px-4 py-3 transition-transform duration-75',
@@ -258,8 +263,9 @@ function Row({
             <span
               className="font-numeric text-base tracking-wide truncate"
               style={{ fontSize: 'calc(var(--px) * 5.2)' }}
+              title={name}
             >
-              {entry.display_name || entry.user_id}
+              {name}
             </span>
             {isMe && (
               <span
