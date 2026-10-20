@@ -60,10 +60,23 @@ type service struct {
 	tokens       domain.TokenService
 	timerClient  domain.TimerClient
 	rewardClient domain.RewardClient
+	events       domain.EventPublisher // nil: nobody is told about profile changes
 }
 
-func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService, timerClient domain.TimerClient, rewardClient domain.RewardClient) Usecase {
-	return &service{repo: repo, provider: provider, tokens: tokens, timerClient: timerClient, rewardClient: rewardClient}
+// Option customises the usecase; the required collaborators stay positional.
+type Option func(*service)
+
+// WithEvents announces profile changes (profile.updated) through p.
+func WithEvents(p domain.EventPublisher) Option {
+	return func(s *service) { s.events = p }
+}
+
+func New(repo domain.Repository, provider domain.OAuthProvider, tokens domain.TokenService, timerClient domain.TimerClient, rewardClient domain.RewardClient, opts ...Option) Usecase {
+	s := &service{repo: repo, provider: provider, tokens: tokens, timerClient: timerClient, rewardClient: rewardClient}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *service) SignInURL(state string) string {
@@ -198,6 +211,12 @@ func (s *service) UpdateProfile(ctx context.Context, token, displayName string) 
 	user, err := s.repo.UpdateProfile(ctx, claims.UserID, name)
 	if err != nil {
 		return nil, err
+	}
+	// Tell Study Session and Leaderboard, so the new name shows in rooms and on
+	// the leaderboard without the user signing in again. Not awaited: the
+	// rename itself has already succeeded.
+	if s.events != nil {
+		s.events.PublishProfileUpdated(user.UserID, user.DisplayName, user.UpdatedAt)
 	}
 	return s.newSession(user)
 }

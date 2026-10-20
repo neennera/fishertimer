@@ -1,5 +1,5 @@
 // Profile data from the account service (/api/auth/* -> /api/v1/account/*):
-//   GET profile?id=     200 full user · 400 no id · 404 unknown
+//   GET profile?id=     200 public view (no e-mail, no role) · 400 no id · 404 unknown
 //   GET statistics?id=  200 TimerStatistics · 404 · 502 timer down
 //   GET rewards?id=     200 RewardsSummary · 404 · 502 reward down
 // Mocked per NEXT_PUBLIC_USE_MOCKS (see lib/use-mocks.ts), in the same shapes.

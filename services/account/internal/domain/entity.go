@@ -29,6 +29,14 @@ const (
 	RoleAdmin    = "ADMIN"
 )
 
+// PublicProfile is what anyone may read about a user: no e-mail, no role.
+type PublicProfile struct {
+	UserID      string    `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+	AvatarURL   string    `json:"avatar_url"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 // UserAccount mirrors account_db.users (docs/database/schema.dbml).
 // Accounts are identified by e-mail, as UC-06 specifies.
 type UserAccount struct {
@@ -39,6 +47,11 @@ type UserAccount struct {
 	Role        string    `json:"role"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// Public is the view of the account that other users (and signed-out callers) get.
+func (u *UserAccount) Public() PublicProfile {
+	return PublicProfile{UserID: u.UserID, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL, CreatedAt: u.CreatedAt}
 }
 
 // GoogleProfile is what we read back from Google after a successful sign-in.
@@ -77,7 +90,10 @@ type Session struct {
 // the OAuth callback to the display-name form inside a signed, short-lived
 // token, so the browser can read it back but cannot change the e-mail.
 type SignUpTicket struct {
-	Email     string    `json:"email"`
+	Email string `json:"email"`
+	// Name is the name on the Google profile, offered as the starting point of the
+	// display-name form (the user can change it; it must still fit the limit).
+	Name      string    `json:"name"`
 	Picture   string    `json:"picture"`
 	ExpiresAt time.Time `json:"expires_at"`
 }

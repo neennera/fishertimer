@@ -357,6 +357,17 @@ func (r *PostgresRepository) GetLastParticipation(ctx context.Context, sessionID
 		ORDER BY joined_at DESC LIMIT 1`, sessionID, userID))
 }
 
+func (r *PostgresRepository) RenameParticipant(ctx context.Context, userID, displayName string) (int, error) {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE session_participants SET display_name = $2 WHERE user_id = $1 AND left_at IS NULL`,
+		userID, displayName)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	return int(n), err
+}
+
 func (r *PostgresRepository) TouchParticipant(ctx context.Context, sessionID, userID string, now time.Time) (bool, error) {
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE session_participants SET last_seen_at = $3

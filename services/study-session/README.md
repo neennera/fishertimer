@@ -1,7 +1,7 @@
 # Study-session Service
 
 ## Overview
-Study room lifecycle (UC-01 Create, UC-02 Join, UC-03 Leave, UC-04 Admin kick / close), participant rosters and room capacity. Every membership change is published to RabbitMQ so Study Timer can open and finalize timers.
+Study room lifecycle (UC-01 Create, UC-02 Join, UC-03 Leave, UC-04 Admin kick / close), participant rosters and room capacity. Every membership change is published to RabbitMQ so Study Timer can open and finalize timers. It also consumes Account's `profile.updated` (queue `session.profile-events`) and applies the new display name to the room the user is in, so a rename shows in the roster without re-joining.
 
 ## Ports
 - HTTP `8083` (`SESSION_SERVICE_PORT`): internal REST used by the Admin service and for debugging

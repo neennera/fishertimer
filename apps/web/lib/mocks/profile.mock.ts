@@ -1,4 +1,5 @@
-// Mock GET /api/auth/profile?id=: the full user, as the endpoint sends it.
+// Mock GET /api/auth/profile?id=: kept as the full user so getPublicProfile's stripping is
+// exercised; the real endpoint sends only user_id, display_name, avatar_url and created_at.
 
 import type { SessionUser } from '../auth';
 import { MOCK_USER_IDS } from './auth.mock';

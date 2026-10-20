@@ -14,6 +14,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/neennera/fishertimer/services/account/config"
+	accountAMQP "github.com/neennera/fishertimer/services/account/internal/adapter/amqp"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/oauth"
@@ -43,8 +44,13 @@ func main() {
 	timerClient := client.NewTimerClient(cfg.TimerServiceURL)
 	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
 
+	// RabbitMQ is dialed lazily by the publisher: the service starts even while
+	// the broker is down, and profile events are sent once it is back.
+	publisher := accountAMQP.NewPublisher(cfg.RabbitMQURL)
+	defer publisher.Close()
+
 	// 2. Application usecase.
-	uc := usecase.New(repo, provider, tokens, timerClient, rewardClient)
+	uc := usecase.New(repo, provider, tokens, timerClient, rewardClient, usecase.WithEvents(publisher))
 
 	// 3. Driving adapter (HTTP).
 	h := handler.New(uc, handler.Options{

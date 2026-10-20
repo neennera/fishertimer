@@ -41,6 +41,11 @@ type Repository interface {
 	// the room (open or closed), or ErrNotFound.
 	GetLastParticipation(ctx context.Context, sessionID, userID string) (*Participant, error)
 
+	// RenameParticipant sets the display name on the user's open participation
+	// (the roster shows the name stored per stay). It reports how many rows
+	// changed: 0 when the user is not in a room, which is not an error.
+	RenameParticipant(ctx context.Context, userID, displayName string) (int, error)
+
 	// TouchParticipant records a heartbeat. Reports false when the user is
 	// not an active participant of the room.
 	TouchParticipant(ctx context.Context, sessionID, userID string, now time.Time) (bool, error)
