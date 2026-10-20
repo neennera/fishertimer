@@ -2,9 +2,19 @@ package domain
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var userIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// IsUserID reports whether s has the shape of users.user_id (a uuid). Anything
+// else cannot match a row, so lookups answer "not found" without asking
+// Postgres, which would fail the uuid cast with a 500.
+func IsUserID(s string) bool {
+	return userIDPattern.MatchString(s)
+}
 
 var (
 	ErrNotFound     = errors.New("account: resource not found")

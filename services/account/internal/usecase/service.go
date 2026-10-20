@@ -196,15 +196,27 @@ func (s *service) UpdateProfile(ctx context.Context, token, displayName string) 
 }
 
 func (s *service) GetProfile(ctx context.Context, userID string) (*domain.UserAccount, error) {
-	if strings.TrimSpace(userID) == "" {
-		return nil, domain.ErrInvalid
+	if err := checkUserID(userID); err != nil {
+		return nil, err
 	}
 	return s.repo.GetUserByID(ctx, userID)
 }
 
-func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+// checkUserID separates a missing id (400) from one that can never match an
+// account (404), so a malformed id does not reach Postgres.
+func checkUserID(userID string) error {
 	if strings.TrimSpace(userID) == "" {
-		return nil, domain.ErrInvalid
+		return domain.ErrInvalid
+	}
+	if !domain.IsUserID(userID) {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {
+	if err := checkUserID(userID); err != nil {
+		return nil, err
 	}
 	// Confirm the account exists before asking the timer service, so a
 	// made-up id can't be used to probe study-timer's data.
@@ -215,8 +227,8 @@ func (s *service) GetTimerStatistics(ctx context.Context, userID string) (*domai
 }
 
 func (s *service) GetRewards(ctx context.Context, userID string) (*domain.RewardsSummary, error) {
-	if strings.TrimSpace(userID) == "" {
-		return nil, domain.ErrInvalid
+	if err := checkUserID(userID); err != nil {
+		return nil, err
 	}
 	// Confirm the account exists before asking the reward service, so a
 	// made-up id can't be used to probe reward's data.
