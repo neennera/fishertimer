@@ -15,14 +15,22 @@ import { formatDateTime } from '../../../../features/admin/components/format';
 import {
   AdminError,
   StaleNotice,
+  UNKNOWN_OUTCOME_MESSAGE,
   adminErrorMessage,
+  isUnknownOutcome,
 } from '../../../../features/admin/components/AdminError';
 import { usePolling } from '../../../../features/admin/hooks/usePolling';
 import { AdminApiError } from '../../../../lib/admin-api';
 import type { AdminParticipant } from '../../../../features/admin/types';
 
-/** 409 from a kick / close: the room or member changed since it was shown. */
-const isStateChanged = (e: unknown) => e instanceof AdminApiError && e.status === 409;
+/**
+ * Cases where the page should refresh and say what happened rather than keep
+ * the dialog open for a blind retry: a 409 (the room or member changed since it
+ * was shown) or no answer in time (the action may have gone through).
+ */
+const isStateChanged = (e: unknown) => (e instanceof AdminApiError && e.status === 409) || isUnknownOutcome(e);
+const changedMessage = (e: unknown, fallback: string) =>
+  isUnknownOutcome(e) ? UNKNOWN_OUTCOME_MESSAGE : adminErrorMessage(e, fallback);
 
 /** Admin — one live session's detail and its members, refreshed every few seconds. */
 export default function AdminSessionDetailPage() {
@@ -64,7 +72,7 @@ export default function AdminSessionDetailPage() {
     } catch (e: unknown) {
       if (isStateChanged(e)) {
         // Member already left or room ended: nothing changed, show the current state (UC-10 E-3).
-        setNotice(adminErrorMessage(e, 'This room has changed.'));
+        setNotice(changedMessage(e, 'This room has changed.'));
         setKickTarget(null);
         setKickReason('');
         await refresh();
@@ -95,7 +103,7 @@ export default function AdminSessionDetailPage() {
       await refresh();
     } catch (e: unknown) {
       if (isStateChanged(e)) {
-        setNotice(adminErrorMessage(e, 'This room has already closed.'));
+        setNotice(changedMessage(e, 'This room has already closed.'));
         setConfirmingEnd(false);
         setEndReason('');
         await refresh();
