@@ -69,6 +69,7 @@ func (h *HTTPHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/account/google/callback", h.GoogleCallback)
 	mux.HandleFunc("/api/v1/account/me", h.Me)
 	mux.HandleFunc("/api/v1/account/signup", h.SignUp)
+	mux.HandleFunc("/api/v1/account/signup/pending", h.PendingSignUp)
 	mux.HandleFunc("/api/v1/account/signout", h.SignOut)
 
 	mux.HandleFunc("/api/v1/account/update-profile", h.UpdateProfile)
@@ -186,6 +187,29 @@ func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, user)
+}
+
+// PendingSignUp tells the display-name form who is signing up, from the
+// ft_signup cookie: the e-mail (read-only) and the Google profile name as a
+// starting point for the display name.
+//
+//	GET -> 200 {"email", "suggested_name", "picture"}, or 401 if the ticket is
+//	       missing or expired
+func (h *HTTPHandler) PendingSignUp(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	ticket, err := h.uc.PendingSignUp(cookieValue(r, SignUpCookie))
+	if err != nil || ticket == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "sign-up expired: sign in with Google again"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"email":          ticket.Email,
+		"suggested_name": ticket.Name,
+		"picture":        ticket.Picture,
+	})
 }
 
 // SignUp creates the account for the identity held in the ft_signup cookie and

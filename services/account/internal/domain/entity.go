@@ -77,7 +77,10 @@ type Session struct {
 // the OAuth callback to the display-name form inside a signed, short-lived
 // token, so the browser can read it back but cannot change the e-mail.
 type SignUpTicket struct {
-	Email     string    `json:"email"`
+	Email string `json:"email"`
+	// Name is the name on the Google profile, offered as the starting point of the
+	// display-name form (the user can change it; it must still fit the limit).
+	Name      string    `json:"name"`
 	Picture   string    `json:"picture"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
