@@ -21,11 +21,15 @@ export function SessionSummaryModal({ summary, onDone }: SessionSummaryModalProp
   return (
     <PixelModal open onClose={onDone} title="Your catch">
       <p className="text-bark">
-        You spent {formatFocusMinutes(summary.stayMinutes)} at <span className="text-ink">{summary.roomName}</span>.
+        You spent {summary.stayMinutes > 0 ? formatFocusMinutes(summary.stayMinutes) : "under a minute"} at{" "}
+        <span className="text-ink">{summary.roomName}</span>.
       </p>
 
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <StatTile value={String(summary.completedCycles)} caption="focus blocks" />
+        <StatTile
+          value={String(summary.completedCycles)}
+          caption={summary.completedCycles === 1 ? "focus block" : "focus blocks"}
+        />
         <StatTile value={formatFocusMinutes(summary.focusMinutes)} caption="focus time" />
         <StatTile value={summary.fish ? String(caught) : "—"} caption="fish caught" />
       </div>
