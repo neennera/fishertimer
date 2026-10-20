@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PixelAlert } from "../../components/ui/PixelAlert";
 import { PixelButton } from "../../components/ui/PixelButton";
 import { PixelPanel } from "../../components/ui/PixelPanel";
@@ -24,6 +24,22 @@ const NOTICES: Record<string, string> = {
   ROOM_NOT_FOUND: "That room doesn't exist any more.",
 };
 
+/** The ?notice= banner, until the user dismisses that notice. */
+function LakeNotice() {
+  const code = useSearchParams().get("notice") ?? "";
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const notice = NOTICES[code];
+  if (!notice || dismissed === code) return null;
+  return (
+    <PixelAlert tone="warn" className="mt-5 flex items-start justify-between gap-3">
+      <span>{notice}</span>
+      <button type="button" className="pixel-link text-sm" onClick={() => setDismissed(code)}>
+        OK
+      </button>
+    </PixelAlert>
+  );
+}
+
 /**
  * The lake: every active room (UC-02 step 2), refreshed live, plus opening a
  * new one (UC-01).
@@ -35,12 +51,6 @@ export default function RoomsPage() {
   const { rooms, mine, error, refresh } = useRoomList(actor);
   const actions = useRoomActions(actor, () => void refresh());
   const [creating, setCreating] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("notice");
-    if (code && NOTICES[code]) setNotice(NOTICES[code]);
-  }, []);
 
   const myRoom = mine?.in_session ? mine.session : undefined;
   const openRooms = rooms?.filter((r) => r.participant_count < r.participant_limit).length ?? 0;
@@ -69,14 +79,10 @@ export default function RoomsPage() {
             )}
           </div>
 
-          {notice && (
-            <PixelAlert tone="warn" className="mt-5 flex items-start justify-between gap-3">
-              <span>{notice}</span>
-              <button type="button" className="pixel-link text-sm" onClick={() => setNotice(null)}>
-                OK
-              </button>
-            </PixelAlert>
-          )}
+          {/* Reads the query string, so it waits for the client (Suspense). */}
+          <Suspense fallback={null}>
+            <LakeNotice />
+          </Suspense>
 
           {actorState.status === "signed_out" ? (
             <div className="pixel-placeholder mt-6 text-center">
