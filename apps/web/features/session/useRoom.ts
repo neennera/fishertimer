@@ -120,13 +120,17 @@ export function useRoom(actor: Actor | null, sessionId: string): LiveRoom {
 
   const member = presence.kind === "member";
 
+  // Both refreshes set state only after their fetch resolves, which
+  // react-hooks/set-state-in-effect cannot see through the await.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the await
     void refresh();
     const id = window.setInterval(() => void refresh(), ROOM_REFRESH_MS);
     return () => window.clearInterval(id);
   }, [refresh]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the await
     void refreshTimers();
     const id = window.setInterval(() => void refreshTimers(), TIMERS_REFRESH_MS);
     return () => window.clearInterval(id);
