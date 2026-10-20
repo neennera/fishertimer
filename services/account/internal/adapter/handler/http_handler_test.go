@@ -22,6 +22,8 @@ type stubUsecase struct {
 	authUser   *domain.UserAccount
 	authErr    error
 	profileErr error
+	pending    *domain.SignUpTicket
+	pendingErr error
 }
 
 var _ usecase.Usecase = (*stubUsecase)(nil)
@@ -32,7 +34,9 @@ func (s *stubUsecase) SignInURL(state string) string {
 func (s *stubUsecase) CompleteSignIn(context.Context, string) (*domain.SignInResult, error) {
 	return s.signIn, s.signInErr
 }
-func (s *stubUsecase) PendingSignUp(string) (*domain.SignUpTicket, error) { return nil, nil }
+func (s *stubUsecase) PendingSignUp(string) (*domain.SignUpTicket, error) {
+	return s.pending, s.pendingErr
+}
 func (s *stubUsecase) CompleteSignUp(context.Context, string, string) (*domain.Session, error) {
 	return s.signUp, s.signUpErr
 }
@@ -268,5 +272,60 @@ func TestGoogleCallback_SuccessPaths(t *testing.T) {
 	got = location(t, do(srv, http.MethodGet, "/api/v1/account/google/callback?code=c&state=s", "", state, next, signup))
 	if got != "http://web.test/welcome" {
 		t.Errorf("new e-mail: got %s", got)
+	}
+}
+
+// Anyone can call /profile, so it must not carry the e-mail or the role.
+func TestProfile_IsThePublicViewOnly(t *testing.T) {
+	user := &domain.UserAccount{
+		UserID: "u1", Email: "private@example.com", DisplayName: "Fish", AvatarURL: "https://img", Role: domain.RoleAdmin,
+	}
+	rec := do(newServer(&stubUsecase{authUser: user}), http.MethodGet, "/api/v1/account/profile?id=u1", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, secret := range []string{"private@example.com", "email", "role", "ADMIN"} {
+		if strings.Contains(body, secret) {
+			t.Fatalf("public profile leaks %q: %s", secret, body)
+		}
+	}
+	for _, want := range []string{`"user_id":"u1"`, `"display_name":"Fish"`, `"avatar_url":"https://img"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("public profile is missing %s: %s", want, body)
+		}
+	}
+	// /me is the owner's own view and keeps the e-mail.
+	me := do(newServer(&stubUsecase{authUser: user}), http.MethodGet, "/api/v1/account/me", "")
+	if !strings.Contains(me.Body.String(), "private@example.com") {
+		t.Fatalf("/me must still return the owner's e-mail: %s", me.Body.String())
+	}
+}
+
+func TestPendingSignUp_OffersTheGoogleName(t *testing.T) {
+	ticket := &domain.SignUpTicket{Email: "new@example.com", Name: "Mali Chai", Picture: "https://img", ExpiresAt: time.Now().Add(time.Minute)}
+	rec := do(newServer(&stubUsecase{pending: ticket}), http.MethodGet, "/api/v1/account/signup/pending", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body)
+	}
+	for _, want := range []string{`"email":"new@example.com"`, `"suggested_name":"Mali Chai"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("missing %s in %s", want, rec.Body)
+		}
+	}
+}
+
+func TestPendingSignUp_ExpiredAndWrongMethod(t *testing.T) {
+	if rec := do(newServer(&stubUsecase{pendingErr: domain.ErrUnauthorized}), http.MethodGet, "/api/v1/account/signup/pending", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expired ticket: expected 401, got %d", rec.Code)
+	}
+	if rec := do(newServer(&stubUsecase{}), http.MethodPost, "/api/v1/account/signup/pending", ""); rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST: expected 405, got %d", rec.Code)
+	}
+}
+
+func TestDefaultSignUpPathIsTheWelcomePage(t *testing.T) {
+	if handler.DefaultSignUpPath != "/welcome" {
+		t.Fatalf("the sign-up default must be the page that exists, got %q", handler.DefaultSignUpPath)
 	}
 }
