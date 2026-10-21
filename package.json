@@ -12,7 +12,8 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f",
     "db:reset": "docker compose down -v && docker compose up -d",
-    "proto:gen": "node scripts/gen-proto.mjs"
+    "proto:gen": "node scripts/gen-proto.mjs",
+    "images": "bash scripts/build-images.sh"
   },
   "devDependencies": {
     "prettier": "3.9.6",

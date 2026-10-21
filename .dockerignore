@@ -1,0 +1,17 @@
+# Keep the build context small and secret-free.
+**/node_modules
+**/.next
+**/.turbo
+**/bin
+**/*.test
+.git
+.DS_Store
+**/.env
+**/.env.*
+!**/.env.example
+docs
+k8s
+
+# Local-only test helpers (same as .gitignore)
+apps/web/app/test-auth/
+services/*/database/schemas/*_seed_*
