@@ -157,6 +157,12 @@ pnpm docker:reset                    # stop and wipe all data volumes
 ```
 New `database/schemas` files only run when a volume is first created: after pulling one, run `pnpm docker:reset`.
 
+### Service discovery with Consul (optional)
+```bash
+pnpm docker:discovery      # the same stack + a Consul agent, services find each other through it
+```
+Open **http://localhost:8500** to see every service register with its health check (`study-timer` and `study-timer-grpc` are the HTTP and gRPC ports of one service). Stopping a container removes it from the list at once; a crashed one drops out within seconds. `pnpm docker:up` goes back to plain addresses from the environment. How it works and how it fails: [`pkg/discovery/README.md`](pkg/discovery/README.md) and `docs/ARCHITECTURE.md` section 7.
+
 ### Hybrid mode: one service on your machine, the rest in Docker
 Containers reach your machine as `host.docker.internal`. See the step-by-step example at the bottom of `.env.docker.example`.
 
@@ -254,6 +260,7 @@ pnpm db:reset    # Wipe volumes and re-apply schemas & seeds
 # Whole system in Docker (web on http://localhost:3000)
 pnpm docker:up     # Build images and start everything
 pnpm docker:dev    # Same, plus stores/gateway/admin ports on localhost
+pnpm docker:discovery # Same as docker:up + Consul (UI on http://localhost:8500)
 pnpm docker:ps     # Status and health of each container
 pnpm docker:logs   # Follow all logs
 pnpm docker:down   # Stop (keeps data)

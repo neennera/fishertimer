@@ -42,4 +42,15 @@ HTTP and gRPC ports are separate logical services: `study-timer` and
 - Service not registered (e.g. run on the host): the static address is used.
 - A crashed instance fails its health check and drops out of `Resolve` within seconds.
 
-Tests: `go test ./...` (from this directory, or `cd pkg/discovery`).
+Callers get HTTP and gRPC through the same Locator:
+
+```go
+rewardClient := client.NewRewardClient(cfg.RewardServiceURL, d.Locator.HTTPClient(discovery.Reward))
+proxy.Transport = d.Locator.Transport(discovery.Reward, nil)   // reverse proxies
+```
+
+## Try it
+
+`pnpm docker:discovery`, then open http://localhost:8500. To see lookups doing the work, set deliberately wrong peer addresses in `.env.docker` (for example `REWARD_SERVICE_URL=http://nope:8085`): the system still works with Consul and answers 502/503 without it.
+
+Tests: `go test -race ./...` (from this directory).
