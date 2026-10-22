@@ -134,6 +134,16 @@
 
 ---
 
+### Incident 012: A gRPC Client Resolves Lazily, So a Registry Outage Can Hit a Peer Nobody Called Yet
+- **Date:** 2026-10-22
+- **Component:** `pkg/discovery` (`Locator`, `grpcresolver`), `api-gateway`
+- **Symptom:** While testing "Consul is down", `/api/auth/me` and `/api/timer/...` returned 502 / 503 although other routes kept working. The gateway log said `registry unavailable ..., using configured address` for `account` and `study-timer-grpc`, but `using last known instances` for `leaderboard`.
+- **Root Cause:** The Locator only knows what it has been asked for. `grpc.NewClient` is lazy: its resolver is built on the first RPC, and a reverse proxy only resolves on the first request. A peer that had not been called since the gateway started had no cached instances, so the fallback (here deliberately wrong) was used.
+- **Solution:** Not a bug: the documented behaviour is "last known instances, else the configured address". The test now warms every route first, and the docs state the limit. Keep the configured addresses correct; they are also what runs when Consul is not used.
+- **Action for Future Agents:** When testing registry-outage behaviour, call every peer once before stopping the registry. Don't read a cold-start fallback as a failure of the cache.
+
+---
+
 ## 2. Template for Recording New Lessons Learned
 
 When documenting a new learning, append to Section 1 using this markdown structure:
