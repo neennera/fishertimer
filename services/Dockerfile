@@ -11,6 +11,7 @@ WORKDIR /src
 # The cache mounts keep Go's module and compile caches between builds, shared
 # by all 7 services, so common libraries are downloaded and compiled once.
 COPY go.work go.work.sum ./
+COPY pkg/discovery/go.mod pkg/discovery/go.sum* pkg/discovery/
 COPY pkg/events/go.mod pkg/events/go.sum* pkg/events/
 COPY proto/go.mod proto/go.sum* proto/
 COPY services/account/go.mod services/account/go.sum* services/account/
