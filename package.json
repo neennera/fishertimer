@@ -14,6 +14,8 @@
     "db:reset": "docker compose down -v && docker compose up -d",
     "proto:gen": "node scripts/gen-proto.mjs",
     "images": "bash scripts/build-images.sh",
+    "k8s:up": "bash scripts/k8s-up.sh",
+    "k8s:down": "bash scripts/k8s-down.sh",
     "k8s:apply": "kubectl kustomize --load-restrictor LoadRestrictionsNone k8s | kubectl --context kind-fishertimer apply -f -",
     "k8s:traefik": "kubectl --context kind-fishertimer apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml && helm upgrade --install traefik traefik --repo https://traefik.github.io/charts --version 42.1.2 --namespace traefik --create-namespace --kube-context kind-fishertimer --values k8s/traefik-values.yaml --wait"
   },

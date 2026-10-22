@@ -62,12 +62,16 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 10
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
           livenessProbe:
             exec:
               command: ["rabbitmq-diagnostics", "-q", "ping"]
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 10
+            failureThreshold: 6
           resources:
             requests:
               cpu: 100m

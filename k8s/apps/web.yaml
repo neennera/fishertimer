@@ -50,6 +50,9 @@ spec:
               port: http
             periodSeconds: 10
             timeoutSeconds: 5
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
           livenessProbe:
             httpGet:
               path: /
@@ -57,6 +60,7 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 20
             timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               cpu: 50m

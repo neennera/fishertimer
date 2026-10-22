@@ -66,11 +66,17 @@ spec:
               command: ["pg_isready", "-U", "postgres", "-d", "admin_db"]
             initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "postgres", "-d", "admin_db"]
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               cpu: 50m

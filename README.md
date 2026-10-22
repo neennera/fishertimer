@@ -126,6 +126,52 @@ Visit **`http://localhost:3000`** in your browser.
 
 ---
 
+## ☸️ Run on Kubernetes (local kind cluster)
+
+Runs the whole system (7 services, 6 data stores, the web app) on a local Kubernetes cluster, the way it would run in production. Independent of `pnpm db:up` / `pnpm dev`: stop the docker-compose databases first (`pnpm db:down`) to save memory.
+
+### Prerequisites
+- **Docker** running (OrbStack or Docker Desktop), with ~6 GB of memory for it
+- **kind**, **kubectl** and **helm**:
+  ```bash
+  brew install kind kubectl helm
+  ```
+- **pnpm** (see the Quick Start above)
+
+### 1. Create your secrets
+```bash
+cp k8s/secrets.env.example k8s/secrets.env
+```
+Edit `k8s/secrets.env` (git-ignored):
+- Pick a password for Postgres, MongoDB and RabbitMQ (letters and digits only, e.g. `openssl rand -hex 16`) and put each one in **every URL that uses it**.
+- `JWT_SECRET`: `openssl rand -hex 32`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: from Google Cloud Console. Add `http://fishertimer.localhost/api/auth/google/callback` to the OAuth client's authorized redirect URIs.
+
+### 2. Bring it up
+```bash
+pnpm k8s:up
+```
+Creates the cluster if needed, installs the front door (Traefik + Gateway API CRDs), builds and loads all images, applies `k8s/` and waits until every pod is ready. The first run downloads the database images and takes a few minutes. Safe to re-run after code changes: it rebuilds the images and restarts the apps.
+
+Open **http://fishertimer.localhost**.
+
+### 3. Tear it down
+```bash
+pnpm k8s:down
+```
+Deletes the cluster, **including all database data** (asks first). Images and `k8s/secrets.env` are kept, so `pnpm k8s:up` brings everything back.
+
+### Day-to-day commands
+```bash
+kubectl -n fishertimer get pods                 # what's running
+kubectl -n fishertimer logs deploy/account      # a service's logs
+pnpm images reward                              # rebuild one image (and load it into the cluster)
+kubectl -n fishertimer rollout restart deploy/reward   # run the rebuilt image
+pnpm k8s:apply                                  # apply edits to k8s/
+```
+
+---
+
 ## 🔌 Microservice Port & API Routing Registry
 
 Client requests route through the Go API Gateway (8000), while Admin requests communicate directly with the Admin Service (8087):

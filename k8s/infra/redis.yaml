@@ -42,11 +42,17 @@ spec:
             exec:
               command: ["redis-cli", "ping"]
             periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
           livenessProbe:
             exec:
               command: ["redis-cli", "ping"]
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               cpu: 20m
