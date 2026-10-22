@@ -1,0 +1,89 @@
+# MongoDB for the reward service (reward_db): the fish catalog and every catch.
+# StatefulSet for the same reasons as the Postgres databases: stable name and a
+# disk that survives restarts. Only `reward` connects to it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: reward-db
+  labels:
+    app: reward-db
+spec:
+  clusterIP: None
+  selector:
+    app: reward-db
+  ports:
+    - name: mongo
+      port: 27017
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: reward-db
+  labels:
+    app: reward-db
+spec:
+  serviceName: reward-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reward-db
+  template:
+    metadata:
+      labels:
+        app: reward-db
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7.0
+          ports:
+            - name: mongo
+              containerPort: 27017
+          env:
+            # Setting the root user is what makes the image run the init
+            # scripts in /docker-entrypoint-initdb.d on the first start.
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: mongoadmin
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fishertimer-secrets
+                  key: MONGO_PASSWORD
+            - name: MONGO_INITDB_DATABASE
+              value: reward_db
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+            - name: schema
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          # mongosh starts a Node.js process, so give the probes time.
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: schema
+          configMap:
+            name: reward-db-schema
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

@@ -1,0 +1,80 @@
+# Reward service: the fish catalog and catches (awards a fish per 15 focus
+# minutes). Stateless (its data lives in reward-db), so a Deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: reward
+  labels:
+    app: reward
+spec:
+  selector:
+    app: reward
+  ports:
+    - name: http
+      port: 8085
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reward
+  labels:
+    app: reward
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reward
+  template:
+    metadata:
+      labels:
+        app: reward
+    spec:
+      # Without MongoDB at startup the service does not exit: it silently falls
+      # back to in-memory data for good (catches lost on restart). Waiting here
+      # makes sure it connects to the real database.
+      initContainers:
+        - name: wait-for-db
+          image: mongo:7.0
+          command: ["sh", "-c", "until mongosh --host reward-db --quiet --eval 'db.adminCommand(\"ping\")' >/dev/null; do echo waiting for reward-db; sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+      containers:
+        - name: reward
+          image: fishertimer/reward:latest
+          # :latest defaults to Always, which would look on Docker Hub. Use the
+          # image `pnpm images` loaded into kind.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: fishertimer-config
+            - secretRef:
+                name: fishertimer-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          # distroless:nonroot runs as uid 65532 with no shell; lock the rest down.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
