@@ -14,9 +14,16 @@ resources:
   - infra/session-db.yaml
   - infra/timer-db.yaml
   - infra/rabbitmq.yaml
+  - infra/reward-db.yaml
+  - infra/redis.yaml
+  - infra/admin-db.yaml
   - apps/account.yaml
   - apps/study-session.yaml
   - apps/study-timer.yaml
+  - apps/reward.yaml
+  - apps/leaderboard.yaml
+  - apps/admin.yaml
+  - apps/api-gateway.yaml
 
 # Built from env files. Kustomize adds a hash of the contents to the name
 # (fishertimer-config-7c9f…), so editing a value rolls the pods that use it.
@@ -41,6 +48,17 @@ configMapGenerator:
       - ../services/study-timer/database/schemas/003_phase2_timer_and_events.sql
       - ../services/study-timer/database/schemas/004_timer_sessions_per_participant.sql
       - ../services/study-timer/database/schemas/005_phase2_timer_w2.sql
+  # Mongo runs .js init files. 002 is the fish catalog the game needs, 003 the
+  # demo catches for the leaderboard. 004 is run by hand (it needs SEED_USER_ID
+  # and throws without it, which would fail Mongo's first start).
+  - name: reward-db-schema
+    files:
+      - ../services/reward/database/schemas/001_create_reward_collections.js
+      - ../services/reward/database/schemas/002_seed_reward_items.js
+      - ../services/reward/database/schemas/003_seed_user_rewards.js
+  - name: admin-db-schema
+    files:
+      - ../services/admin/database/schemas/001_create_admin_logs_table.sql
 
 secretGenerator:
   - name: fishertimer-secrets
