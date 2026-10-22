@@ -13,7 +13,8 @@
     "db:logs": "docker compose logs -f",
     "db:reset": "docker compose down -v && docker compose up -d",
     "proto:gen": "node scripts/gen-proto.mjs",
-    "images": "bash scripts/build-images.sh"
+    "images": "bash scripts/build-images.sh",
+    "k8s:apply": "kubectl kustomize --load-restrictor LoadRestrictionsNone k8s | kubectl --context kind-fishertimer apply -f -"
   },
   "devDependencies": {
     "prettier": "3.9.6",

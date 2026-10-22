@@ -1,0 +1,79 @@
+# Account service: users, Google sign-in, session JWTs. Stateless (its data
+# lives in account-db), so a Deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: account
+  labels:
+    app: account
+spec:
+  selector:
+    app: account
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: account
+  labels:
+    app: account
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: account
+  template:
+    metadata:
+      labels:
+        app: account
+    spec:
+      # The service exits at startup if account_db is unreachable; waiting here
+      # avoids a crash loop (and its growing restart delay) on a fresh cluster.
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h account-db -p 5432; do echo waiting for account-db; sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+      containers:
+        - name: account
+          image: fishertimer/account:latest
+          # :latest defaults to Always, which would look on Docker Hub. Use the
+          # image `pnpm images` loaded into kind.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: fishertimer-config
+            - secretRef:
+                name: fishertimer-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          # distroless:nonroot runs as uid 65532 with no shell; lock the rest down.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

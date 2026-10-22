@@ -1,0 +1,6 @@
+# Every Fisher Timer resource lives in this namespace, apart from the cluster's
+# own system pods. `kubectl delete namespace fishertimer` removes all of it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fishertimer

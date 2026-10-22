@@ -1,0 +1,85 @@
+# Study Timer service: timers and cycles. Consumes room events from RabbitMQ
+# and serves gRPC on 50051. Stateless (its data lives in timer-db), so a
+# Deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: study-timer
+  labels:
+    app: study-timer
+spec:
+  selector:
+    app: study-timer
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: study-timer
+  labels:
+    app: study-timer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: study-timer
+  template:
+    metadata:
+      labels:
+        app: study-timer
+    spec:
+      # The service exits at startup if timer_db is unreachable; waiting here
+      # avoids a crash loop (and its growing restart delay) on a fresh cluster.
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h timer-db -p 5432; do echo waiting for timer-db; sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+      containers:
+        - name: study-timer
+          image: fishertimer/study-timer:latest
+          # :latest defaults to Always, which would look on Docker Hub. Use the
+          # image `pnpm images` loaded into kind.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: http
+              containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: fishertimer-config
+            - secretRef:
+                name: fishertimer-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          # distroless:nonroot runs as uid 65532 with no shell; lock the rest down.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
