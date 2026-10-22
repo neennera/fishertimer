@@ -1,3 +1,25 @@
+# Two ways to use this file:
+#
+#   docker compose up -d                 infrastructure only (databases, Redis,
+#                                        RabbitMQ, Adminer); run the apps with `pnpm dev`
+#   docker compose --profile app up -d --build
+#                                        the whole system in containers, web on
+#                                        http://localhost:3000
+#
+# Inside the Compose network every container is reachable by its service name
+# (account, study-timer, reward-db, ...), so the app containers use the same
+# addresses as the Kubernetes setup (k8s/config.env). Only web is published.
+
+# Settings shared by the 7 Go services. Each file overrides the one before it.
+x-go-service: &go-service
+  profiles: [app]
+  restart: unless-stopped
+  env_file:
+    - ./k8s/config.env
+    - ./docker/app.env
+    - path: ./.env.docker
+      required: false
+
 services:
   # ----------------------------------------------------------------------------
   # 1. Relational Databases (PostgreSQL per Service - 3NF Architecture)
@@ -93,7 +115,11 @@ services:
       - "27017:27017"
     volumes:
       - reward_db_data:/data/db
-      - ./services/reward/database/schemas:/docker-entrypoint-initdb.d:ro
+      # Files one by one: 004_seed_current_user_month.js needs SEED_USER_ID and
+      # throws without it, which would fail Mongo's first start.
+      - ./services/reward/database/schemas/001_create_reward_collections.js:/docker-entrypoint-initdb.d/001_create_reward_collections.js:ro
+      - ./services/reward/database/schemas/002_seed_reward_items.js:/docker-entrypoint-initdb.d/002_seed_reward_items.js:ro
+      - ./services/reward/database/schemas/003_seed_user_rewards.js:/docker-entrypoint-initdb.d/003_seed_user_rewards.js:ro
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 5s
@@ -128,8 +154,8 @@ services:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: adminpassword
     ports:
-      - "5672:5672"    # AMQP protocol
-      - "15672:15672"  # Management Web UI
+      - "5672:5672" # AMQP protocol
+      - "15672:15672" # Management Web UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -146,7 +172,131 @@ services:
     container_name: fishertimer-adminer
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8088:8080"
+
+  # ----------------------------------------------------------------------------
+  # 6. Application services (profile "app"): 7 Go services + the web app
+  # ----------------------------------------------------------------------------
+  # One Dockerfile builds every Go service (SERVICE picks which). depends_on
+  # waits for the stores a service needs at startup; calls between services are
+  # lazy and retried, so they don't need ordering.
+  account:
+    <<: *go-service
+    image: fishertimer/account
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: account
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  study-session:
+    <<: *go-service
+    image: fishertimer/study-session
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: study-session
+    depends_on:
+      session-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  study-timer:
+    <<: *go-service
+    image: fishertimer/study-timer
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: study-timer
+    depends_on:
+      timer-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  reward:
+    <<: *go-service
+    image: fishertimer/reward
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: reward
+    depends_on:
+      reward-db:
+        condition: service_healthy
+
+  leaderboard:
+    <<: *go-service
+    image: fishertimer/leaderboard
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: leaderboard
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  admin:
+    <<: *go-service
+    image: fishertimer/admin
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: admin
+    depends_on:
+      admin-db:
+        condition: service_healthy
+
+  api-gateway:
+    <<: *go-service
+    image: fishertimer/api-gateway
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: api-gateway
+    # No stores; its gRPC clients to session/timer connect lazily.
+    depends_on:
+      - account
+      - study-session
+      - study-timer
+      - reward
+      - leaderboard
+
+  # Next.js bakes rewrites() and NEXT_PUBLIC_* in at BUILD time, so the addresses
+  # are build args. The browser talks only to web (:3000); web forwards /api/*
+  # to api-gateway and admin over the Compose network.
+  web:
+    profiles: [app]
+    restart: unless-stopped
+    image: fishertimer/web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_GATEWAY_URL: http://api-gateway:8000
+        ADMIN_SERVICE_URL: http://admin:8087
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+        NEXT_PUBLIC_API_GATEWAY_URL: http://localhost:3000
+        NEXT_PUBLIC_ADMIN_SERVICE_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+      - admin
 
 volumes:
   account_db_data:
