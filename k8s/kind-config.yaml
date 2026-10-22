@@ -12,7 +12,7 @@ name: fishertimer
 nodes:
   # One node is enough locally: it runs both the k8s control plane and our pods.
   - role: control-plane
-    # ingress-nginx's kind manifest only schedules onto nodes with this label.
+    # Traefik (k8s/traefik-values.yaml) is pinned to the node with this label.
     kubeadmConfigPatches:
       - |
         kind: InitConfiguration
@@ -20,7 +20,7 @@ nodes:
           kubeletExtraArgs:
             node-labels: "ingress-ready=true"
     # The node is a Docker container; forward the Mac's ports 80/443 into it so
-    # http://fishertimer.localhost reaches the Ingress controller.
+    # http://fishertimer.localhost reaches Traefik, the Gateway controller.
     extraPortMappings:
       - containerPort: 80
         hostPort: 80

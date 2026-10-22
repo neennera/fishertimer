@@ -24,6 +24,9 @@ resources:
   - apps/leaderboard.yaml
   - apps/admin.yaml
   - apps/api-gateway.yaml
+  - apps/web.yaml
+  # Needs the Gateway API types, installed with Traefik: run pnpm k8s:traefik first.
+  - gateway.yaml
 
 # Built from env files. Kustomize adds a hash of the contents to the name
 # (fishertimer-config-7c9f…), so editing a value rolls the pods that use it.

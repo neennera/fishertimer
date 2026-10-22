@@ -1,0 +1,40 @@
+# Gateway API routing: how outside traffic reaches the cluster.
+#
+#   browser -> Mac :80 -> kind node :80 -> Traefik -> Gateway -> HTTPRoute -> web
+#
+# Only the web app is exposed. The browser calls fishertimer.localhost/api/...,
+# which web's Next.js rewrites forward to api-gateway inside the cluster, so
+# none of the backend services are reachable from outside.
+
+# The front door: Traefik's "web" entrypoint (port 8000 in the Traefik pod,
+# port 80 on your Mac), accepting the fishertimer.localhost hostname.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: fishertimer
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: web
+      protocol: HTTP
+      # Must match Traefik's entrypoint port (ports.web.port in traefik-values.yaml).
+      port: 8000
+      hostname: fishertimer.localhost
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# The rule: everything for fishertimer.localhost goes to the web app.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web
+spec:
+  parentRefs:
+    - name: fishertimer
+  hostnames:
+    - fishertimer.localhost
+  rules:
+    - backendRefs:
+        - name: web
+          port: 3000
