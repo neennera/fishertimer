@@ -20,7 +20,7 @@ nodes:
           kubeletExtraArgs:
             node-labels: "ingress-ready=true"
     # The node is a Docker container; forward the Mac's ports 80/443 into it so
-    # http://fishertimer.localhost reaches Traefik, the Gateway controller.
+    # http://localhost reaches Traefik, the Gateway controller.
     extraPortMappings:
       - containerPort: 80
         hostPort: 80

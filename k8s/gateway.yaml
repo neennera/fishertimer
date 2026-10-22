@@ -2,12 +2,14 @@
 #
 #   browser -> Mac :80 -> kind node :80 -> Traefik -> Gateway -> HTTPRoute -> web
 #
-# Only the web app is exposed. The browser calls fishertimer.localhost/api/...,
+# Only the web app is exposed. The browser calls localhost/api/...,
 # which web's Next.js rewrites forward to api-gateway inside the cluster, so
 # none of the backend services are reachable from outside.
 
 # The front door: Traefik's "web" entrypoint (port 8000 in the Traefik pod,
-# port 80 on your Mac), accepting the fishertimer.localhost hostname.
+# port 80 on your Mac), accepting the hostname localhost. Not a custom name
+# like fishertimer.localhost: Google sign-in only allows a plain-http redirect
+# to exactly "localhost" (see GOOGLE_REDIRECT_URI in config.env).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -19,12 +21,12 @@ spec:
       protocol: HTTP
       # Must match Traefik's entrypoint port (ports.web.port in traefik-values.yaml).
       port: 8000
-      hostname: fishertimer.localhost
+      hostname: localhost
       allowedRoutes:
         namespaces:
           from: Same
 ---
-# The rule: everything for fishertimer.localhost goes to the web app.
+# The rule: everything for localhost goes to the web app.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -33,7 +35,7 @@ spec:
   parentRefs:
     - name: fishertimer
   hostnames:
-    - fishertimer.localhost
+    - localhost
   rules:
     - backendRefs:
         - name: web

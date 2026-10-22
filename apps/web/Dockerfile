@@ -11,9 +11,9 @@ RUN corepack enable
 
 ARG API_GATEWAY_URL=http://api-gateway:8000
 ARG ADMIN_SERVICE_URL=http://admin:8087
-ARG NEXT_PUBLIC_APP_URL=http://fishertimer.localhost
-ARG NEXT_PUBLIC_API_GATEWAY_URL=http://fishertimer.localhost
-ARG NEXT_PUBLIC_ADMIN_SERVICE_URL=http://fishertimer.localhost
+ARG NEXT_PUBLIC_APP_URL=http://localhost
+ARG NEXT_PUBLIC_API_GATEWAY_URL=http://localhost
+ARG NEXT_PUBLIC_ADMIN_SERVICE_URL=http://localhost
 ARG NEXT_PUBLIC_APP_NAME="Fisher Timer"
 ARG NEXT_PUBLIC_USE_MOCKS=false
 ENV API_GATEWAY_URL=$API_GATEWAY_URL \

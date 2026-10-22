@@ -145,7 +145,7 @@ cp k8s/secrets.env.example k8s/secrets.env
 Edit `k8s/secrets.env` (git-ignored):
 - Pick a password for Postgres, MongoDB and RabbitMQ (letters and digits only, e.g. `openssl rand -hex 16`) and put each one in **every URL that uses it**.
 - `JWT_SECRET`: `openssl rand -hex 32`
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: from Google Cloud Console. Add `http://fishertimer.localhost/api/auth/google/callback` to the OAuth client's authorized redirect URIs.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: from Google Cloud Console. Add `http://localhost/api/auth/google/callback` to the OAuth client's authorized redirect URIs (exactly `localhost`: Google refuses plain-http redirects to any other host).
 
 ### 2. Bring it up
 ```bash
@@ -153,7 +153,7 @@ pnpm k8s:up
 ```
 Creates the cluster if needed, installs the front door (Traefik + Gateway API CRDs), builds and loads all images, applies `k8s/` and waits until every pod is ready. The first run downloads the database images and takes a few minutes. Safe to re-run after code changes: it rebuilds the images and restarts the apps.
 
-Open **http://fishertimer.localhost**.
+Open **http://localhost**.
 
 ### 3. Tear it down
 ```bash

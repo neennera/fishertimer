@@ -5,7 +5,7 @@
 # Usage (from anywhere in the repo):
 #   pnpm k8s:up
 #
-# Then open http://fishertimer.localhost
+# Then open http://localhost
 #
 # Steps, each reusing the repo's own command so versions live in one place:
 #   1. check tools and k8s/secrets.env
@@ -19,7 +19,7 @@ set -euo pipefail
 CLUSTER=fishertimer
 CONTEXT="kind-$CLUSTER"
 NAMESPACE=fishertimer
-URL=http://fishertimer.localhost
+URL=http://localhost
 
 cd "$(dirname "$0")/.."
 
