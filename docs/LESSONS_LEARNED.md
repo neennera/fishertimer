@@ -114,6 +114,26 @@
 
 ---
 
+### Incident 010: Compose Healthcheck Passes While the Database Is Still Initializing
+- **Date:** 2026-10-22
+- **Component:** `docker-compose.yml` healthchecks for `*-db` (Postgres) and `reward-db` (MongoDB); `reward`, `leaderboard`
+- **Symptom:** On a fresh volume `docker compose --profile app up` started `reward` the moment `reward-db` was "healthy", and `reward` logged `MongoDB unavailable ... falling back to in-memory seed data` and kept serving that for good. Postgres dependents started before the schemas were loaded.
+- **Root Cause:** The official images run the `docker-entrypoint-initdb.d` scripts against a temporary server first. `pg_isready` without `-h` and `mongosh ... ping` against localhost both succeed against that temporary server, which is then stopped and restarted as the real one. The temporary Postgres listens on its unix socket only; the temporary `mongod` binds to loopback only.
+- **Solution:** Probe the way a peer would: `pg_isready -h 127.0.0.1 ...` (TCP) and `mongosh --host $(hostname) ...` (the container address). After the fix a fresh `up` reached "healthy" for all 15 services in about 35 seconds, and `reward` logged `Connected to MongoDB`.
+- **Action for Future Agents:** A healthcheck for an image with an init phase must not succeed through the init-only listener. Test it from a clean volume (`pnpm docker:reset`), and read the first lines of a dependent service's log, not just `docker compose ps`.
+
+---
+
+### Incident 011: Every File Shows as Modified (CRLF Working Tree, LF Repository)
+- **Date:** 2026-10-22
+- **Component:** git on a Windows checkout used from WSL / Linux tooling
+- **Symptom:** `git status` listed hundreds of files as modified, and `git diff --stat` showed whole-file changes, although nobody edited them; `docker-compose.yml` alone showed `158 insertions, 158 deletions` for a three-line change.
+- **Root Cause:** The repository stores LF (`git ls-files --eol` prints `i/lf w/crlf`), the Windows working tree has CRLF (`core.autocrlf=true`), and git run from Linux has no `autocrlf`, so it sees every file as changed. There is no `.gitattributes`.
+- **Solution:** Verify with `git diff --ignore-space-at-eol --stat` (empty means line endings only). Stage explicit paths, never `git add -A`, and write the files you touch with LF (`sed -i 's/\r$//' file`) so their diff is only the real change.
+- **Action for Future Agents:** Before trusting `git status` on this repo, check `git ls-files --eol`. Do not "fix" the line endings of untouched files in a feature commit. Adding `* text=auto` in a `.gitattributes` is a separate, repo-wide change for the team to decide.
+
+---
+
 ## 2. Template for Recording New Lessons Learned
 
 When documenting a new learning, append to Section 1 using this markdown structure:

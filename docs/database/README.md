@@ -15,7 +15,7 @@ In adherence to microservice autonomy and high cohesion, each service manages it
 | **Admin Moderation**| `admin_db` | PostgreSQL | `5435` | `admin_logs` |
 | **Leaderboard** | Redis Cache | Redis | `6379` | In-memory sorted sets (no dedicated SQL/Mongo DB) |
 | **Message Broker** | RabbitMQ | RabbitMQ (Management) | `5672`<br>`15672` (UI) | Exchange: `fisher.session`, DLX: `fisher.session.dlx`<br>Queue: `timer.session-events`, DLQ: `timer.session-events.dlq` |
-| **Database GUI** | Adminer | Docker Web GUI | `8080` | Web inspection for all SQL databases |
+| **Database GUI** | Adminer | Docker Web GUI | `8088` (host, via `docker-compose.dev.yml`) | Web inspection for all SQL databases |
 
 ---
 

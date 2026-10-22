@@ -42,7 +42,7 @@ graph TD
     end
 
     subgraph Database Management UI
-        Adminer["Adminer Web GUI<br/>Port: 8080"]
+        Adminer["Adminer Web GUI<br/>Port: 8088 (host)"]
     end
 
     %% Client routing via API Gateway
@@ -102,7 +102,7 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
 | **Admin** | 8087 | `services/admin` | HTTP / REST | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. Admin-only: verifies the session JWT (`role = ADMIN`) itself, since the admin website calls it directly. Every kick/close is audited in `admin_logs`. |
 | **RabbitMQ** | 5672 (AMQP), 15672 (UI) | Infrastructure (`docker-compose.yml`) | AMQP 0-9-1 | In-Memory / Mnesia Queue | Message broker for asynchronous inter-service events (`fisher.session` exchange, dead-letter DLX/DLQ). |
-| **Adminer** | 8080 | Infrastructure (`docker-compose.yml`) | HTTP | - | Lightweight web-based database management GUI for local inspection of PostgreSQL databases. |
+| **Adminer** | 8088 (host; 8080 in the container) | Infrastructure (`docker-compose.yml`, published by `docker-compose.dev.yml`) | HTTP | - | Lightweight web-based database management GUI for local inspection of PostgreSQL databases. |
 
 ---
 
@@ -211,5 +211,33 @@ Detailed database schemas, 3NF relations, and DBML definitions are maintained in
   - Admin Moderation (`admin_db`, Port 5435): `services/admin/database/schemas/001_create_admin_logs_table.sql`
   - Leaderboard: In-memory Redis cache (`redis://localhost:6379`)
   - Message Queue: RabbitMQ 3 (`amqp://localhost:5672`, Management UI `http://localhost:15672`)
-  - Database Management UI: Adminer (`http://localhost:8080`)
+  - Database Management UI: Adminer (`http://localhost:8088`)
 
+---
+
+## 7. Runtime Topologies & Service Discovery
+
+Services never hard-code each other's location. Every address is an environment variable (`ACCOUNT_SERVICE_URL`, `TIMER_GRPC_TARGET`, `SESSION_GRPC_TARGET`, `RABBITMQ_URL`, ...) that defaults to `localhost:<port>` in each service's `config/config.go`. The same binaries run in every topology; only the values change.
+
+| Topology | Command | How a service finds its peers | Source of the values |
+| :--- | :--- | :--- | :--- |
+| Host processes | `pnpm db:up` + `pnpm dev` | `localhost:<port>` (stores published on localhost) | root `.env` |
+| Docker Compose | `pnpm docker:up` | Docker's embedded DNS: the Compose service name resolves to the container | `k8s/config.env` -> `docker/app.env` -> `.env.docker` |
+| Kubernetes (kind) | `pnpm k8s:up` | cluster DNS: the Service name resolves to the pods | `k8s/config.env` + `k8s/secrets.env` |
+
+### Docker Compose topology
+
+```
+host :3000 --> web --(/api/* rewrites)--> api-gateway --HTTP--> account, reward, leaderboard
+                  \                          \--gRPC--> study-timer (:50051), study-session (:50052)
+                   \--(/api/admin/*)--> admin
+ account / study-session / study-timer / reward / leaderboard / admin --> their stores
+ study-session --AMQP--> rabbitmq --AMQP--> study-timer
+```
+
+- All containers share one Compose network. Only `web` is published (`:3000`); `docker-compose.dev.yml` adds the stores, gateway and admin ports for debugging and for host processes.
+- The Go services are in the `app` profile, so `docker compose up` alone still starts only the data stores.
+- `depends_on` with `condition: service_healthy` orders startup: stores and RabbitMQ first, then each service, then `api-gateway`, then `web`. Calls between services are lazy and retried, so this ordering is for a clean first request, not a hard requirement.
+- Health: the service images are distroless (no shell, curl or wget), so each carries `/healthcheck` (`tools/healthcheck`), a static probe that GETs the service's `/health`. Postgres and MongoDB are probed over TCP, because while their init scripts run the temporary server answers only on a socket / loopback and would report "ready" too early.
+- Hybrid mode: Go containers resolve `host.docker.internal`, so one service can run on the host (`--scale <svc>=0` plus an address override in `.env.docker`).
+- `web` is the exception to run-time configuration: Next.js bakes `rewrites()` and `NEXT_PUBLIC_*` in at build time, so its gateway/admin addresses are Compose build args.
