@@ -45,6 +45,10 @@ graph TD
         Adminer["Adminer Web GUI<br/>Port: 8088 (host)"]
     end
 
+    subgraph Service Registry [Optional: DISCOVERY_MODE=consul]
+        Consul["Consul agent (dev mode)<br/>Port: 8500 (API + UI)"]
+    end
+
     %% Client routing via API Gateway
     ClientWeb -->|REST API| Gateway
     Gateway -->|REST API| Account
@@ -77,6 +81,15 @@ graph TD
     Leaderboard --> LeaderboardCache
     Admin --> AdminDB
 
+    %% Service discovery (only with DISCOVERY_MODE=consul)
+    Gateway -.->|lookup| Consul
+    Account -.->|register / lookup| Consul
+    Session -.->|register / lookup| Consul
+    Timer -.->|register / lookup| Consul
+    Reward -.->|register| Consul
+    Leaderboard -.->|register / lookup| Consul
+    Admin -.->|register / lookup| Consul
+
     %% DB Inspection UI
     Adminer -.-> AccountDB
     Adminer -.-> SessionDB
@@ -102,6 +115,7 @@ All backend services follow Clean / Hexagonal Architecture (Domain -> Usecase ->
 | **Leaderboard** | 8086 | `services/leaderboard` | HTTP / REST | Redis Cache (In-Memory) | Read-optimized ranking of users based on total rewards fetched from Reward Service, cached in Redis. |
 | **Admin** | 8087 | `services/admin` | HTTP / REST | Admin DB (`admin_db`) | Real-time session monitoring, active room oversight, kicking participants and closing rooms. Admin-only: verifies the session JWT (`role = ADMIN`) itself, since the admin website calls it directly. Every kick/close is audited in `admin_logs`. |
 | **RabbitMQ** | 5672 (AMQP), 15672 (UI) | Infrastructure (`docker-compose.yml`) | AMQP 0-9-1 | In-Memory / Mnesia Queue | Message broker for asynchronous inter-service events (`fisher.session` exchange, dead-letter DLX/DLQ). |
+| **Consul** | 8500 | Infrastructure (`docker-compose.discovery.yml`) | HTTP | In-memory (dev mode) | Optional service registry: services register with a health check, callers look up healthy instances (`pkg/discovery`). Off unless `DISCOVERY_MODE=consul`. |
 | **Adminer** | 8088 (host; 8080 in the container) | Infrastructure (`docker-compose.yml`, published by `docker-compose.dev.yml`) | HTTP | - | Lightweight web-based database management GUI for local inspection of PostgreSQL databases. |
 
 ---
@@ -181,6 +195,8 @@ Domain data structures shared across services and the web client are maintained 
 - `pkg/events/` (Go shared events module: `github.com/neennera/fishertimer/pkg/events` in `go.work`)
   - Shared AMQP message schemas: `ParticipantJoined`, `ParticipantLeft`, `SessionEnded`
   - RabbitMQ exchange constants (`fisher.session`), dead-letter exchange (`fisher.session.dlx`), queues (`timer.session-events`), routing keys (`session.participant.joined`, `session.participant.left`, `session.ended`), and bindings (`session.#`).
+- `pkg/discovery/` (Go shared module: `github.com/neennera/fishertimer/pkg/discovery`, in `go.work`)
+  - `Locator` (find a peer by logical name), Consul client, `Announce` (register and keep registered), `Transport` / `HTTPClient` (HTTP follows healthy instances) and `grpcresolver` (`discovery:///<service>-grpc`). Logical names: `account`, `study-session`, `study-timer`, `reward`, `leaderboard`, `admin`, `api-gateway`, plus `<name>-grpc` for the gRPC ports of study-session and study-timer.
 - Standard Protobuf definitions for Go inter-service contracts:
   - `proto/studysession/v1/session.proto` (Study Session gRPC contracts)
   - `proto/studytimer/v1/timer.proto` (Study Timer gRPC contracts: `StartTimer`, `GetTimer`, `PauseTimer`, `ResumeTimer`, `ResetTimer`, `GetRoomTimers`, `GetTimerStatistics`)
@@ -224,6 +240,7 @@ Services never hard-code each other's location. Every address is an environment 
 | Host processes | `pnpm db:up` + `pnpm dev` | `localhost:<port>` (stores published on localhost) | root `.env` |
 | Docker Compose | `pnpm docker:up` | Docker's embedded DNS: the Compose service name resolves to the container | `k8s/config.env` -> `docker/app.env` -> `.env.docker` |
 | Kubernetes (kind) | `pnpm k8s:up` | cluster DNS: the Service name resolves to the pods | `k8s/config.env` + `k8s/secrets.env` |
+| Docker Compose + Consul | `pnpm docker:discovery` | a registry: services register with a health check, callers ask Consul for healthy instances; the static value is the fallback | as Docker Compose, plus `DISCOVERY_MODE=consul` |
 
 ### Docker Compose topology
 
@@ -241,3 +258,27 @@ host :3000 --> web --(/api/* rewrites)--> api-gateway --HTTP--> account, reward,
 - Health: the service images are distroless (no shell, curl or wget), so each carries `/healthcheck` (`tools/healthcheck`), a static probe that GETs the service's `/health`. Postgres and MongoDB are probed over TCP, because while their init scripts run the temporary server answers only on a socket / loopback and would report "ready" too early.
 - Hybrid mode: Go containers resolve `host.docker.internal`, so one service can run on the host (`--scale <svc>=0` plus an address override in `.env.docker`).
 - `web` is the exception to run-time configuration: Next.js bakes `rewrites()` and `NEXT_PUBLIC_*` in at build time, so its gateway/admin addresses are Compose build args.
+
+### Service discovery with Consul (`DISCOVERY_MODE=consul`)
+
+Docker's DNS already tells a container where `account` is; it can't tell whether that container is *healthy*, and it doesn't give a view of what is running. The optional registry adds both, as an application-level pattern implemented once in `pkg/discovery`:
+
+```
+ service start --register(name, ip:port, health check)--> Consul
+ service stop  --deregister----------------------------> Consul
+ Consul --HTTP /health or TCP check every 5s--> each instance
+ caller --"healthy instances of reward?" (cached 3s)----> Consul
+        --request to one of them (round-robin)----------> reward
+```
+
+| Concern | Behaviour |
+| :--- | :--- |
+| Registration | At startup each service registers itself without blocking startup (HTTP port with a `GET /health` check; gRPC ports of study-session and study-timer as `<name>-grpc` with a TCP check). It re-registers every 15 s, so a restarted dev-mode Consul is repopulated, and deregisters first on SIGTERM. |
+| Lookup (HTTP) | `Locator.Transport` rewrites the host of each request to a healthy instance, round-robin; the configured base URL, path and query are unchanged. Used by the gateway's reverse proxies and by the clients of account, admin, leaderboard and study-timer. |
+| Lookup (gRPC) | `discovery:///<service>-grpc` resolver with `round_robin`; it follows instances as they appear and disappear. Used by api-gateway, study-session and study-timer. |
+| Crashed instance | Its health check turns critical, so it stops being returned within a few seconds (Consul drops it entirely after 1 minute). |
+| Consul unreachable | Callers keep using the instances they last saw; a peer never looked up before is reached at its configured address. Services still start, and register once Consul is back. |
+| Not registered (e.g. run on the host in hybrid mode) | The configured address is used. |
+| Default | `DISCOVERY_MODE=static`: no registration, no lookup; `HTTPClient` and the gRPC target are exactly what the service used before. Kubernetes and `pnpm dev` are unaffected. |
+
+Limits: a single dev-mode Consul agent (no persistence or HA), no TLS or ACLs, and lookups are cached for a few seconds, so a call can still reach an instance for that long after it died. The web app does not use the registry: Next.js bakes its `rewrites()` in at build time.
