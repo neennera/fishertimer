@@ -1,0 +1,43 @@
+# Publishes the stores and a few service ports on localhost, for debugging and
+# for running the apps on your machine (`pnpm dev`). Layered over the base file:
+#
+#   pnpm db:up        infrastructure only            (same as the two -f flags below)
+#   pnpm docker:dev   the whole system + these ports
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml ...
+#
+# Skip it when a host service already owns one of these ports (a local
+# PostgreSQL on 5432 is the usual one): `pnpm docker:up` publishes only web.
+services:
+  account-db:
+    ports:
+      - "5432:5432"
+  session-db:
+    ports:
+      - "5433:5432"
+  timer-db:
+    ports:
+      - "5434:5432"
+  admin-db:
+    ports:
+      - "5435:5432"
+  reward-db:
+    ports:
+      - "27017:27017"
+  redis:
+    ports:
+      - "6379:6379"
+  rabbitmq:
+    ports:
+      - "5672:5672" # AMQP protocol
+      - "15672:15672" # Management Web UI
+  adminer:
+    ports:
+      - "8088:8080"
+  # With --profile app: call the gateway and admin directly (curl, Postman).
+  api-gateway:
+    ports:
+      - "8000:8000"
+  admin:
+    ports:
+      - "8087:8087"
