@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -13,10 +14,29 @@ import (
 
 type mockRepository struct {
 	cache map[string]*domain.CachedRanking
+	names map[string]string
 }
 
 func newMockRepo() *mockRepository {
-	return &mockRepository{cache: make(map[string]*domain.CachedRanking)}
+	return &mockRepository{cache: make(map[string]*domain.CachedRanking), names: make(map[string]string)}
+}
+
+func (r *mockRepository) SetDisplayName(_ context.Context, userID, displayName string) error {
+	r.names[userID] = displayName
+	return nil
+}
+
+func (r *mockRepository) GetDisplayNames(_ context.Context) (map[string]string, error) {
+	out := make(map[string]string, len(r.names))
+	for k, v := range r.names {
+		out[k] = v
+	}
+	return out, nil
+}
+
+func (r *mockRepository) DeleteCachedRankings(_ context.Context) error {
+	r.cache = make(map[string]*domain.CachedRanking)
+	return nil
 }
 
 func (r *mockRepository) GetCachedRanking(_ context.Context, period string) (*domain.CachedRanking, error) {
@@ -219,5 +239,32 @@ func TestViewLeaderboard_RanksByTierScore(t *testing.T) {
 	}
 	if result.Rankings[1].Score != 50 {
 		t.Errorf("expected many score 50, got %d", result.Rankings[1].Score)
+	}
+}
+
+// ── Reward service failures ───────────────────────────────────────────────────
+
+type failingRewardClient struct{ mockRewardClient }
+
+func (f *failingRewardClient) ViewAllRewards(_ context.Context) ([]domain.FishReward, error) {
+	return nil, errors.New("reward service returned status 503")
+}
+
+func TestViewLeaderboard_RewardDownWithColdCacheIsUpstreamError(t *testing.T) {
+	svc := usecase.New(newMockRepo(), &failingRewardClient{})
+	_, err := svc.ViewLeaderboard(context.Background(), "weekly")
+	if !errors.Is(err, domain.ErrUpstream) {
+		t.Fatalf("expected ErrUpstream, got %v", err)
+	}
+}
+
+func TestViewLeaderboard_RewardDownServesStaleCache(t *testing.T) {
+	repo := newMockRepo()
+	repo.cache["weekly"] = &domain.CachedRanking{Period: "weekly", Rankings: []domain.RankEntry{{UserID: "u", Rank: 1}}}
+	svc := usecase.New(repo, &failingRewardClient{})
+
+	got, err := svc.ViewLeaderboard(context.Background(), "weekly")
+	if err != nil || !got.Cached || len(got.Rankings) != 1 {
+		t.Fatalf("expected the stale cache, got %+v (%v)", got, err)
 	}
 }

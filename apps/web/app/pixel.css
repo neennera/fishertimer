@@ -171,7 +171,8 @@
     border: none;
     border-radius: 0;
     background: transparent;
-    color: #fff;
+    /* Ink, not white: white on the amber cap is 2.7:1, ink is 5.2:1. */
+    color: var(--color-ink);
     cursor: pointer;
   }
 
@@ -196,8 +197,9 @@
     transition: background 0.08s linear;
   }
 
+  /* Hover lightens the cap: a darker amber would drop the ink label below 4.5:1. */
   .pixel-btn:hover {
-    --cap: var(--color-amber-dk);
+    --cap: color-mix(in srgb, var(--color-amber), var(--color-white) 25%);
     --thick: #8a5220;
   }
 

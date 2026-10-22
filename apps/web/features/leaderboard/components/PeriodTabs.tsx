@@ -31,8 +31,9 @@ export function PeriodTabs({ active, onChange, disabled }: PeriodTabsProps) {
           aria-selected={active === value}
           disabled={disabled}
           onClick={() => onChange(value)}
-          className={cx('pixel-btn transition-all', active === value ? '' : 'pixel-btn--ghost')}
-          style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem', minHeight: 0 }}
+          // 44px tall on phones (touch target), compact from sm up.
+          className={cx('pixel-btn transition-all min-h-11 sm:min-h-0', active === value ? '' : 'pixel-btn--ghost')}
+          style={{ fontSize: 'calc(var(--px) * 4)', padding: '0.25rem 0.6rem' }}
         >
           {label}
         </button>

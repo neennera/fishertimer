@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { cx } from '../../../lib/cx';
 import { PixelPanel } from '../../../components/ui/PixelPanel';
 import { PixelBadge } from '../../../components/ui/PixelBadge';
 import { PixelButton } from '../../../components/ui/PixelButton';
 import { listLogs } from '../../../features/admin/admin.api';
 import { AdminNav } from '../../../features/admin/components/AdminNav';
-import { AdminError } from '../../../features/admin/components/AdminError';
+import { AdminError, StaleNotice } from '../../../features/admin/components/AdminError';
 import { formatDateTime } from '../../../features/admin/components/format';
-import type { AdminLog, AdminLogAction } from '../../../features/admin/types';
+import { usePolling } from '../../../features/admin/hooks/usePolling';
+import type { AdminLogAction } from '../../../features/admin/types';
+
+/** The service returns at most this many entries (services/admin DefaultLogLimit). */
+const LOG_LIMIT = 100;
 
 const FILTERS: { value: AdminLogAction | undefined; label: string }[] = [
   { value: undefined, label: 'All' },
@@ -28,54 +32,45 @@ const shortId = (id: string) => id.split('-')[0];
 /** Admin — audit trail of every moderation action (admin_db.admin_logs), newest first. */
 export default function AdminLogsPage() {
   const [filter, setFilter] = useState<AdminLogAction | undefined>(undefined);
-  const [logs, setLogs] = useState<AdminLog[] | null>(null);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    let stale = false;
-    setError(null);
-    listLogs(filter)
-      .then((l) => !stale && setLogs(l))
-      .catch((e: unknown) => !stale && setError(e));
-    return () => {
-      stale = true;
-    };
-  }, [filter]);
+  const fetchLogs = useCallback(() => listLogs(filter), [filter]);
+  // Refreshes like the room pages; changing the filter restarts with a fresh load.
+  const { data: logs, error, stale, refresh } = usePolling(fetchLogs, filter ?? 'all');
 
   return (
     <main className="flex flex-1 items-start justify-center px-4 pt-8 pb-16 sm:pt-12">
       <div className="w-full max-w-2xl">
         <PixelPanel as="section" aria-labelledby="logs-heading">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
-              <h1 id="logs-heading" className="font-display text-4xl leading-none">
-                Audit Log
-              </h1>
-              <p className="mt-2 text-sm text-bark">Every angler removed and room closed by an admin.</p>
-            </div>
-            <AdminNav active="logs" />
+          <div>
+            <p className="font-label text-[10px] uppercase tracking-[0.12em] text-bark">Admin</p>
+            <h1 id="logs-heading" className="font-display text-4xl leading-none">
+              Audit Log
+            </h1>
+            <p className="mt-2 text-sm text-bark">The latest anglers removed and rooms closed by admins.</p>
           </div>
+          {/* Under the heading on every admin page, so it never moves with the intro text's length. */}
+          <AdminNav active="logs" className="mt-4" />
 
-          {error ? <AdminError error={error} fallback="Failed to load the audit log" /> : null}
+          {error ? <AdminError error={error} fallback="Failed to load the audit log" onRetry={refresh} /> : null}
 
           {!error && (
             <>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="pixel-label m-0">
-                  {logs ? `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'}` : 'Entries'}
+                  {logs
+                    ? logs.length >= LOG_LIMIT
+                      ? `Latest ${LOG_LIMIT} entries`
+                      : `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'}`
+                    : 'Entries'}
                 </h2>
+                <StaleNotice stale={stale} />
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by action">
                   {FILTERS.map((f) => (
                     <PixelButton
                       key={f.label}
                       variant={f.value === filter ? 'primary' : 'ghost'}
-                      className="pixel-btn--sm"
+                      className="pixel-btn--sm min-h-11 sm:min-h-0"
                       aria-pressed={f.value === filter}
-                      onClick={() => {
-                        setLogs(null);
-                        setFilter(f.value);
-                      }}
+                      onClick={() => setFilter(f.value)}
                     >
                       {f.label}
                     </PixelButton>
@@ -113,7 +108,7 @@ export default function AdminLogsPage() {
                             {formatDateTime(l.created_at)}
                           </time>
                         </div>
-                        <p className="mt-2 text-sm">{l.reason ?? <span className="text-bark">No reason given</span>}</p>
+                        <p className="mt-2 text-sm [overflow-wrap:anywhere]">{l.reason ?? <span className="text-bark">No reason given</span>}</p>
                         <p className="pixel-room-card__meta mt-1.5">
                           <span title={l.target_id}>
                             {l.action === 'KICK_USER' ? 'Angler' : 'Room'} {shortId(l.target_id)}

@@ -25,12 +25,28 @@ function SignInPanel() {
     };
   }, [router]);
 
+  // Back from Google can restore this page from the browser's back/forward
+  // cache with the button still busy; a restored page starts fresh.
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setSigningIn(false);
+      }
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   async function handleSignIn() {
     setSigningIn(true);
     // A full-page navigation to Google via the backend (mock mode plays out
     // the same redirect for ?mockScenario=), so the button just stays in its
     // busy state until the page unloads.
-    await signInWithGoogle();
+    try {
+      await signInWithGoogle();
+    } catch {
+      setSigningIn(false);
+    }
   }
 
   return (

@@ -115,7 +115,7 @@ func (r *SessionServiceRepository) getJSON(ctx context.Context, path string, out
 	case resp.StatusCode == http.StatusNotFound:
 		return domain.ErrNotFound
 	case resp.StatusCode == http.StatusBadRequest:
-		return fmt.Errorf("%w: GET %s rejected by study session", domain.ErrInvalid, path)
+		return fmt.Errorf("%w: That room id is not valid.", domain.ErrInvalid)
 	case resp.StatusCode != http.StatusOK:
 		return fmt.Errorf("%w: GET %s returned %d", domain.ErrUpstream, path, resp.StatusCode)
 	}

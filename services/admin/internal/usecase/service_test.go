@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -201,5 +202,46 @@ func TestModeration_RejectsInvalidInput(t *testing.T) {
 		if err := call(); !errors.Is(err, domain.ErrInvalid) {
 			t.Errorf("%s: expected ErrInvalid, got %v", name, err)
 		}
+	}
+}
+
+func TestKickUser_HostCannotBeRemoved(t *testing.T) {
+	logs := repository.NewInMemory()
+	client := &mockSessionClient{}
+	svc := usecase.New(liveRoom(), logs, client)
+
+	_, err := svc.KickUser(context.Background(), adminID, roomID, hostID, "")
+	if !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("expected ErrInvalid for the host, got %v", err)
+	}
+	if client.kicked {
+		t.Fatal("the host must not be kicked")
+	}
+	if stored, _ := logs.List(context.Background(), "", 10); len(stored) != 0 {
+		t.Fatalf("nothing may be audited, got %+v", stored)
+	}
+}
+
+func TestModeration_ReasonLimitCountsCharactersNotBytes(t *testing.T) {
+	svc := usecase.New(liveRoom(), repository.NewInMemory(), &mockSessionClient{})
+	ctx := context.Background()
+
+	// 500 Thai characters are 1500 bytes but exactly at the limit.
+	atLimit := strings.Repeat("ก", domain.MaxReasonLength)
+	if _, err := svc.EndSession(ctx, adminID, roomID, atLimit); err != nil {
+		t.Fatalf("a reason of %d characters must be accepted, got %v", domain.MaxReasonLength, err)
+	}
+	if _, err := svc.KickUser(ctx, adminID, roomID, guestID, atLimit+"ก"); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("a reason one character over must be rejected, got %v", err)
+	}
+}
+
+func TestKickUser_HostCheckIgnoresUUIDCase(t *testing.T) {
+	client := &mockSessionClient{}
+	svc := usecase.New(liveRoom(), repository.NewInMemory(), client)
+
+	_, err := svc.KickUser(context.Background(), adminID, roomID, strings.ToUpper(hostID), "")
+	if !errors.Is(err, domain.ErrInvalid) || client.kicked {
+		t.Fatalf("the host in upper case must still be refused, got %v (kicked=%v)", err, client.kicked)
 	}
 }

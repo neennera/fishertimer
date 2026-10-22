@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server';
 
 // Dev-only: runs services/reward/database/schemas/004_seed_current_user_month.js
 // inside the reward MongoDB container (docker exec ... mongosh), the same
-// command documented in the seed's header. Refuses to run in production.
+// command documented in the seed's header. Refuses to run in production, and
+// only for a signed-in admin, who can only seed their own account.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,9 +65,37 @@ function runMongosh(script: string, userId: string, displayName: string) {
   });
 }
 
+const GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:8000';
+
+/** The caller's account, asked of the Account service with their own cookie; null if not signed in. */
+async function sessionUser(request: Request): Promise<{ user_id?: string; role?: string } | null> {
+  const cookie = request.headers.get('cookie');
+  if (!cookie) {
+    return null;
+  }
+  try {
+    const res = await fetch(`${GATEWAY_URL}/api/auth/me`, {
+      headers: { cookie },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok ? ((await res.json()) as { user_id?: string; role?: string }) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Not available in production.' }, { status: 404 });
+  }
+
+  const caller = await sessionUser(request);
+  if (!caller) {
+    return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
+  }
+  if (caller.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Admins only.' }, { status: 403 });
   }
 
   let body: { user_id?: unknown; display_name?: unknown };
@@ -80,6 +109,10 @@ export async function POST(request: Request) {
   const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : '';
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(userId)) {
     return NextResponse.json({ error: 'Missing or invalid user_id.' }, { status: 400 });
+  }
+
+  if (userId !== caller.user_id) {
+    return NextResponse.json({ error: 'You can only seed your own account.' }, { status: 403 });
   }
 
   try {

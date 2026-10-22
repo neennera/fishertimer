@@ -2,8 +2,13 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"sort"
+	"strings"
+	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/neennera/fishertimer/services/leaderboard/internal/domain"
 )
@@ -15,11 +20,20 @@ type Usecase interface {
 	//   S-2 (period switch) is handled by passing a different period string
 	//   S-3 Compute ranking if cache is stale
 	ViewLeaderboard(ctx context.Context, period string) (*domain.CachedRanking, error)
+
+	// RenameUser applies a display-name change from Account (profile.updated):
+	// the name is remembered and the cached rankings are dropped, so the next
+	// view shows the new name without waiting for another reward.
+	RenameUser(ctx context.Context, userID, displayName string) error
 }
 
 type service struct {
 	repo         domain.Repository
 	rewardClient domain.RewardClient
+
+	// renameGen counts renames. A ranking computed while one landed may carry
+	// the old name, so it is returned but not cached (see ViewLeaderboard).
+	renameGen atomic.Uint64
 }
 
 func New(repo domain.Repository, rewardClient domain.RewardClient) Usecase {
@@ -52,6 +66,7 @@ func periodStart(period string) time.Time {
 //
 //	Tie-break: user who reached that total first (earliest awarded_at).
 func (s *service) ViewLeaderboard(ctx context.Context, period string) (*domain.CachedRanking, error) {
+	gen := s.renameGen.Load()
 	// Normalise period value.
 	switch period {
 	case "weekly", "monthly", "all-time":
@@ -100,8 +115,13 @@ func (s *service) ViewLeaderboard(ctx context.Context, period string) (*domain.C
 		Cached:           false,
 	}
 
-	// Store in cache (ignore write errors — data is still returned to caller).
-	_ = s.repo.SetCachedRanking(ctx, result)
+	// Store in cache (ignore write errors — data is still returned to caller),
+	// unless a rename landed while this was being computed: the ranking may
+	// carry the old name, and caching it would keep that name on screen until
+	// the TTL runs out. Skipping the write makes the next view recompute.
+	if s.renameGen.Load() == gen {
+		_ = s.repo.SetCachedRanking(ctx, result)
+	}
 
 	return result, nil
 }
@@ -132,7 +152,15 @@ func tierScore(r domain.FishReward) int {
 func (s *service) computeRanking(ctx context.Context, period string) ([]domain.RankEntry, error) {
 	allRewards, err := s.rewardClient.ViewAllRewards(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", domain.ErrUpstream, err)
+	}
+
+	// Names chosen after the rewards were recorded win over the ones on the
+	// reward rows. A lookup failure only means old names show for now.
+	renamed, err := s.repo.GetDisplayNames(ctx)
+	if err != nil {
+		log.Printf("leaderboard: could not read remembered display names: %v", err)
+		renamed = nil
 	}
 
 	start := periodStart(period)
@@ -188,9 +216,13 @@ func (s *service) computeRanking(ctx context.Context, period string) ([]domain.R
 
 	entries := make([]domain.RankEntry, 0, len(rows))
 	for rank, row := range rows {
+		name := row.displayName
+		if current, ok := renamed[row.userID]; ok && current != "" {
+			name = current
+		}
 		entries = append(entries, domain.RankEntry{
 			UserID:      row.userID,
-			DisplayName: row.displayName,
+			DisplayName: name,
 			Rank:        rank + 1,
 			RewardCount: row.count,
 			Score:       row.score,
@@ -201,3 +233,21 @@ func (s *service) computeRanking(ctx context.Context, period string) ([]domain.R
 	return entries, nil
 }
 
+// maxDisplayNameLength is the account service's column width; the account
+// service enforces a stricter limit, this only guards what is stored here.
+const maxDisplayNameLength = 100
+
+func (s *service) RenameUser(ctx context.Context, userID, displayName string) error {
+	userID = strings.TrimSpace(userID)
+	name := strings.TrimSpace(displayName)
+	if userID == "" || name == "" || utf8.RuneCountInString(name) > maxDisplayNameLength {
+		return fmt.Errorf("%w: a user id and a display name of 1-%d characters are required", domain.ErrInvalid, maxDisplayNameLength)
+	}
+	if err := s.repo.SetDisplayName(ctx, userID, name); err != nil {
+		return err
+	}
+	s.renameGen.Add(1)
+	// The cached rankings carry the old name. Dropping them is best effort: a
+	// failure is retried with the event, and the 10 minute TTL covers the rest.
+	return s.repo.DeleteCachedRankings(ctx)
+}

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/neennera/fishertimer/services/account/internal/domain"
 )
@@ -128,8 +129,10 @@ func (s *JWTService) IssueSignUp(profile *domain.GoogleProfile) (string, *domain
 	expires := issued.Add(SignUpTTL)
 	email := strings.ToLower(strings.TrimSpace(profile.Email))
 
+	name := suggestedName(profile.Name)
 	token, err := s.seal(payload{
 		Email:   email,
+		Name:    name,
 		Picture: profile.Picture,
 		Use:     useSignUp,
 		Iat:     issued.Unix(),
@@ -141,9 +144,31 @@ func (s *JWTService) IssueSignUp(profile *domain.GoogleProfile) (string, *domain
 
 	return token, &domain.SignUpTicket{
 		Email:     email,
+		Name:      name,
 		Picture:   profile.Picture,
 		ExpiresAt: expires,
 	}, nil
+}
+
+// maxSuggestedNameRunes caps the Google name kept in the ticket, which travels
+// in a cookie; the display-name form still enforces its own (shorter) limit.
+const maxSuggestedNameRunes = 200
+
+// suggestedName tidies the Google profile name for the display-name form:
+// control characters go (they are invisible in an input but fail validation),
+// and an absurdly long name is cut before it can bloat the cookie.
+func suggestedName(name string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, name)
+	cleaned = strings.TrimSpace(cleaned)
+	if runes := []rune(cleaned); len(runes) > maxSuggestedNameRunes {
+		cleaned = strings.TrimSpace(string(runes[:maxSuggestedNameRunes]))
+	}
+	return cleaned
 }
 
 // VerifySignUp checks a sign-up ticket the same way Verify checks a session.
@@ -158,6 +183,7 @@ func (s *JWTService) VerifySignUp(raw string) (*domain.SignUpTicket, error) {
 
 	return &domain.SignUpTicket{
 		Email:     body.Email,
+		Name:      body.Name,
 		Picture:   body.Picture,
 		ExpiresAt: time.Unix(body.Exp, 0).UTC(),
 	}, nil

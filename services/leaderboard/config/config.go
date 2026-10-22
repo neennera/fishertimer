@@ -10,6 +10,9 @@ type Config struct {
 	Env              string
 	RedisURL         string
 	RewardServiceURL string
+	// RabbitMQ, where profile.updated arrives. Dialed with retry: the service
+	// serves rankings while the broker is down.
+	RabbitMQURL string
 }
 
 func Load() *Config {
@@ -41,7 +44,13 @@ func Load() *Config {
 		rewardURL = "http://localhost:8085"
 	}
 
+	rabbitURL := os.Getenv("RABBITMQ_URL")
+	if rabbitURL == "" {
+		rabbitURL = "amqp://admin:adminpassword@localhost:5672/"
+	}
+
 	return &Config{
+		RabbitMQURL:      rabbitURL,
 		Port:             port,
 		Env:              env,
 		RedisURL:         redisURL,

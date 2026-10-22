@@ -1,6 +1,7 @@
 package token_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -78,7 +79,7 @@ func TestSignUpTicket_RoundTripAndSeparateFromSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("VerifySignUp: %v", err)
 	}
-	if ticket.Email != "new@example.com" {
+	if ticket.Email != "new@example.com" || ticket.Name != "New Person" {
 		t.Fatalf("unexpected ticket: %+v", ticket)
 	}
 
@@ -98,5 +99,34 @@ func TestIssueSignUp_RejectsUnverifiedEmail(t *testing.T) {
 	svc := token.New("test-secret-test-secret-test-secret", "fishertimer-account", time.Hour)
 	if _, _, err := svc.IssueSignUp(&domain.GoogleProfile{Email: "x@example.com"}); err == nil {
 		t.Fatal("an unverified e-mail must not get a sign-up ticket")
+	}
+}
+
+func TestSignUpTicket_TidiesTheGoogleName(t *testing.T) {
+	svc := token.New("test-secret-test-secret-test-secret", "fishertimer-account", time.Hour)
+	roundTrip := func(name string) string {
+		raw, _, err := svc.IssueSignUp(&domain.GoogleProfile{Email: "a@example.com", EmailVerified: true, Name: name})
+		if err != nil {
+			t.Fatalf("IssueSignUp: %v", err)
+		}
+		ticket, err := svc.VerifySignUp(raw)
+		if err != nil {
+			t.Fatalf("VerifySignUp: %v", err)
+		}
+		return ticket.Name
+	}
+
+	if got := roundTrip("  Mali \x00Chai\tyasit\n "); got != "Mali Chaiyasit" {
+		t.Fatalf("control characters must go and the ends be trimmed, got %q", got)
+	}
+	if got := roundTrip("ปลาทอง 🐟"); got != "ปลาทอง 🐟" {
+		t.Fatalf("Unicode names must survive, got %q", got)
+	}
+	long := strings.Repeat("ก", 500)
+	if got := roundTrip(long); len([]rune(got)) != 200 {
+		t.Fatalf("a huge name is cut before it can bloat the cookie, got %d characters", len([]rune(got)))
+	}
+	if got := roundTrip(""); got != "" {
+		t.Fatalf("no Google name means no suggestion, got %q", got)
 	}
 }

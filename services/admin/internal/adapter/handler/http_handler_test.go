@@ -143,3 +143,39 @@ func TestEndRoute_EmptyBodyAndEndedRoom(t *testing.T) {
 		t.Fatalf("expected 409 for a room that is not live, got %d", rec.Code)
 	}
 }
+
+// The page shows the error text as is, so it must be a sentence for the admin:
+// no "admin: invalid input:" style prefixes from the sentinel errors.
+func TestErrorMessagesAreSentencesWithoutInternalPrefixes(t *testing.T) {
+	mux, _, _ := newServer()
+	tok := token(t, "ADMIN", time.Now().Add(time.Hour))
+	other := "f2000000-0000-4000-8000-000000000009"
+
+	cases := []struct {
+		name, method, path, body string
+		want                     int
+	}{
+		{"bad ids", http.MethodPost, "/api/v1/admin/sessions/abc/participants/def/kick", "", http.StatusBadRequest},
+		{"bad room id", http.MethodPost, "/api/v1/admin/sessions/abc/end", "", http.StatusBadRequest},
+		{"room ended", http.MethodPost, "/api/v1/admin/sessions/" + other + "/end", "", http.StatusConflict},
+		{"long reason", http.MethodPost, "/api/v1/admin/sessions/" + roomID + "/end", `{"reason":"` + strings.Repeat("x", 501) + `"}`, http.StatusBadRequest},
+		{"unknown action", http.MethodGet, "/api/v1/admin/logs?action=BAN", "", http.StatusBadRequest},
+	}
+	for _, c := range cases {
+		rec := do(mux, c.method, c.path, tok, c.body)
+		if rec.Code != c.want {
+			t.Errorf("%s: expected %d, got %d", c.name, c.want, rec.Code)
+			continue
+		}
+		var body struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Error == "" {
+			t.Errorf("%s: expected an error body, got %q", c.name, rec.Body.String())
+			continue
+		}
+		if strings.Contains(body.Error, "admin:") || strings.Contains(body.Error, "study-session") {
+			t.Errorf("%s: internal prefix leaked: %q", c.name, body.Error)
+		}
+	}
+}

@@ -28,6 +28,8 @@ export interface LeaderboardResponse {
 /** UI state shape returned by useLeaderboard hook. */
 export interface LeaderboardState {
   data: LeaderboardResponse | null;
+  /** The last rows of another period (the page shows them only while the new one loads); null once a switch has failed. */
+  previous: LeaderboardResponse | null;
   loading: boolean;
   error: string | null;
   period: LeaderboardPeriod;

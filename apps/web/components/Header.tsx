@@ -12,13 +12,15 @@ const BRAND_FISH = ["/sprites/fish/Goldfish.png", "/sprites/fish/Clownfish.png",
 
 export interface HeaderProps {
   /** Omitted while signed out. The bar keeps the same height either way. */
-  user?: { displayName: string; avatarUrl?: string } | null;
+  user?: { displayName: string; avatarUrl?: string; isAdmin?: boolean } | null;
   /** Shows the sign-out button (only alongside `user`). */
   onSignOut?: () => void;
   /** Disables the sign-out button while the request is in flight. */
   signingOut?: boolean;
   /** Only once known signed out, so it never flashes while loading. */
   showSignIn?: boolean;
+  /** The sign-in check failed (offline, timeout): shows Retry instead of Sign in. */
+  onRetrySession?: () => void;
   className?: string;
 }
 
@@ -37,6 +39,7 @@ export function Header({
   onSignOut,
   signingOut = false,
   showSignIn = false,
+  onRetrySession,
   className,
 }: HeaderProps) {
   // Keyed by URL, so a new avatar gets a fresh attempt.
@@ -57,7 +60,7 @@ export function Header({
               alt=""
               width={28}
               height={28}
-              className="pixel-sprite"
+              className={cx("pixel-sprite", i > 0 && "hidden sm:block")}
               style={{
                 imageRendering: "pixelated",
                 width: 28,
@@ -70,25 +73,28 @@ export function Header({
         <span className="pixel-header__title">Fisher Timer</span>
       </Link>
 
-      <nav
-        aria-label="Developer pages"
-        className="ml-auto flex items-center gap-3 font-label"
-        style={{ fontSize: "calc(var(--px) * 3.6)" }}
-      >
-        <Link href="/admin" className="opacity-75 hover:opacity-100 underline-offset-4 hover:underline">
-          admin page
-        </Link>
-        <Link href="/dev" className="opacity-75 hover:opacity-100 underline-offset-4 hover:underline">
-          dev page
-        </Link>
-      </nav>
+      {user?.isAdmin && (
+        <nav
+          aria-label="Developer pages"
+          className="ml-auto flex items-center gap-1 font-label sm:gap-3"
+          style={{ fontSize: "calc(var(--px) * 3.6)" }}
+        >
+          <Link href="/admin" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
+            admin page
+          </Link>
+          <Link href="/dev" className="inline-flex min-h-11 items-center whitespace-nowrap px-1 underline-offset-4 hover:underline focus-visible:underline">
+            dev page
+          </Link>
+        </nav>
+      )}
 
 
       {user && initials && (
         <Link
           href="/account"
           className="pixel-btn pixel-btn--ghost pixel-btn--icon pixel-header__avatar"
-          style={{ marginLeft: 0 }}
+          // The admin links already push everything right; without them the avatar does.
+          style={user.isAdmin ? { marginLeft: 0 } : undefined}
           title={`${user.displayName} — your account`}
           aria-label="Your account"
         >
@@ -111,9 +117,21 @@ export function Header({
       )}
 
       {!user && showSignIn && (
-        <Link href="/signin" className="pixel-btn pixel-btn--sm pixel-header__action">
+        <Link href="/signin" className="pixel-btn pixel-btn--sm pixel-header__action whitespace-nowrap">
           Sign in
         </Link>
+      )}
+
+      {!user && onRetrySession && (
+        <PixelButton
+          small
+          className="pixel-header__action min-h-11 sm:min-h-0"
+          onClick={onRetrySession}
+          aria-label="Retry sign-in check"
+          title="Couldn't check your sign-in. Try again."
+        >
+          Retry
+        </PixelButton>
       )}
 
       {user && onSignOut && (

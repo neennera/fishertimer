@@ -1,7 +1,7 @@
 // Auth data layer (UC-06 Sign In / Sign Up). The only file, besides its mock
 // counterpart, that knows whether auth data is real or mocked. Components
 // call these functions and never touch fetch or lib/mocks/auth.mock.ts
-// directly. Toggled by NEXT_PUBLIC_USE_MOCKS (see .env.example).
+// directly. Toggled by NEXT_PUBLIC_USE_MOCKS (see lib/use-mocks.ts, .env.example).
 //
 // Real contract: the account service (services/account/internal/adapter/
 // handler/http_handler.go), reached through the gateway's /api/auth/* alias,
@@ -10,12 +10,17 @@
 //   GET  /api/auth/google/callback             Google -> backend -> redirect
 //                                              to next/signup (+?auth_error=)
 //   GET  /api/auth/me                          200 + the user, or 401 when not
-//                                              signed in. A pending sign-up
+//                                              signed in (anything else, or no
+//                                              answer, is `unavailable`). A pending sign-up
 //                                              lives only in the ft_signup
 //                                              cookie; /me doesn't report it.
 //   POST /api/auth/signup {display_name}       201 + user, sets ft_session;
 //                                              400 bad name, 401 ticket gone,
 //                                              500 couldn't create
+//   GET  /api/auth/signup/pending              200 {email, suggested_name, picture}
+//                                              for the ft_signup ticket (the Google
+//                                              name to start the form with), 401
+//                                              when the ticket is gone
 //   POST /api/auth/signout                     clears ft_session / ft_signup
 //   PATCH /api/auth/update-profile {display_name}
 //                                              200 + user (refreshes
@@ -41,12 +46,11 @@ import {
   writeMockAuthState,
   type MockAuthScenario,
 } from './mocks/auth.mock';
+import { USE_MOCKS } from './use-mocks';
 import { validateDisplayName } from './validate-display-name';
 
 export type { AuthErrorCode, UserRole };
 export { AUTH_ERROR_MESSAGES };
-
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 
 const GOOGLE_LOGIN_PATH = '/api/auth/google/login';
 
@@ -72,8 +76,13 @@ export interface SessionUser {
   updated_at: string;
 }
 
-// GET /me: 200 -> signed_in, anything else -> signed_out.
-export type Session = { status: 'signed_in'; user: SessionUser } | { status: 'signed_out' };
+// GET /me: 200 -> signed_in, 401 -> signed_out. A network error, timeout or 5xx
+// is `unavailable`: we couldn't find out, which is not the same as signed out,
+// so pages offer a retry instead of sending the user to /signin.
+export type Session =
+  | { status: 'signed_in'; user: SessionUser }
+  | { status: 'signed_out' }
+  | { status: 'unavailable' };
 
 export type SessionStatus = Session['status'];
 
@@ -82,6 +91,13 @@ export interface AuthError {
   code: string;
   message: string;
 }
+
+// Who is signing up, read from the ft_signup ticket: the e-mail and the name on
+// the Google profile, offered as the starting point of the display name.
+export type PendingSignUp =
+  | { status: 'ready'; email: string; suggestedName: string }
+  | { status: 'expired' }
+  | { status: 'unavailable' };
 
 export type CompleteFirstTimeSetupResult =
   | { ok: true; user: SessionUser }
@@ -171,18 +187,68 @@ export async function getSession(): Promise<Session> {
   return pendingSession;
 }
 
+// Several components on a page each ask for the session. When the check failed
+// and a later one (any component's Retry) succeeds, the others still showing
+// "couldn't check your sign-in" are told, so one Retry clears every banner.
+let lastCheckUnavailable = false;
+const recoveredListeners = new Set<() => void>();
+
+/** Calls `listener` when a session check succeeds after one had failed. Returns the unsubscribe. */
+export function onSessionRecovered(listener: () => void): () => void {
+  recoveredListeners.add(listener);
+  return () => recoveredListeners.delete(listener);
+}
+
+function settle(session: Session): Session {
+  if (session.status === 'unavailable') {
+    lastCheckUnavailable = true;
+  } else if (lastCheckUnavailable) {
+    lastCheckUnavailable = false;
+    recoveredListeners.forEach((listener) => listener());
+  }
+  return session;
+}
+
 async function fetchSession(): Promise<Session> {
   try {
     const user = await clientApiFetch<SessionUser>('auth', 'me');
     cachedSession = { status: 'signed_in', user };
-    return cachedSession;
+    return settle(cachedSession);
   } catch (err) {
     if (err instanceof ClientApiError && err.status === 401) {
       cachedSession = { status: 'signed_out' };
-      return cachedSession;
+      return settle(cachedSession);
     }
-    // Network error or 5xx: signed out for now, but ask again next time.
-    return { status: 'signed_out' };
+    // Network error, timeout or 5xx: we don't know. Not cached, so the next
+    // call (a Retry) asks again.
+    return settle({ status: 'unavailable' });
+  }
+}
+
+// The pending sign-up behind /welcome. `expired`: no ticket (or it timed out),
+// so the page sends the user back to sign in. `unavailable`: couldn't ask; the
+// form still works, just without the suggested name.
+export async function getPendingSignUp(): Promise<PendingSignUp> {
+  if (USE_MOCKS) {
+    const scenario = readMockAuthState()?.scenario ?? currentMockScenario();
+    if (!scenario || MOCK_SIGN_IN_OUTCOMES[scenario].redirectTo !== 'signup') {
+      // No mock sign-up in progress: the form still shows (empty), as it always did.
+      return mockDelay<PendingSignUp>({ status: 'unavailable' });
+    }
+    // The empty / too-long scenarios start from a blank or over-long name to show their error.
+    const suggestedName =
+      scenario === 'setup-name-empty' ? '' : scenario === 'setup-name-too-long' ? 'a'.repeat(31) : 'Mali Chaiyasit';
+    return mockDelay<PendingSignUp>({ status: 'ready', email: MOCK_NEW_ACCOUNT_EMAIL, suggestedName });
+  }
+
+  try {
+    const pending = await clientApiFetch<{ email: string; suggested_name: string }>('auth', 'signup/pending');
+    return { status: 'ready', email: pending.email, suggestedName: pending.suggested_name ?? '' };
+  } catch (err) {
+    if (err instanceof ClientApiError && err.status === 401) {
+      return { status: 'expired' };
+    }
+    return { status: 'unavailable' };
   }
 }
 
