@@ -1,0 +1,50 @@
+# Service discovery with Consul. Layered over the base file, with the app profile:
+#
+#   pnpm docker:discovery
+#   docker compose -f docker-compose.yml -f docker-compose.discovery.yml --profile app up -d --build
+#
+# Adds a Consul agent (UI on http://localhost:8500) and switches the 7 Go
+# services to DISCOVERY_MODE=consul: each registers itself with a health check,
+# and callers look their peers up in Consul. Without this file the services run
+# in the default static mode (addresses from the environment) and nothing here
+# is needed. See pkg/discovery/README.md.
+x-discovery: &discovery
+  environment:
+    DISCOVERY_MODE: consul
+    CONSUL_HTTP_ADDR: http://consul:8500
+  depends_on:
+    consul:
+      condition: service_healthy
+
+services:
+  # A single dev-mode agent: in memory, no persistence. Services re-register on
+  # their own after it restarts, so nothing needs to survive.
+  consul:
+    image: hashicorp/consul:1.21
+    container_name: fishertimer-consul
+    restart: unless-stopped
+    profiles: [app]
+    command: ["agent", "-dev", "-client=0.0.0.0", "-ui", "-log-level=warn"]
+    ports:
+      - "8500:8500"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8500/v1/status/leader"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  account:
+    <<: *discovery
+  study-session:
+    <<: *discovery
+  study-timer:
+    <<: *discovery
+  reward:
+    <<: *discovery
+  leaderboard:
+    <<: *discovery
+  admin:
+    <<: *discovery
+  api-gateway:
+    <<: *discovery

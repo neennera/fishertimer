@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	sessionv1 "github.com/neennera/fishertimer/proto/studysession/v1"
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/study-timer/config"
@@ -109,9 +110,15 @@ func main() {
 		}
 	}()
 
+	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
+	// can find it. Does nothing in the default static mode.
+	disc := discovery.FromEnv(nil)
+	stopAnnounce := disc.Announce(disc.HTTP(discovery.StudyTimer, cfg.Port), disc.GRPC(discovery.StudyTimer, cfg.GRPCPort))
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopAnnounce() // leave the registry first, so peers stop sending requests here
 
 	log.Printf("Shutting down study-timer service...")
 	stopWorkers()

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	"github.com/neennera/fishertimer/services/leaderboard/config"
 	leaderboardAMQP "github.com/neennera/fishertimer/services/leaderboard/internal/adapter/amqp"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/client"
@@ -66,9 +67,15 @@ func main() {
 		}
 	}()
 
+	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
+	// can find it. Does nothing in the default static mode.
+	disc := discovery.FromEnv(nil)
+	stopAnnounce := disc.Announce(disc.HTTP(discovery.Leaderboard, cfg.Port))
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopAnnounce() // leave the registry first, so peers stop sending requests here
 
 	log.Printf("Shutting down leaderboard service...")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

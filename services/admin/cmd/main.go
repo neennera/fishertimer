@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	"github.com/neennera/fishertimer/services/admin/config"
 	"github.com/neennera/fishertimer/services/admin/internal/adapter/client"
 	"github.com/neennera/fishertimer/services/admin/internal/adapter/handler"
@@ -60,9 +61,15 @@ func main() {
 		}
 	}()
 
+	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
+	// can find it. Does nothing in the default static mode.
+	disc := discovery.FromEnv(nil)
+	stopAnnounce := disc.Announce(disc.HTTP(discovery.Admin, cfg.Port))
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopAnnounce() // leave the registry first, so peers stop sending requests here
 
 	log.Printf("Shutting down admin service...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

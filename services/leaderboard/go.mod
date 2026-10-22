@@ -10,8 +10,11 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/neennera/fishertimer/pkg/discovery v0.0.0
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 )
 
 replace github.com/neennera/fishertimer/pkg/events => ../../pkg/events
+
+replace github.com/neennera/fishertimer/pkg/discovery => ../../pkg/discovery
