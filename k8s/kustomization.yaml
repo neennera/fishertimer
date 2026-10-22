@@ -1,0 +1,69 @@
+# Everything Fisher Timer runs on the cluster. Apply it all with:
+#   pnpm k8s:apply
+# (plain `kubectl apply -k` refuses: the DB schemas are read from services/*,
+# outside this folder, which kustomize blocks unless told otherwise.)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Puts every resource below in this namespace, so the files don't repeat it.
+namespace: fishertimer
+
+resources:
+  - namespace.yaml
+  - infra/account-db.yaml
+  - infra/session-db.yaml
+  - infra/timer-db.yaml
+  - infra/rabbitmq.yaml
+  - infra/reward-db.yaml
+  - infra/redis.yaml
+  - infra/admin-db.yaml
+  - apps/account.yaml
+  - apps/study-session.yaml
+  - apps/study-timer.yaml
+  - apps/reward.yaml
+  - apps/leaderboard.yaml
+  - apps/admin.yaml
+  - apps/api-gateway.yaml
+  - apps/web.yaml
+  # Needs the Gateway API types, installed with Traefik: run pnpm k8s:traefik first.
+  - gateway.yaml
+
+# Built from env files. Kustomize adds a hash of the contents to the name
+# (fishertimer-config-7c9f…), so editing a value rolls the pods that use it.
+configMapGenerator:
+  - name: fishertimer-config
+    envs:
+      - config.env
+
+  # DB schemas, read from where the services keep them (one copy, no drift).
+  # Files are listed one by one: the local-only *_seed_* files stay out.
+  - name: account-db-schema
+    files:
+      - ../services/account/database/schemas/001_create_users_table.sql
+  - name: session-db-schema
+    files:
+      - ../services/study-session/database/schemas/001_create_study_sessions_tables.sql
+      - ../services/study-session/database/schemas/002_phase2_rooms_and_outbox.sql
+  - name: timer-db-schema
+    files:
+      - ../services/study-timer/database/schemas/001_create_timer_tables.sql
+      - ../services/study-timer/database/schemas/002_add_timer_progress.sql
+      - ../services/study-timer/database/schemas/003_phase2_timer_and_events.sql
+      - ../services/study-timer/database/schemas/004_timer_sessions_per_participant.sql
+      - ../services/study-timer/database/schemas/005_phase2_timer_w2.sql
+  # Mongo runs .js init files. 002 is the fish catalog the game needs, 003 the
+  # demo catches for the leaderboard. 004 is run by hand (it needs SEED_USER_ID
+  # and throws without it, which would fail Mongo's first start).
+  - name: reward-db-schema
+    files:
+      - ../services/reward/database/schemas/001_create_reward_collections.js
+      - ../services/reward/database/schemas/002_seed_reward_items.js
+      - ../services/reward/database/schemas/003_seed_user_rewards.js
+  - name: admin-db-schema
+    files:
+      - ../services/admin/database/schemas/001_create_admin_logs_table.sql
+
+secretGenerator:
+  - name: fishertimer-secrets
+    envs:
+      - secrets.env # git-ignored; copy secrets.env.example

@@ -1,0 +1,91 @@
+# Study Session service: rooms and participants. Publishes room events to
+# RabbitMQ (through its outbox table) and serves gRPC on 50052.
+# Stateless (its data lives in session-db), so a Deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: study-session
+  labels:
+    app: study-session
+spec:
+  selector:
+    app: study-session
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+    - name: grpc
+      port: 50052
+      targetPort: grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: study-session
+  labels:
+    app: study-session
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: study-session
+  template:
+    metadata:
+      labels:
+        app: study-session
+    spec:
+      # The service exits at startup if session_db is unreachable; waiting here
+      # avoids a crash loop (and its growing restart delay) on a fresh cluster.
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h session-db -p 5432; do echo waiting for session-db; sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+      containers:
+        - name: study-session
+          image: fishertimer/study-session:latest
+          # :latest defaults to Always, which would look on Docker Hub. Use the
+          # image `pnpm images` loaded into kind.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50052
+            - name: http
+              containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: fishertimer-config
+            - secretRef:
+                name: fishertimer-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          # distroless:nonroot runs as uid 65532 with no shell; lock the rest down.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

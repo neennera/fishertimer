@@ -1,0 +1,85 @@
+# Leaderboard service: weekly / monthly / all-time rankings computed from
+# reward's catches and cached in Redis. Stateless, so a Deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: leaderboard
+  labels:
+    app: leaderboard
+spec:
+  selector:
+    app: leaderboard
+  ports:
+    - name: http
+      port: 8086
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaderboard
+  labels:
+    app: leaderboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leaderboard
+  template:
+    metadata:
+      labels:
+        app: leaderboard
+    spec:
+      # Without Redis at startup the service does not exit: it silently falls
+      # back to an in-memory cache for good. Waiting here makes sure it uses Redis.
+      initContainers:
+        - name: wait-for-redis
+          image: redis:7-alpine
+          command: ["sh", "-c", "until redis-cli -h redis ping; do echo waiting for redis; sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+      containers:
+        - name: leaderboard
+          image: fishertimer/leaderboard:latest
+          # :latest defaults to Always, which would look on Docker Hub. Use the
+          # image `pnpm images` loaded into kind.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8086
+          envFrom:
+            - configMapRef:
+                name: fishertimer-config
+            - secretRef:
+                name: fishertimer-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          # distroless:nonroot runs as uid 65532 with no shell; lock the rest down.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

@@ -1,6 +1,13 @@
 /* global process */
+import path from 'node:path';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Docker image: bundle only the files needed at runtime (.next/standalone).
+  output: 'standalone',
+  // Monorepo: trace workspace packages from the repo root, not just apps/web.
+  outputFileTracingRoot: path.join(import.meta.dirname, '../../'),
+
   async rewrites() {
     const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:8000';
     const adminUrl = process.env.ADMIN_SERVICE_URL || 'http://localhost:8087';

@@ -1,0 +1,40 @@
+# Traefik: the cluster's front door, a Gateway API controller.
+# Installed with Helm (third-party software), pinned to one chart version:
+#   pnpm k8s:traefik
+# That script first installs the Gateway API types (CRDs) v1.6.3, the version
+# Traefik v3.7's docs use: the chart only ships Traefik's own CRDs.
+# Our own routing (Gateway + HTTPRoute) is plain YAML in k8s/gateway.yaml.
+#
+# Why not ingress-nginx: it was retired in March 2026 (no more security
+# fixes). Gateway API is the replacement Kubernetes recommends.
+
+providers:
+  # Read Gateway API resources (Gateway, HTTPRoute)...
+  kubernetesGateway:
+    enabled: true
+  # ...and ignore the older Ingress API, which we don't use.
+  kubernetesIngress:
+    enabled: false
+
+# Creates the GatewayClass "traefik" that our Gateway points at.
+gatewayClass:
+  enabled: true
+# Don't create the chart's example Gateway: ours is in k8s/gateway.yaml.
+gateway:
+  enabled: false
+
+ports:
+  web:
+    # Traefik listens on 8000 inside the pod; hostPort opens port 80 on the
+    # kind node, which kind-config.yaml maps to port 80 on the Mac.
+    port: 8000
+    hostPort: 80
+
+# kind has no cloud load balancer, so a LoadBalancer Service would stay
+# <pending> forever. Traffic arrives through the hostPort instead.
+service:
+  type: ClusterIP
+
+# Run on the node labelled in kind-config.yaml (the one with the port mapping).
+nodeSelector:
+  ingress-ready: "true"

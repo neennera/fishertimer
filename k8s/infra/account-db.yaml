@@ -1,0 +1,98 @@
+# PostgreSQL for the account service (account_db).
+# StatefulSet, not Deployment: a database needs a stable identity and its own
+# disk that survives restarts. Only `account` connects to it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: account-db
+  labels:
+    app: account-db
+spec:
+  # Headless: the name resolves straight to the pod's IP, which is how a
+  # StatefulSet's pods get their stable DNS names.
+  clusterIP: None
+  selector:
+    app: account-db
+  ports:
+    - name: postgres
+      port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: account-db
+  labels:
+    app: account-db
+spec:
+  serviceName: account-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: account-db
+  template:
+    metadata:
+      labels:
+        app: account-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: account_db
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fishertimer-secrets
+                  key: POSTGRES_PASSWORD
+            # A subfolder: the volume's root may hold lost+found, which
+            # makes initdb refuse to start.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            # Runs once, on the first start with an empty disk (like compose).
+            - name: schema
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "account_db"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "account_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: schema
+          configMap:
+            name: account-db-schema
+  # One 1Gi disk per pod, kept when the pod restarts or is deleted.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

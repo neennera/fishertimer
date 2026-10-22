@@ -1,0 +1,83 @@
+# Web app (Next.js): pages, plus /api/* rewrites to api-gateway and admin.
+# Stateless, so a Deployment. The only service exposed outside the cluster,
+# through the Gateway in k8s/gateway.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      # No init container: web owns no data, and an /api call that reaches a
+      # backend still starting fails on its own without breaking the pages.
+      containers:
+        - name: web
+          image: fishertimer/web:latest
+          # :latest defaults to Always, which would look on Docker Hub. Use the
+          # image `pnpm images` loaded into kind.
+          imagePullPolicy: IfNotPresent
+          # No envFrom: every address web uses (API_GATEWAY_URL, NEXT_PUBLIC_*)
+          # was baked into the image at build time, and web needs no secrets.
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Lenient on purpose: restart only after about a minute of no answer. A busy
+          # laptop (e.g. building images) slows probes without anything being stuck.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            # Next.js writes its cache here; the rest of the filesystem is read-only.
+            - name: next-cache
+              mountPath: /app/apps/web/.next/cache
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000 # the node image's "node" user
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: next-cache
+          emptyDir: {}
