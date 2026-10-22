@@ -23,7 +23,7 @@ func TestListActiveSessions_MapsRooms(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := repository.NewSessionService(srv.URL).ListActiveSessions(context.Background())
+	got, err := repository.NewSessionService(srv.URL, nil).ListActiveSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestGetActiveSession_UnknownRoomIsNotFound(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := repository.NewSessionService(srv.URL).GetActiveSession(context.Background(), "ghost")
+	_, err := repository.NewSessionService(srv.URL, nil).GetActiveSession(context.Background(), "ghost")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
@@ -58,7 +58,7 @@ func TestListParticipants_MapsDisplayName(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := repository.NewSessionService(srv.URL).ListParticipants(context.Background(), "room")
+	got, err := repository.NewSessionService(srv.URL, nil).ListParticipants(context.Background(), "room")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestListActiveSessions_UpstreamFailure(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := repository.NewSessionService(srv.URL).ListActiveSessions(context.Background())
+	_, err := repository.NewSessionService(srv.URL, nil).ListActiveSessions(context.Background())
 	if !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("expected ErrUpstream, got %v", err)
 	}
@@ -88,7 +88,7 @@ func TestListParticipants_RejectedIDMessageHasNoInternalPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := repository.NewSessionService(srv.URL).ListParticipants(context.Background(), "not-a-uuid")
+	_, err := repository.NewSessionService(srv.URL, nil).ListParticipants(context.Background(), "not-a-uuid")
 	if !errors.Is(err, domain.ErrInvalid) {
 		t.Fatalf("expected ErrInvalid, got %v", err)
 	}

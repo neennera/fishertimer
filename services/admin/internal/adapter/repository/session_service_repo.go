@@ -19,11 +19,14 @@ type SessionServiceRepository struct {
 	httpClient *http.Client
 }
 
-func NewSessionService(baseURL string) *SessionServiceRepository {
-	return &SessionServiceRepository{
-		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 5 * time.Second},
+// NewSessionService reads from the Study Session service at baseURL. httpClient
+// is the client to use (service discovery supplies one that follows the
+// healthy instances); nil means a plain client with a 5s timeout.
+func NewSessionService(baseURL string, httpClient *http.Client) *SessionServiceRepository {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
+	return &SessionServiceRepository{baseURL: baseURL, httpClient: httpClient}
 }
 
 type studySessionDTO struct {

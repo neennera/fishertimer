@@ -25,6 +25,13 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Service discovery (DISCOVERY_MODE=consul): peers are looked up in the
+	// registry, falling back to the configured addresses. In the default static
+	// mode it simply returns those addresses.
+	disc := discovery.FromEnv(map[string]string{
+		discovery.StudySession: cfg.SessionServiceURL,
+	})
+
 	if cfg.JWTSecret == "" {
 		log.Printf("admin: JWT_SECRET is not set; every admin request will be rejected with 401")
 	}
@@ -33,9 +40,9 @@ func main() {
 	// Session, the moderation audit log lives in admin_db.
 	db := mustConnectDB(cfg)
 	defer db.Close()
-	sessions := repository.NewSessionService(cfg.SessionServiceURL)
+	sessions := repository.NewSessionService(cfg.SessionServiceURL, disc.Locator.HTTPClient(discovery.StudySession))
 	auditLogs := repository.NewPostgres(db)
-	sessionClient := client.NewSessionClient(cfg.SessionServiceURL)
+	sessionClient := client.NewSessionClient(cfg.SessionServiceURL, disc.Locator.HTTPClient(discovery.StudySession))
 
 	// 2. Inject into Application Usecase
 	uc := usecase.New(sessions, auditLogs, sessionClient)
@@ -61,9 +68,8 @@ func main() {
 		}
 	}()
 
-	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
-	// can find it. Does nothing in the default static mode.
-	disc := discovery.FromEnv(nil)
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
 	stopAnnounce := disc.Announce(disc.HTTP(discovery.Admin, cfg.Port))
 
 	quit := make(chan os.Signal, 1)

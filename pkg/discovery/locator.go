@@ -64,7 +64,7 @@ func NewLocator(src Source, fallback map[string]string, opts ...Option) *Locator
 }
 
 // Enabled reports whether a registry is in use (false in static mode).
-func (l *Locator) Enabled() bool { return l.src != nil }
+func (l *Locator) Enabled() bool { return l != nil && l.src != nil }
 
 // Targets returns the "host:port" of every healthy instance of service, or the
 // configured fallback (a single entry) when the registry has none. It is empty

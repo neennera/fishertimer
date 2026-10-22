@@ -23,6 +23,13 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Service discovery (DISCOVERY_MODE=consul): peers are looked up in the
+	// registry, falling back to the configured addresses. In the default static
+	// mode it simply returns those addresses.
+	disc := discovery.FromEnv(map[string]string{
+		discovery.Reward: cfg.RewardServiceURL,
+	})
+
 	// ── 1. Repository (Redis if available, in-memory fallback) ───────────────
 	var repo domain.Repository
 	ctx := context.Background()
@@ -38,7 +45,7 @@ func main() {
 	}
 
 	// ── 2. Reward client ─────────────────────────────────────────────────────
-	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
+	rewardClient := client.NewRewardClient(cfg.RewardServiceURL, disc.Locator.HTTPClient(discovery.Reward))
 
 	// ── 3. Usecase ───────────────────────────────────────────────────────────
 	uc := usecase.New(repo, rewardClient)
@@ -67,9 +74,8 @@ func main() {
 		}
 	}()
 
-	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
-	// can find it. Does nothing in the default static mode.
-	disc := discovery.FromEnv(nil)
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
 	stopAnnounce := disc.Announce(disc.HTTP(discovery.Leaderboard, cfg.Port))
 
 	quit := make(chan os.Signal, 1)

@@ -18,11 +18,14 @@ type HTTPRewardClient struct {
 	httpClient *http.Client
 }
 
-func NewRewardClient(baseURL string) domain.RewardClient {
-	return &HTTPRewardClient{
-		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 5 * time.Second},
+// NewRewardClient calls the Reward service at baseURL. httpClient is the client
+// to use (service discovery supplies one that follows the healthy instances);
+// nil means a plain client with a 5s timeout.
+func NewRewardClient(baseURL string, httpClient *http.Client) domain.RewardClient {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
+	return &HTTPRewardClient{baseURL: baseURL, httpClient: httpClient}
 }
 
 func (c *HTTPRewardClient) GetRewards(ctx context.Context, userID string) ([]domain.UnlockedReward, error) {

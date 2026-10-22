@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/neennera/fishertimer/pkg/discovery"
+	"github.com/neennera/fishertimer/pkg/discovery/grpcresolver"
 	sessionv1 "github.com/neennera/fishertimer/proto/studysession/v1"
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/study-session/config"
@@ -31,6 +32,13 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Service discovery (DISCOVERY_MODE=consul): peers are looked up in the
+	// registry, falling back to the configured addresses. In the default static
+	// mode it simply returns those addresses.
+	disc := discovery.FromEnv(map[string]string{
+		discovery.GRPC(discovery.StudyTimer): cfg.TimerGRPCTarget,
+	})
+
 	// 1. Instantiate Driven Adapters (Repository, Event Publisher, Timer Client)
 	db := mustConnectDB(cfg)
 	defer db.Close()
@@ -41,7 +49,8 @@ func main() {
 	publisher := sessionAMQP.NewPublisher(cfg.RabbitMQURL)
 	defer publisher.Close()
 
-	timerConn, err := grpc.NewClient(cfg.TimerGRPCTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	timerTarget, timerOpts := grpcresolver.Dial(disc.Locator, discovery.GRPC(discovery.StudyTimer), cfg.TimerGRPCTarget)
+	timerConn, err := grpc.NewClient(timerTarget, append(timerOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
 		log.Fatalf("study-session: timer grpc client: %v", err)
 	}
@@ -102,9 +111,8 @@ func main() {
 		}
 	}()
 
-	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
-	// can find it. Does nothing in the default static mode.
-	disc := discovery.FromEnv(nil)
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
 	stopAnnounce := disc.Announce(disc.HTTP(discovery.StudySession, cfg.Port), disc.GRPC(discovery.StudySession, cfg.GRPCPort))
 
 	quit := make(chan os.Signal, 1)

@@ -20,11 +20,14 @@ type HTTPTimerClient struct {
 	httpClient *http.Client
 }
 
-func NewTimerClient(baseURL string) domain.TimerClient {
-	return &HTTPTimerClient{
-		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 5 * time.Second},
+// NewTimerClient calls the Study Timer service at baseURL. httpClient is the
+// client to use (service discovery supplies one that follows the healthy
+// instances); nil means a plain client with a 5s timeout.
+func NewTimerClient(baseURL string, httpClient *http.Client) domain.TimerClient {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
+	return &HTTPTimerClient{baseURL: baseURL, httpClient: httpClient}
 }
 
 func (c *HTTPTimerClient) GetStatistics(ctx context.Context, userID string) (*domain.TimerStatistics, error) {

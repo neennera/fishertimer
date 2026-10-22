@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	sessionv1 "github.com/neennera/fishertimer/proto/studysession/v1"
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/config"
@@ -23,26 +24,48 @@ type GatewayHandler struct {
 	rewardProxy  *httputil.ReverseProxy
 }
 
+// Option customises the gateway.
+type Option func(*options)
+
+type options struct {
+	loc *discovery.Locator
+}
+
+// WithDiscovery makes the HTTP proxies send each request to a healthy instance
+// found through loc, instead of only the configured address. With a nil or
+// static Locator the proxies behave exactly as without this option.
+func WithDiscovery(loc *discovery.Locator) Option {
+	return func(o *options) { o.loc = loc }
+}
+
 // New builds the gateway. Most services are reverse-proxied over HTTP; Study
 // Timer and Study Session are reached over gRPC through their clients.
-func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient, sessionClient sessionv1.StudySessionServiceClient) *GatewayHandler {
+func New(cfg *config.Config, timerClient timerv1.StudyTimerServiceClient, sessionClient sessionv1.StudySessionServiceClient, opts ...Option) *GatewayHandler {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return &GatewayHandler{
 		cfg:          cfg,
-		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account"),
+		accountProxy: createReverseProxy(cfg.AccountServiceURL, "/api/v1/account", o.loc.Transport(discovery.Account, nil)),
 		timer:        NewTimerHandler(timerClient, cfg.Env != "production"),
-		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard"),
+		boardProxy:   createReverseProxy(cfg.LeaderboardServiceURL, "/api/v1/leaderboard", o.loc.Transport(discovery.Leaderboard, nil)),
 		session:      NewSessionHandler(sessionClient, cfg.Env != "production"),
-		rewardProxy:  createReverseProxy(cfg.RewardServiceURL, "/api/v1/reward"),
+		rewardProxy:  createReverseProxy(cfg.RewardServiceURL, "/api/v1/reward", o.loc.Transport(discovery.Reward, nil)),
 	}
 }
 
-func createReverseProxy(targetURL, prefix string) *httputil.ReverseProxy {
+// createReverseProxy proxies /api/<service>/... to targetURL under prefix.
+// transport picks the instance each request really goes to (http.DefaultTransport
+// when discovery is off).
+func createReverseProxy(targetURL, prefix string, transport http.RoundTripper) *httputil.ReverseProxy {
 	target, err := url.Parse(targetURL)
 	if err != nil {
 		panic(err)
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = transport
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)

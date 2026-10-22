@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/neennera/fishertimer/pkg/discovery"
+	"github.com/neennera/fishertimer/pkg/discovery/grpcresolver"
 	sessionv1 "github.com/neennera/fishertimer/proto/studysession/v1"
 	timerv1 "github.com/neennera/fishertimer/proto/studytimer/v1"
 	"github.com/neennera/fishertimer/services/api-gateway/config"
@@ -24,24 +25,37 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Service discovery (DISCOVERY_MODE=consul): peers are looked up in the
+	// registry, falling back to the configured addresses. In the default static
+	// mode it simply returns those addresses.
+	disc := discovery.FromEnv(map[string]string{
+		discovery.Account:                      cfg.AccountServiceURL,
+		discovery.Leaderboard:                  cfg.LeaderboardServiceURL,
+		discovery.Reward:                       cfg.RewardServiceURL,
+		discovery.GRPC(discovery.StudyTimer):   cfg.TimerGRPCTarget,
+		discovery.GRPC(discovery.StudySession): cfg.SessionGRPCTarget,
+	})
+
 	// 1. Connect to Study Timer over gRPC. The connection is lazy: the gateway
 	// starts even if the timer is down, and timer routes answer 503 until it
 	// is reachable. Services talk plaintext inside the private network.
-	timerConn, err := grpc.NewClient(cfg.TimerGRPCTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	timerTarget, timerOpts := grpcresolver.Dial(disc.Locator, discovery.GRPC(discovery.StudyTimer), cfg.TimerGRPCTarget)
+	timerConn, err := grpc.NewClient(timerTarget, append(timerOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
 		log.Fatalf("timer grpc client: %s\n", err)
 	}
 	defer timerConn.Close()
 
 	// Study Session is reached over gRPC the same way.
-	sessionConn, err := grpc.NewClient(cfg.SessionGRPCTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	sessionTarget, sessionOpts := grpcresolver.Dial(disc.Locator, discovery.GRPC(discovery.StudySession), cfg.SessionGRPCTarget)
+	sessionConn, err := grpc.NewClient(sessionTarget, append(sessionOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
 		log.Fatalf("session grpc client: %s\n", err)
 	}
 	defer sessionConn.Close()
 
 	// 2. Instantiate Gateway Handler
-	h := handler.New(cfg, timerv1.NewStudyTimerServiceClient(timerConn), sessionv1.NewStudySessionServiceClient(sessionConn))
+	h := handler.New(cfg, timerv1.NewStudyTimerServiceClient(timerConn), sessionv1.NewStudySessionServiceClient(sessionConn), handler.WithDiscovery(disc.Locator))
 
 	// 3. Setup Router & Server
 	mux := http.NewServeMux()
@@ -72,9 +86,8 @@ func main() {
 		}
 	}()
 
-	// Service discovery (DISCOVERY_MODE=consul): announce this service so peers
-	// can find it. Does nothing in the default static mode.
-	disc := discovery.FromEnv(nil)
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
 	stopAnnounce := disc.Announce(disc.HTTP(discovery.APIGateway, cfg.Port))
 
 	quit := make(chan os.Signal, 1)

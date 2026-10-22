@@ -28,11 +28,14 @@ type HTTPSessionClient struct {
 	httpClient *http.Client
 }
 
-func NewSessionClient(baseURL string) domain.SessionClient {
-	return &HTTPSessionClient{
-		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 5 * time.Second},
+// NewSessionClient calls the Study Session service at baseURL. httpClient is
+// the client to use (service discovery supplies one that follows the healthy
+// instances); nil means a plain client with a 5s timeout.
+func NewSessionClient(baseURL string, httpClient *http.Client) domain.SessionClient {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
+	return &HTTPSessionClient{baseURL: baseURL, httpClient: httpClient}
 }
 
 type leaveResponse struct {
