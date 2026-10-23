@@ -85,7 +85,7 @@ graph TD
 - **ADR-003 (Backend):** Go (Golang) 1.25+ for high-concurrency timer synchronization and Hexagonal / Clean Architecture.
 - **ADR-004 (Database):** Polyglot persistence: PostgreSQL (Supabase) for relational integrity & real-time presence; MongoDB for nested gamification rewards.
 - **ADR-005 (Authentication):** Google OAuth 2.0 with stateless signed JWT verification across services.
-- **ADR-006 (Deployment):** Docker containerization on Render with local development via `docker-compose.yml`.
+- **ADR-006 (Deployment):** Docker containerization on Render. Locally, `docker-compose.yml` runs either just the data stores (`pnpm db:up`) or the whole system in containers (`pnpm docker:up`); see [Run everything in Docker](#-run-everything-in-docker-docker-compose).
 
 ---
 
@@ -112,7 +112,7 @@ pnpm install
 ```
 
 ### 3. Start Local Databases
-Spins up PostgreSQL (`5432`) and MongoDB (`27017`) and automatically applies schema DDLs and seed datasets:
+Spins up PostgreSQL (`5432`-`5435`), MongoDB (`27017`), Redis, RabbitMQ and Adminer (`http://localhost:8088`) with their ports published on localhost, and automatically applies schema DDLs and seed datasets:
 ```bash
 pnpm db:up
 ```
@@ -126,9 +126,55 @@ Visit **`http://localhost:3000`** in your browser.
 
 ---
 
+## 🐳 Run everything in Docker (Docker Compose)
+
+Runs the 7 Go services, the web app and every data store as containers on your machine. Containers find each other by Compose service name (`account`, `study-timer`, `reward-db`, ...), the same addresses the Kubernetes setup uses (`k8s/config.env`). Only the web app is published, on **http://localhost:3000**.
+
+### Prerequisites
+- **Docker** with Compose v2.24 or newer (about 4 GB of memory for it)
+- Nothing else: Go and Node run inside the build
+
+### 1. (Optional) Add your Google credentials
+```bash
+cp .env.docker.example .env.docker
+```
+Fill in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and add `http://localhost:3000/api/auth/google/callback` to the OAuth client's authorized redirect URIs. Without them the stack still starts; only Google sign-in fails. Settings are layered, later files win: `k8s/config.env` (shared ports and addresses) → `docker/app.env` (Compose overrides, development credentials) → `.env.docker` (yours, git-ignored).
+
+### 2. Bring it up
+```bash
+pnpm docker:up       # build the images and start everything (first run takes a few minutes)
+pnpm docker:ps       # every service should become "healthy"
+```
+Open **http://localhost:3000**. The stores are *not* published by default, so a PostgreSQL already running on your machine can't clash with them. Use `pnpm docker:dev` instead when you also want them (and the gateway on `:8000`, admin on `:8087`) on localhost for debugging.
+
+### Day-to-day commands
+```bash
+pnpm docker:logs                     # follow all logs
+docker compose logs -f reward        # one service
+docker compose --profile app up -d --build reward   # rebuild and restart one service
+pnpm docker:down                     # stop (data volumes are kept)
+pnpm docker:reset                    # stop and wipe all data volumes
+```
+New `database/schemas` files only run when a volume is first created: after pulling one, run `pnpm docker:reset`.
+
+### Service discovery with Consul (optional)
+```bash
+pnpm docker:discovery      # the same stack + a Consul agent, services find each other through it
+```
+Open **http://localhost:8500** to see every service register with its health check (`study-timer` and `study-timer-grpc` are the HTTP and gRPC ports of one service). Stopping a container removes it from the list at once; a crashed one drops out within seconds. `pnpm docker:up` goes back to plain addresses from the environment. How it works and how it fails: [`pkg/discovery/README.md`](pkg/discovery/README.md) and `docs/ARCHITECTURE.md` section 7.
+
+### Hybrid mode: one service on your machine, the rest in Docker
+Containers reach your machine as `host.docker.internal`. See the step-by-step example at the bottom of `.env.docker.example`.
+
+### Notes
+- `pnpm db:*` and `pnpm docker:*` share the same containers and volumes. `pnpm db:up` starts only the stores, so use it with `pnpm dev`.
+- Don't run this together with `pnpm k8s:up` on a small machine; stop one first.
+
+---
+
 ## ☸️ Run on Kubernetes (local kind cluster)
 
-Runs the whole system (7 services, 6 data stores, the web app) on a local Kubernetes cluster, the way it would run in production. Independent of `pnpm db:up` / `pnpm dev`: stop the docker-compose databases first (`pnpm db:down`) to save memory.
+Runs the whole system (7 services, 6 data stores, the web app) on a local Kubernetes cluster, the way it would run in production. Independent of `pnpm db:up` / `pnpm dev`: stop the docker-compose containers first (`pnpm db:down` or `pnpm docker:down`) to save memory.
 
 ### Prerequisites
 - **Docker** running (OrbStack or Docker Desktop), with ~6 GB of memory for it
@@ -206,10 +252,19 @@ pnpm lint
 pnpm check-types
 
 # Database lifecycle commands
-pnpm db:up       # Start local PostgreSQL & MongoDB
+pnpm db:up       # Start the data stores with ports on localhost (for `pnpm dev`)
 pnpm db:logs     # Follow container logs
 pnpm db:down     # Stop database containers
 pnpm db:reset    # Wipe volumes and re-apply schemas & seeds
+
+# Whole system in Docker (web on http://localhost:3000)
+pnpm docker:up     # Build images and start everything
+pnpm docker:dev    # Same, plus stores/gateway/admin ports on localhost
+pnpm docker:discovery # Same as docker:up + Consul (UI on http://localhost:8500)
+pnpm docker:ps     # Status and health of each container
+pnpm docker:logs   # Follow all logs
+pnpm docker:down   # Stop (keeps data)
+pnpm docker:reset  # Stop and wipe data volumes
 
 # Regenerate Go code after editing proto/**/*.proto (needs protoc,
 # protoc-gen-go and protoc-gen-go-grpc)

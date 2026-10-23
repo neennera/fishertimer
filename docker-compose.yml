@@ -1,3 +1,29 @@
+# Two ways to use this file:
+#
+#   pnpm db:up        infrastructure only (databases, Redis, RabbitMQ, Adminer)
+#                     with their ports published on localhost, for `pnpm dev`
+#   pnpm docker:up    the whole system in containers, web on http://localhost:3000
+#
+# Inside the Compose network every container is reachable by its service name
+# (account, study-timer, reward-db, ...), so the app containers use the same
+# addresses as the Kubernetes setup (k8s/config.env). This file publishes only
+# web; docker-compose.dev.yml adds the debugging ports (databases, broker,
+# gateway). Raw `docker compose up` therefore has no host ports for the stores.
+
+# Settings shared by the 7 Go services. Each env file overrides the one before.
+x-go-service: &go-service
+  profiles: [app]
+  restart: unless-stopped
+  env_file:
+    - ./k8s/config.env
+    - ./docker/app.env
+    - path: ./.env.docker
+      required: false
+  # Lets a container reach a service you run on the host (hybrid mode, see
+  # .env.docker.example). Docker Desktop has this name already; Linux needs it.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
 services:
   # ----------------------------------------------------------------------------
   # 1. Relational Databases (PostgreSQL per Service - 3NF Architecture)
@@ -10,13 +36,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: account_db
-    ports:
-      - "5432:5432"
     volumes:
       - account_db_data:/var/lib/postgresql/data
       - ./services/account/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d account_db"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d account_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,13 +53,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: session_db
-    ports:
-      - "5433:5432"
     volumes:
       - session_db_data:/var/lib/postgresql/data
       - ./services/study-session/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d session_db"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d session_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -48,13 +70,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: timer_db
-    ports:
-      - "5434:5432"
     volumes:
       - timer_db_data:/var/lib/postgresql/data
       - ./services/study-timer/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d timer_db"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d timer_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -67,13 +87,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: admin_db
-    ports:
-      - "5435:5432"
     volumes:
       - admin_db_data:/var/lib/postgresql/data
       - ./services/admin/database/schemas:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d admin_db"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d admin_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -89,13 +107,15 @@ services:
       MONGO_INITDB_ROOT_USERNAME: mongoadmin
       MONGO_INITDB_ROOT_PASSWORD: mongopassword
       MONGO_INITDB_DATABASE: reward_db
-    ports:
-      - "27017:27017"
     volumes:
       - reward_db_data:/data/db
-      - ./services/reward/database/schemas:/docker-entrypoint-initdb.d:ro
+      # Files one by one: 004_seed_current_user_month.js needs SEED_USER_ID and
+      # throws without it, which would fail Mongo's first start.
+      - ./services/reward/database/schemas/001_create_reward_collections.js:/docker-entrypoint-initdb.d/001_create_reward_collections.js:ro
+      - ./services/reward/database/schemas/002_seed_reward_items.js:/docker-entrypoint-initdb.d/002_seed_reward_items.js:ro
+      - ./services/reward/database/schemas/003_seed_user_rewards.js:/docker-entrypoint-initdb.d/003_seed_user_rewards.js:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "mongosh --quiet --host $$(hostname) --eval \"db.adminCommand('ping')\""]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -107,8 +127,6 @@ services:
     image: redis:7-alpine
     container_name: fishertimer-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -127,9 +145,6 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: adminpassword
-    ports:
-      - "5672:5672"    # AMQP protocol
-      - "15672:15672"  # Management Web UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -145,8 +160,186 @@ services:
     image: adminer:latest
     container_name: fishertimer-adminer
     restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # 6. Application services (profile "app"): 7 Go services + the web app
+  # ----------------------------------------------------------------------------
+  # One Dockerfile builds every Go service (SERVICE picks which). depends_on
+  # waits for the stores a service needs at startup. The images have no shell,
+  # so the healthchecks run /healthcheck (tools/healthcheck) against /health.
+  account:
+    <<: *go-service
+    image: fishertimer/account
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: account
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8082/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  study-session:
+    <<: *go-service
+    image: fishertimer/study-session
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: study-session
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8083/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      session-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  study-timer:
+    <<: *go-service
+    image: fishertimer/study-timer
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: study-timer
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8084/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      timer-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  reward:
+    <<: *go-service
+    image: fishertimer/reward
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: reward
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8085/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      reward-db:
+        condition: service_healthy
+
+  leaderboard:
+    <<: *go-service
+    image: fishertimer/leaderboard
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: leaderboard
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8086/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  admin:
+    <<: *go-service
+    image: fishertimer/admin
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: admin
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8087/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      admin-db:
+        condition: service_healthy
+
+  # No store of its own; its gRPC clients to session/timer connect lazily, but
+  # it starts last so the first request finds everything up.
+  api-gateway:
+    <<: *go-service
+    image: fishertimer/api-gateway
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: api-gateway
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      account:
+        condition: service_healthy
+      study-session:
+        condition: service_healthy
+      study-timer:
+        condition: service_healthy
+      reward:
+        condition: service_healthy
+      leaderboard:
+        condition: service_healthy
+
+  # Next.js bakes rewrites() and NEXT_PUBLIC_* in at BUILD time, so the addresses
+  # are build args. The browser talks only to web (:3000); web forwards /api/*
+  # to api-gateway and admin over the Compose network.
+  web:
+    profiles: [app]
+    restart: unless-stopped
+    image: fishertimer/web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_GATEWAY_URL: http://api-gateway:8000
+        ADMIN_SERVICE_URL: http://admin:8087
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+        NEXT_PUBLIC_API_GATEWAY_URL: http://localhost:3000
+        NEXT_PUBLIC_ADMIN_SERVICE_URL: http://localhost:3000
     ports:
-      - "8080:8080"
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
 
 volumes:
   account_db_data:

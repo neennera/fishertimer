@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	"github.com/neennera/fishertimer/services/leaderboard/config"
 	leaderboardAMQP "github.com/neennera/fishertimer/services/leaderboard/internal/adapter/amqp"
 	"github.com/neennera/fishertimer/services/leaderboard/internal/adapter/client"
@@ -21,6 +22,13 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	// Service discovery (DISCOVERY_MODE=consul): peers are looked up in the
+	// registry, falling back to the configured addresses. In the default static
+	// mode it simply returns those addresses.
+	disc := discovery.FromEnv(map[string]string{
+		discovery.Reward: cfg.RewardServiceURL,
+	})
 
 	// ── 1. Repository (Redis if available, in-memory fallback) ───────────────
 	var repo domain.Repository
@@ -37,7 +45,7 @@ func main() {
 	}
 
 	// ── 2. Reward client ─────────────────────────────────────────────────────
-	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
+	rewardClient := client.NewRewardClient(cfg.RewardServiceURL, disc.Locator.HTTPClient(discovery.Reward))
 
 	// ── 3. Usecase ───────────────────────────────────────────────────────────
 	uc := usecase.New(repo, rewardClient)
@@ -66,9 +74,14 @@ func main() {
 		}
 	}()
 
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
+	stopAnnounce := disc.Announce(disc.HTTP(discovery.Leaderboard, cfg.Port))
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopAnnounce() // leave the registry first, so peers stop sending requests here
 
 	log.Printf("Shutting down leaderboard service...")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

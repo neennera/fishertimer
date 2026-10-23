@@ -24,7 +24,7 @@ func TestKickParticipant_SendsKickedReason(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ended, err := client.NewSessionClient(srv.URL).KickParticipant(context.Background(), "s1", "u1")
+	ended, err := client.NewSessionClient(srv.URL, nil).KickParticipant(context.Background(), "s1", "u1")
 	if err != nil || !ended {
 		t.Fatalf("expected session_ended, got %v %v", ended, err)
 	}
@@ -36,7 +36,7 @@ func TestKickParticipant_AlreadyLeftIsStateChanged(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := client.NewSessionClient(srv.URL).KickParticipant(context.Background(), "s1", "u1")
+	_, err := client.NewSessionClient(srv.URL, nil).KickParticipant(context.Background(), "s1", "u1")
 	if !errors.Is(err, domain.ErrStateChanged) {
 		t.Fatalf("expected ErrStateChanged, got %v", err)
 	}
@@ -62,7 +62,7 @@ func TestCloseSession_MapsStatuses(t *testing.T) {
 			w.WriteHeader(c.status)
 			w.Write([]byte(`{"error":"nope"}`))
 		}))
-		err := client.NewSessionClient(srv.URL).CloseSession(context.Background(), "s1")
+		err := client.NewSessionClient(srv.URL, nil).CloseSession(context.Background(), "s1")
 		srv.Close()
 		if !errors.Is(err, c.want) {
 			t.Errorf("status %d: expected %v, got %v", c.status, c.want, err)
@@ -71,7 +71,7 @@ func TestCloseSession_MapsStatuses(t *testing.T) {
 }
 
 func TestCloseSession_Unreachable(t *testing.T) {
-	err := client.NewSessionClient("http://127.0.0.1:1").CloseSession(context.Background(), "s1")
+	err := client.NewSessionClient("http://127.0.0.1:1", nil).CloseSession(context.Background(), "s1")
 	if !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("expected ErrUpstream, got %v", err)
 	}

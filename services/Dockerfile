@@ -11,6 +11,7 @@ WORKDIR /src
 # The cache mounts keep Go's module and compile caches between builds, shared
 # by all 7 services, so common libraries are downloaded and compiled once.
 COPY go.work go.work.sum ./
+COPY pkg/discovery/go.mod pkg/discovery/go.sum* pkg/discovery/
 COPY pkg/events/go.mod pkg/events/go.sum* pkg/events/
 COPY proto/go.mod proto/go.sum* proto/
 COPY services/account/go.mod services/account/go.sum* services/account/
@@ -22,6 +23,12 @@ COPY services/study-session/go.mod services/study-session/go.sum* services/study
 COPY services/study-timer/go.mod services/study-timer/go.sum* services/study-timer/
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
+
+# Probe for Docker HEALTHCHECKs: the final image has no shell, curl or wget.
+# Built before the SERVICE arg so every service shares this cached layer.
+COPY tools/healthcheck ./tools/healthcheck
+RUN cd tools/healthcheck && GOWORK=off CGO_ENABLED=0 GOOS=linux \
+    go build -trimpath -ldflags="-s -w" -o /out/healthcheck .
 
 COPY pkg ./pkg
 COPY proto ./proto
@@ -41,4 +48,5 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # distroless/static: just CA certs + tzdata, no shell, runs as non-root.
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/server /server
+COPY --from=build /out/healthcheck /healthcheck
 ENTRYPOINT ["/server"]

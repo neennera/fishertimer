@@ -15,6 +15,7 @@ bin/
 # Environment & IDE
 *.env*
 !.env.example
+!.env.docker.example
 .vscode/
 .idea/
 *.swp

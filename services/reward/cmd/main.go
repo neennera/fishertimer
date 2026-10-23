@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	"github.com/neennera/fishertimer/services/reward/config"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/handler"
 	"github.com/neennera/fishertimer/services/reward/internal/adapter/repository"
@@ -22,6 +23,7 @@ import (
 
 func main() {
 	cfg := config.Load()
+	disc := discovery.FromEnv(nil)
 
 	// ── 1. Repository (MongoDB if available, in-memory fallback) ────────────
 	var repo domain.Repository
@@ -57,9 +59,14 @@ func main() {
 		}
 	}()
 
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
+	stopAnnounce := disc.Announce(disc.HTTP(discovery.Reward, cfg.Port))
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopAnnounce() // leave the registry first, so peers stop sending requests here
 
 	log.Printf("Shutting down reward service...")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"github.com/neennera/fishertimer/pkg/discovery"
 	"github.com/neennera/fishertimer/services/account/config"
 	accountAMQP "github.com/neennera/fishertimer/services/account/internal/adapter/amqp"
 	"github.com/neennera/fishertimer/services/account/internal/adapter/client"
@@ -25,6 +26,14 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	// Service discovery (DISCOVERY_MODE=consul): peers are looked up in the
+	// registry, falling back to the configured addresses. In the default static
+	// mode it simply returns those addresses.
+	disc := discovery.FromEnv(map[string]string{
+		discovery.StudyTimer: cfg.TimerServiceURL,
+		discovery.Reward:     cfg.RewardServiceURL,
+	})
 
 	// 1. Driven adapters: database, Google, session tokens.
 	db := mustConnectDB(cfg)
@@ -41,8 +50,8 @@ func main() {
 	})
 
 	tokens := token.New(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTExpiry)
-	timerClient := client.NewTimerClient(cfg.TimerServiceURL)
-	rewardClient := client.NewRewardClient(cfg.RewardServiceURL)
+	timerClient := client.NewTimerClient(cfg.TimerServiceURL, disc.Locator.HTTPClient(discovery.StudyTimer))
+	rewardClient := client.NewRewardClient(cfg.RewardServiceURL, disc.Locator.HTTPClient(discovery.Reward))
 
 	// RabbitMQ is dialed lazily by the publisher: the service starts even while
 	// the broker is down, and profile events are sent once it is back.
@@ -85,9 +94,14 @@ func main() {
 		}
 	}()
 
+	// Announce this service to the registry (DISCOVERY_MODE=consul) so peers can
+	// find it. Does nothing in the default static mode.
+	stopAnnounce := disc.Announce(disc.HTTP(discovery.Account, cfg.Port))
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	stopAnnounce() // leave the registry first, so peers stop sending requests here
 
 	log.Printf("Shutting down account service...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
