@@ -24,7 +24,10 @@
     "k8s:up": "bash scripts/k8s-up.sh",
     "k8s:down": "bash scripts/k8s-down.sh",
     "k8s:apply": "kubectl kustomize --load-restrictor LoadRestrictionsNone k8s | kubectl --context kind-fishertimer apply -f -",
-    "k8s:traefik": "kubectl --context kind-fishertimer apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml && helm upgrade --install traefik traefik --repo https://traefik.github.io/charts --version 42.1.2 --namespace traefik --create-namespace --kube-context kind-fishertimer --values k8s/traefik-values.yaml --wait"
+    "k8s:traefik": "kubectl --context kind-fishertimer apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml && helm upgrade --install traefik traefik --repo https://traefik.github.io/charts --version 42.1.2 --namespace traefik --create-namespace --kube-context kind-fishertimer --values k8s/traefik-values.yaml --wait",
+    "test:k6": "bash tests/nfr/run-k6.sh",
+    "test:stress": "bash tests/nfr/run-k6.sh stress",
+    "test:spike": "bash tests/nfr/run-k6.sh spike"
   },
   "devDependencies": {
     "prettier": "3.9.6",

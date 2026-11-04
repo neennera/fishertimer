@@ -1,6 +1,39 @@
 # Fisher Timer: NFR Testing & Evidence Guide 🎣⏱️
 
-คู่มือการรันสคริปต์ทดสอบและตัวช่วยเปิดหน้าเว็บสำหรับเก็บหลักฐาน Non-Functional Requirements (NFRs) ทั้ง 14 ข้อ
+คู่มือการเตรียมระบบ การรันสคริปต์ทดสอบ และตัวช่วยเปิดหน้าเว็บสำหรับเก็บหลักฐาน Non-Functional Requirements (NFRs) ทั้ง 14 ข้อ
+
+---
+
+## 🛠️ 0. สิ่งที่ต้องทำก่อนเริ่มรันการทดสอบ (Prerequisites & Setup)
+
+ก่อนจะเริ่มรันสคริปต์ทดสอบ (โดยเฉพาะชุด k6 Performance Tests) **ระบบ Web & Microservices ต้องเปิดใช้งานและตอบสนองที่ `http://localhost` ก่อนเสมอ** เพื่อไม่ให้การทดสอบล้มเหลวจากการหา Service ไม่เจอ:
+
+### วิธีเปิดระบบ (เลือกวิธีใดวิธีหนึ่งตามสภาพแวดล้อมของคุณ):
+
+* **ทางเลือกที่ 1: รันบน Local Kubernetes ด้วย Kind (แนะนำ)**
+  ```bash
+  # บูต Kind cluster, Traefik Gateway, Build images และ Apply manifests
+  pnpm k8s:up
+
+  # ตรวจสอบว่าทั้ง 15 Pods ใน namespace 'fishertimer' มีสถานะ 1/1 Running ครบแล้ว
+  kubectl --context kind-fishertimer -n fishertimer get pods
+  ```
+
+* **ทางเลือกที่ 2: รันผ่าน Docker Compose**
+  ```bash
+  # บูตทุก Service และ Databases ทั้งหมด
+  pnpm docker:up
+
+  # ตรวจสอบสถานะ Containers
+  docker compose ps
+  ```
+
+### การตรวจสอบความพร้อมเบื้องต้น (Pre-flight Connectivity Check):
+ทดสอบยิง curl เพื่อยืนยันว่า Traefik Gateway และ Services พร้อมรับโหลด:
+```bash
+curl -I http://localhost/api/session/active
+# ต้องได้ HTTP 200 OK ก่อนเริ่มรันชุดทดสอบ
+```
 
 ---
 
@@ -25,35 +58,50 @@ bash tests/nfr/open-evidence-pages.sh
 
 ---
 
-## 🧪 2. คำสั่งรันสคริปต์ทดสอบ (Terminal Commands & Evidence)
+## 🧪 2. คำสั่งรันสคริปต์ทดสอบ Performance ด้วย `run-k6.sh`
 
-### A. ทดสอบ Request Latency < 2 วินาที [NFR-PF-01]
-- **ไฟล์สคริปต์:** `tests/nfr/k6-common-endpoints.js`
-- **เครื่องมือ:** Grafana k6 (Open-source)
-- **คำสั่งรัน:**
+เพื่อความสะดวกและไม่ต้องจำคำสั่งยาวๆ เรามีสคริปต์ **`tests/nfr/run-k6.sh`** ตัวเดียวที่จัดการ:
+* ตรวจสอบ Health check ของ `http://localhost` ให้อัตโนมัติก่อนเริ่มเทส
+* ตรวจหาเครื่องมือในเครื่องอัตโนมัติ (ถ้าระบบมี `k6` จะรันแบบ Native ทันที แต่ถ้าไม่มีจะรันผ่าน `Docker` ให้อัตโนมัติโดยไม่ต้องติดตั้งเพิ่ม)
+
+```
+tests/nfr/
+├── run-k6.sh                        <-- สคริปต์ตัวกลางสำหรับสั่งรัน
+└── k6/                              <-- โฟลเดอร์เก็บโค้ดสคริปต์ k6 ทั้งหมด
+    ├── k6-common-endpoints.js
+    ├── k6-concurrency-50vu.js
+    ├── k6-stress-test.js
+    └── k6-spike-test.js
+```
+
+### สั่งรันผ่าน Interactive Menu:
+```bash
+bash tests/nfr/run-k6.sh
+# หรือใช้ shorthand
+pnpm test:k6
+```
+
+---
+
+### หรือสั่งรันรายตัวตามต้องการ:
+
+#### A. ทดสอบ Request Latency < 2 วินาที (Baseline SLA) [NFR-PF-01]
+- **ไฟล์สคริปต์:** `tests/nfr/k6/k6-common-endpoints.js`
+- **คำสั่งรันสั้นๆ:**
   ```bash
-  # วิธีที่ 1: ถ้าลง k6 ในเครื่องแล้ว (brew install k6)
-  k6 run tests/nfr/k6-common-endpoints.js
-
-  # วิธีที่ 2: รันผ่าน Docker ได้ทันที (ไม่ต้องติดตั้ง k6 ลงเครื่อง)
-  docker run --rm -i --net=host grafana/k6 run - < tests/nfr/k6-common-endpoints.js
+  bash tests/nfr/run-k6.sh baseline
   ```
 - **สิ่งที่ต้องแคปใน Terminal:**
-  - สรุปสถิติ `http_req_duration p(95)` (ต้องได้ < 2000ms โดยระบบจริงจะได้ ~20-50ms)
+  - สถิติ `http_req_duration p(95)` (< 2000ms)
   - `http_req_failed: 0.00%`
 
 ---
 
-### B. ทดสอบ 50 Concurrent Users Scalability [NFR-PF-03]
-- **ไฟล์สคริปต์:** `tests/nfr/k6-concurrency-50vu.js`
-- **เครื่องมือ:** Grafana k6
-- **คำสั่งรัน:**
+#### B. ทดสอบ 50 Concurrent Users Scalability (Load Test) [NFR-PF-03]
+- **ไฟล์สคริปต์:** `tests/nfr/k6/k6-concurrency-50vu.js`
+- **คำสั่งรันสั้นๆ:**
   ```bash
-  # วิธีที่ 1: ใช้ k6 ในเครื่อง
-  k6 run tests/nfr/k6-concurrency-50vu.js
-
-  # วิธีที่ 2: ผ่าน Docker
-  docker run --rm -i --net=host grafana/k6 run - < tests/nfr/k6-concurrency-50vu.js
+  bash tests/nfr/run-k6.sh concurrency
   ```
 - **สิ่งที่ต้องแคปใน Terminal:**
   - ข้อความแสดง `50 VUs completed`
@@ -61,9 +109,43 @@ bash tests/nfr/open-evidence-pages.sh
 
 ---
 
-### C. ทดสอบความปลอดภัย Role-Based Access Control (RBAC) [NFR-SEC-02]
+#### C. ทดสอบความทนทานและการลดทอนประสิทธิภาพ (Stress Test: 150 VUs)
+- **ไฟล์สคริปต์:** `tests/nfr/k6/k6-stress-test.js`
+- **วัตถุประสงค์:** ผลักดันโหลดขึ้นไป 3 เท่าของโหลดปกติ (0 → 50 → 100 → 150 VUs รวม 90 วินาที) ตรวจสอบความทนทานและ Recovery
+- **คำสั่งรันสั้นๆ:**
+  ```bash
+  bash tests/nfr/run-k6.sh stress
+  # หรือใช้ shorthand
+  pnpm test:stress
+  ```
+- **สิ่งที่ต้องแคปใน Terminal:**
+  - ตารางสรุป HTTP Request Duration และ Error Rate ที่โหลดสูงสุด 150 VUs (Threshold: error rate < 5%)
+
+---
+
+#### D. ทดสอบการรับมือคลื่น Traffic เฉียบพลัน (Spike Test: 10 → 150 VUs)
+- **ไฟล์สคริปต์:** `tests/nfr/k6/k6-spike-test.js`
+- **วัตถุประสงค์:** จำลองสถานการณ์ Traffic กระชากฉับพลันจาก 10 เป็น 150 VUs ภายใน 5 วินาที เพื่อดู Connection Queue และการดีดกลับสู่ Baseline Latency
+- **คำสั่งรันสั้นๆ:**
+  ```bash
+  bash tests/nfr/run-k6.sh spike
+  # หรือใช้ shorthand
+  pnpm test:spike
+  ```
+- **สิ่งที่ต้องแคปใน Terminal:**
+  - ผลลัพธ์แสดงการคงอยู่ของระบบโดยไม่มี Connection Reset เกินเกณฑ์ (Threshold: error rate < 5%)
+
+---
+
+#### E. รัน Performance Tests ทั้งหมดต่อเนื่องกันในครั้งเดียว:
+```bash
+bash tests/nfr/run-k6.sh all
+```
+
+---
+
+## 🔒 3. ทดสอบความปลอดภัย Role-Based Access Control (RBAC) [NFR-SEC-02]
 - **ไฟล์สคริปต์:** `tests/nfr/rbac-security-test.sh`
-- **เครื่องมือ:** Bash + cURL
 - **คำสั่งรัน:**
   ```bash
   bash tests/nfr/rbac-security-test.sh
@@ -72,12 +154,12 @@ bash tests/nfr/open-evidence-pages.sh
   - ผลลัพธ์แสดง `Test 1: HTTP 401 Unauthorized PASS`
   - `Test 2: Tampered Token HTTP 401 PASS`
   - `Test 3: Customer Role HTTP 403 Forbidden PASS`
+  - `Test 4: Admin Role HTTP 200 OK PASS`
 
 ---
 
-### D. ตรวจสอบ Mobile & Web Standards (Google Lighthouse) [NFR-OP-01, US-01]
+## 📱 4. ตรวจสอบ Mobile & Web Standards (Google Lighthouse) [NFR-OP-01, US-01]
 - **ไฟล์สคริปต์:** `tests/nfr/run-lighthouse.sh`
-- **เครื่องมือ:** Google Lighthouse
 - **คำสั่งรัน:**
   ```bash
   bash tests/nfr/run-lighthouse.sh
@@ -87,6 +169,6 @@ bash tests/nfr/open-evidence-pages.sh
 
 ---
 
-## 📄 3. นำภาพและผลรันไปวางในเล่มรายงาน
+## 📄 5. นำภาพและผลรันไปวางในเล่มรายงาน
 นำภาพ Screenshot และข้อความ Terminal Output ที่แคปได้ ไปแปะลงในไฟล์:
 👉 **[`docs/nfr-evidence/NFR_REPORT_TEMPLATE.md`](../docs/nfr-evidence/NFR_REPORT_TEMPLATE.md)**

@@ -67,13 +67,9 @@ open -a Safari http://localhost/rooms
 ### NFR-PF-01: Request Latency under Normal Load
 - **Objective:** Validate that common API endpoints respond within 2,000 ms.
 - **Execution Steps:**
-  1. Execute the k6 benchmark script:
+  1. Execute the k6 benchmark script via the unified runner:
      ```bash
-     # Local k6 installation:
-     k6 run tests/nfr/k6-common-endpoints.js
-
-     # Alternative via Docker:
-     docker run --rm -i --net=host grafana/k6 run - < tests/nfr/k6-common-endpoints.js
+     bash tests/nfr/run-k6.sh baseline
      ```
   2. Copy the resulting summary statistics (specifically `http_req_duration p(95)`) into Section 2 of `NFR_REPORT_TEMPLATE.md`.
   3. In Chrome Developer Tools, navigate to the **Network** tab, refresh `http://localhost/rooms`, and capture the timing waterfall. Save image as `docs/nfr-evidence/screenshots/pf01_network_waterfall.png`.
@@ -90,22 +86,26 @@ open -a Safari http://localhost/rooms
 
 ---
 
-### NFR-PF-03: Concurrency Scalability (50 Concurrent Users)
-- **Objective:** Demonstrate acceptable performance under 50 simultaneous virtual users.
+### NFR-PF-03: Concurrency Scalability, Stress, and Spike Tests
+- **Objective:** Demonstrate acceptable performance under 50 simultaneous virtual users, verify system degradation/recovery under 150 VUs stress, and evaluate sudden traffic surges.
 - **Execution Steps:**
-  1. Execute the concurrency test script:
+  1. **50 Concurrent Users Load Test:**
      ```bash
-     # Local k6:
-     k6 run tests/nfr/k6-concurrency-50vu.js
-
-     # Docker execution:
-     docker run --rm -i --net=host grafana/k6 run - < tests/nfr/k6-concurrency-50vu.js
+     bash tests/nfr/run-k6.sh concurrency
      ```
-  2. While the test executes, observe Kubernetes pod resource usage in a separate terminal:
+  2. **Stress Test (150 VUs Stepped Load):**
+     ```bash
+     bash tests/nfr/run-k6.sh stress
+     ```
+  3. **Spike Test (Flash Surge 10 → 150 VUs):**
+     ```bash
+     bash tests/nfr/run-k6.sh spike
+     ```
+  4. While testing, observe Kubernetes pod resource usage in a separate terminal:
      ```bash
      kubectl -n fishertimer top pods
      ```
-  3. Copy terminal outputs from both commands into Section 2 of `NFR_REPORT_TEMPLATE.md`.
+  5. Copy terminal outputs from these commands into Section 2 of `NFR_REPORT_TEMPLATE.md`.
 
 ---
 
