@@ -1,0 +1,32 @@
+@startuml c4_level3_admin
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+title Fisher Timer - Level 3: Component Diagram for Admin Service
+
+Container(web, "Web App (Admin pages)", "Next.js", "Calls /api/admin/* directly, bypassing the API Gateway")
+Container(session, "Study Session Service", "Go, HTTP", "Rooms and participants")
+ContainerDb(adminDb, "admin_db", "PostgreSQL 16", "admin_logs")
+
+Container_Boundary(ad, "Admin Service (Go, Hexagonal)") {
+    Component(auth, "Admin Auth Middleware", "Go, HMAC-SHA256 JWT", "RequireAdmin: verifies the session token itself and requires role = ADMIN, since the gateway is not in the path")
+    Component(http, "HTTP Handler", "Go net/http", "status, sessions, participants, session detail, kick, end, logs")
+    Component(usecase, "Admin Usecase", "Go (application layer)", "View sessions, participants and details, KickUser, EndSession (only for live rooms), ViewLogs. Writes an audit entry per action")
+    Component(sessionRepo, "Session Service Repository", "Go, HTTP client + discovery", "Read side: list active sessions, get session, list participants")
+    Component(sessionClient, "Session Client", "Go, HTTP client + discovery", "Write side: KickParticipant (leave, reason KICKED), CloseSession (end, reason ADMIN_CLOSED)")
+    Component(auditRepo, "Audit Log Repository", "Go, database/sql + lib/pq", "Persists KICK_USER and FORCE_CLOSE_SESSION entries")
+}
+
+Rel(web, auth, "/api/admin/*", "HTTP")
+Rel(auth, http, "Authenticated admin")
+Rel(http, usecase, "Calls")
+Rel(usecase, sessionRepo, "Monitor")
+Rel(usecase, sessionClient, "Moderate")
+Rel(usecase, auditRepo, "Audit")
+
+Rel(sessionRepo, session, "GET active, participants", "HTTP")
+Rel(sessionClient, session, "POST leave, end", "HTTP")
+Rel(auditRepo, adminDb, "Writes / reads", "SQL")
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,45 @@
+@startuml c4_level3_study_timer
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+AddRelTag("async", $textColor="#B8470A", $lineColor="#B8470A", $lineStyle=DashedLine(), $legendText="asynchronous (AMQP)")
+title Fisher Timer - Level 3: Component Diagram for Study Timer Service
+
+Container(gateway, "API Gateway", "Go", "REST to gRPC for timer actions")
+Container(account, "Account Service", "Go", "Reads timer statistics")
+Container(sessionSvc, "Study Session Service", "Go, gRPC", "Participant counts, room timers")
+Container(reward, "Reward Service", "Go, HTTP", "AwardReward")
+ContainerDb(timerDb, "timer_db", "PostgreSQL 16", "timers, cycles, processed_events")
+ContainerQueue(rabbit, "RabbitMQ", "AMQP", "Queue timer.session-events (DLQ: .dlq)")
+
+Container_Boundary(tm, "Study Timer Service (Go, Hexagonal)") {
+    Component(grpcH, "gRPC Handler", "grpc-go", "Start, Get, Pause, Resume, Stop, Reset, Complete, SkipRest, Settings, GetRoomTimers, GetTimerStatistics")
+    Component(httpH, "HTTP Handler", "Go net/http", "state, start, pause, resume, stop, reset, complete, skip-rest, setting, statistics")
+    Component(usecase, "Timer Usecase", "Go (application layer)", "Timer state machine (work / rest cycles) per participant per room, server-timestamp countdown, statistics, open / finalize timers on session events")
+    Component(domain, "Domain", "Go (entities + ports)", "Timer, Cycle, View, limits. Ports: Repository, RewardClient, SessionClient")
+    Component(sweeper, "Sweeper", "Go goroutine (ticker)", "Completes due cycles, discards cycles paused too long, retries PENDING reward deliveries")
+    Component(consumer, "AMQP Consumer", "Go, amqp091", "Consumes session.# events, reconnects with backoff, DLQ. Handles participant.joined, .left and session.ended idempotently")
+    Component(repo, "Postgres Repository", "Go, database/sql + lib/pq", "Timers, cycles and processed event ids. Finalize and event dedupe in one transaction")
+    Component(rewardClient, "Reward Client", "Go, HTTP client + discovery", "AwardReward with cycle_id, work_duration, participant_count. Bounded timeout")
+    Component(sessionClient, "Session Client", "gRPC client + discovery", "GetParticipants. Lazy connection, reward waits as PENDING while it is down")
+}
+
+Rel(gateway, grpcH, "Timer actions", "gRPC")
+Rel(account, httpH, "statistics", "HTTP")
+
+Rel(grpcH, usecase, "Calls")
+Rel(httpH, usecase, "Calls")
+Rel(usecase, domain, "Depends on (ports)")
+Rel(usecase, repo, "Reads / writes")
+Rel(usecase, rewardClient, "Deliver reward")
+Rel(usecase, sessionClient, "Participant count")
+Rel(sweeper, usecase, "Sweep()")
+Rel(consumer, usecase, "Open / Finalize timers")
+
+Rel(repo, timerDb, "Reads / writes", "SQL")
+Rel(rewardClient, reward, "POST award", "HTTP")
+Rel(sessionClient, sessionSvc, "GetParticipants", "gRPC")
+Rel(rabbit, consumer, "session.participant.joined / .left, session.ended", "AMQP", $tags="async")
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,33 @@
+@startuml c4_level3_reward
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+title Fisher Timer - Level 3: Component Diagram for Reward Service
+
+Container(gateway, "API Gateway", "Go", "Reverse proxy /api/reward")
+Container(timer, "Study Timer Service", "Go", "Awards a fish per completed cycle")
+Container(account, "Account Service", "Go", "Shows earned fish on profile")
+Container(leaderboard, "Leaderboard Service", "Go", "Reads all rewards and last update")
+ContainerDb(rewardDb, "reward_db", "MongoDB 7", "reward_items, user_rewards")
+
+Container_Boundary(rw, "Reward Service (Go, Hexagonal)") {
+    Component(http, "HTTP Handler", "Go net/http", "award, rewards, all-rewards, last-update")
+    Component(usecase, "Reward Usecase", "Go (application layer)", "AwardReward (idempotent by cycle_id), user inventory, list all rewards, last-update timestamp")
+    Component(calc, "Rarity Calculation", "Go (domain)", "Rarity table buffed by participant count and work duration, random roll is injectable for tests")
+    Component(mongo, "Mongo Repository", "Go, mongo-driver v2", "Catalog items and user catches")
+    Component(memory, "In-Memory Repository", "Go", "Seeded fallback when MongoDB is unreachable at startup")
+}
+
+Rel(gateway, http, "/api/v1/reward/*", "HTTP")
+Rel(timer, http, "POST award", "HTTP")
+Rel(account, http, "GET rewards", "HTTP")
+Rel(leaderboard, http, "GET all-rewards, last-update", "HTTP")
+
+Rel(http, usecase, "Calls")
+Rel(usecase, calc, "Roll rarity")
+Rel(usecase, mongo, "Normal mode")
+Rel(usecase, memory, "Fallback mode")
+Rel(mongo, rewardDb, "Reads / writes", "MongoDB wire protocol")
+
+SHOW_LEGEND()
+@enduml

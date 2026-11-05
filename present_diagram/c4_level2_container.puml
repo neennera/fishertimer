@@ -1,0 +1,84 @@
+@startuml c4_level2_container
+!include <C4/C4_Container>
+
+LAYOUT_WITH_LEGEND()
+AddElementTag("optional", $bgColor="#EEEEEE", $fontColor="#333333", $borderColor="#999999", $legendText="optional (DISCOVERY_MODE=consul)")
+AddRelTag("async", $textColor="#B8470A", $lineColor="#B8470A", $lineStyle=DashedLine(), $legendText="asynchronous (AMQP)")
+AddRelTag("discovery", $textColor="#888888", $lineColor="#AAAAAA", $lineStyle=DottedLine(), $legendText="service registration / lookup")
+
+title Fisher Timer - Level 2: Container Diagram
+
+Person(student, "Student", "Joins study rooms, runs a Pomodoro-style timer, collects fish rewards, views the leaderboard")
+Person(adminUser, "Administrator", "Monitors active rooms, kicks participants, force-closes rooms")
+System_Ext(google, "Google OAuth 2.0", "Identity provider used for sign-in / sign-up")
+
+System_Boundary(ft, "Fisher Timer (Go microservices + Next.js, Docker Compose / Kubernetes)") {
+
+    Container(web, "Web App", "Next.js / TypeScript, :3000", "Student UI and Admin UI. Next.js rewrites forward /api/* to the API Gateway and /api/admin/* to the Admin Service")
+
+    Container(gateway, "API Gateway", "Go, :8000", "Single entry point for the client. Verifies session JWT, forwards X-User-Id / X-User-Role / X-Display-Name. Reverse-proxies REST, translates REST to gRPC")
+
+    Container(account, "Account Service", "Go, :8082", "Google OAuth sign-in/up, session JWT, profiles, personal statistics and reward summary")
+    Container(session, "Study Session Service", "Go, HTTP :8083 / gRPC :50052", "Room lifecycle (create/join/leave/end), capacity, one room per user, heartbeats, auto-removal. Transactional outbox")
+    Container(timer, "Study Timer Service", "Go, HTTP :8084 / gRPC :50051", "Per-participant timer state machine, server-side countdown, sweeper, reward delivery with retry")
+    Container(reward, "Reward Service", "Go, :8085", "Fish drops (rarity buffed by participant count), user inventory, reward change timestamp")
+    Container(leaderboard, "Leaderboard Service", "Go, :8086", "Weekly / monthly / all-time ranking, cached and invalidated by reward timestamp")
+    Container(admin, "Admin Service", "Go, :8087", "Admin-only moderation API (JWT role = ADMIN), audited kick / close actions")
+
+    ContainerDb(accountDb, "account_db", "PostgreSQL 16", "users")
+    ContainerDb(sessionDb, "session_db", "PostgreSQL 16", "study_sessions, session_participants, event_outbox")
+    ContainerDb(timerDb, "timer_db", "PostgreSQL 16", "timers, cycles, processed_events")
+    ContainerDb(rewardDb, "reward_db", "MongoDB 7", "reward_items, user_rewards")
+    ContainerDb(adminDb, "admin_db", "PostgreSQL 16", "admin_logs (audit trail)")
+    ContainerDb(redis, "Redis cache", "Redis 7", "Cached leaderboard rankings")
+
+    ContainerQueue(rabbit, "RabbitMQ", "RabbitMQ 3, AMQP :5672", "Exchanges fisher.session and fisher.account (topic) with dead-letter exchanges / DLQs")
+
+    Container(consul, "Consul", "HashiCorp Consul 1.21, :8500", "Optional service registry with health checks. All 7 Go services register; callers look up healthy instances", $tags="optional")
+}
+
+' ---- Users and external systems ----
+Rel(student, web, "Uses", "HTTPS")
+Rel(adminUser, web, "Uses admin pages", "HTTPS")
+Rel(account, google, "Exchanges auth code, reads user info", "HTTPS / OAuth 2.0")
+
+' ---- Web to backend ----
+Rel(web, gateway, "/api/*", "HTTP / JSON (Next.js rewrites)")
+Rel(web, admin, "/api/admin/*", "HTTP / JSON (Next.js rewrites)")
+
+' ---- Gateway to services ----
+Rel(gateway, account, "/api/account, /api/auth", "HTTP reverse proxy")
+Rel(gateway, reward, "/api/reward", "HTTP reverse proxy")
+Rel(gateway, leaderboard, "/api/leaderboard", "HTTP reverse proxy")
+Rel(gateway, timer, "/api/timer/* as Start, Pause, Resume, Stop ...", "gRPC")
+Rel(gateway, session, "/api/session/* as Create, Join, Leave, Heartbeat ...", "gRPC")
+
+' ---- Service to service (synchronous) ----
+Rel(account, timer, "Fetches timer statistics", "HTTP / JSON")
+Rel(account, reward, "Fetches earned fish (ViewRewards)", "HTTP / JSON")
+Rel(timer, reward, "AwardReward per completed work cycle (idempotent by cycle_id)", "HTTP / JSON")
+Rel(timer, session, "GetParticipants (participant count for reward)", "gRPC")
+Rel(session, timer, "GetRoomTimers (idle detection)", "gRPC")
+Rel(leaderboard, reward, "ViewAllRewards, GetLastUpdate", "HTTP / JSON")
+Rel(admin, session, "List active rooms, participants, kick (leave), close (end)", "HTTP / JSON")
+
+' ---- Asynchronous events ----
+Rel(session, rabbit, "Publishes participant.joined / .left, session.ended (via outbox relay)", "AMQP", $tags="async")
+Rel(rabbit, timer, "Delivers timer.session-events", "AMQP", $tags="async")
+Rel(account, rabbit, "Publishes profile.updated", "AMQP", $tags="async")
+Rel(rabbit, session, "Delivers session.profile-events", "AMQP", $tags="async")
+Rel(rabbit, leaderboard, "Delivers leaderboard.profile-events", "AMQP", $tags="async")
+
+' ---- Data stores (database per service) ----
+Rel(account, accountDb, "Reads / writes", "SQL")
+Rel(session, sessionDb, "Reads / writes", "SQL")
+Rel(timer, timerDb, "Reads / writes", "SQL")
+Rel(reward, rewardDb, "Reads / writes", "MongoDB wire protocol")
+Rel(admin, adminDb, "Writes audit logs", "SQL")
+Rel(leaderboard, redis, "Reads / writes cached rankings", "RESP")
+
+' ---- Service discovery (optional) ----
+Rel(gateway, consul, "All Go services register and look up peers", "HTTP", $tags="discovery")
+
+SHOW_LEGEND()
+@enduml

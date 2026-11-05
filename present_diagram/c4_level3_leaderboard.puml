@@ -1,0 +1,34 @@
+@startuml c4_level3_leaderboard
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+AddRelTag("async", $textColor="#B8470A", $lineColor="#B8470A", $lineStyle=DashedLine(), $legendText="asynchronous (AMQP)")
+title Fisher Timer - Level 3: Component Diagram for Leaderboard Service
+
+Container(gateway, "API Gateway", "Go", "Reverse proxy /api/leaderboard")
+Container(reward, "Reward Service", "Go, HTTP", "Source of truth for catches")
+ContainerDb(redis, "Redis cache", "Redis 7", "Cached rankings per period")
+ContainerQueue(rabbit, "RabbitMQ", "AMQP", "Queue leaderboard.profile-events (DLQ: .dlq)")
+
+Container_Boundary(lb, "Leaderboard Service (Go, Hexagonal)") {
+    Component(http, "HTTP Handler", "Go net/http", "leaderboard (weekly, monthly, all-time), rankings, CORS")
+    Component(usecase, "Leaderboard Usecase", "Go (application layer)", "Cache check by comparing reward last-update with last fetch, recompute on mismatch, tier score, tie-break by earliest award, serves stale cache if Reward is down")
+    Component(redisRepo, "Redis Repository", "Go, go-redis", "Stores cached rankings and fetch timestamps")
+    Component(memoryRepo, "In-Memory Repository", "Go", "Fallback when Redis is unreachable at startup")
+    Component(rewardClient, "Reward Client", "Go, HTTP client + discovery", "GetLastUpdate, ViewAllRewards")
+    Component(profileConsumer, "Profile Consumer", "Go, amqp091", "Consumes profile.updated with backoff and DLQ, calls RenameUser so new names show without recompute")
+}
+
+Rel(gateway, http, "/api/v1/leaderboard/*", "HTTP")
+Rel(http, usecase, "Calls")
+Rel(usecase, redisRepo, "Normal mode")
+Rel(usecase, memoryRepo, "Fallback mode")
+Rel(usecase, rewardClient, "Freshness check and data")
+Rel(profileConsumer, usecase, "RenameUser")
+
+Rel(redisRepo, redis, "Get / set ranking", "RESP")
+Rel(rewardClient, reward, "GET last-update, all-rewards", "HTTP")
+Rel(rabbit, profileConsumer, "profile.updated", "AMQP", $tags="async")
+
+SHOW_LEGEND()
+@enduml

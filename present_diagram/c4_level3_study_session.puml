@@ -1,0 +1,46 @@
+@startuml c4_level3_study_session
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+AddRelTag("async", $textColor="#B8470A", $lineColor="#B8470A", $lineStyle=DashedLine(), $legendText="asynchronous (AMQP)")
+title Fisher Timer - Level 3: Component Diagram for Study Session Service
+
+Container(gateway, "API Gateway", "Go", "REST to gRPC for room actions")
+Container(admin, "Admin Service", "Go", "Kick / close rooms, monitoring")
+Container(timer, "Study Timer Service", "Go, gRPC", "Calls GetParticipants, serves GetRoomTimers")
+ContainerDb(sessionDb, "session_db", "PostgreSQL 16", "study_sessions, session_participants, event_outbox")
+ContainerQueue(rabbit, "RabbitMQ", "AMQP", "fisher.session and fisher.account exchanges")
+
+Container_Boundary(ss, "Study Session Service (Go, Hexagonal)") {
+    Component(grpcH, "gRPC Handler", "grpc-go", "StudySessionService: create, join, leave, heartbeat, get, participants. Reflection enabled outside production")
+    Component(httpH, "HTTP Handler", "Go net/http", "create, join, leave, end, active, participants")
+    Component(usecase, "Session Usecase", "Go (application layer)", "Room lifecycle, atomic capacity, one active room per user, heartbeat, rename participant. Builds outbox events")
+    Component(sweeper, "Room Sweeper", "Go goroutine", "Ends rooms older than 24h, removes disconnected participants, removes idle participants")
+    Component(relay, "Outbox Relay", "Go goroutine", "Polls pending outbox rows, publishes, marks published or failed")
+    Component(repo, "Postgres Repository", "Go, database/sql + lib/pq", "Room, participant and outbox persistence. State change and outbox event in one transaction")
+    Component(publisher, "AMQP Publisher", "Go, amqp091", "Publishes session.* events, lazy dial, survives broker downtime")
+    Component(profileConsumer, "Profile Consumer", "Go, amqp091", "Consumes profile.updated from session.profile-events, backoff and DLQ, renames the participant in active rooms")
+    Component(timerClient, "Timer Client", "gRPC client + discovery", "GetRoomTimers for idle detection")
+}
+
+Rel(gateway, grpcH, "Create, Join, Leave, Heartbeat, Get*", "gRPC")
+Rel(timer, grpcH, "GetParticipants", "gRPC")
+Rel(admin, httpH, "active, participants, leave, end", "HTTP")
+
+Rel(grpcH, usecase, "Calls")
+Rel(httpH, usecase, "Calls")
+Rel(usecase, repo, "Reads / writes")
+Rel(sweeper, usecase, "LeaveSession / EndSession")
+Rel(sweeper, repo, "Lists stale participants and old rooms")
+Rel(sweeper, timerClient, "Room activity")
+Rel(relay, repo, "PendingEvents, Mark*")
+Rel(relay, publisher, "Publish")
+Rel(profileConsumer, usecase, "RenameParticipant")
+
+Rel(repo, sessionDb, "Reads / writes", "SQL")
+Rel(publisher, rabbit, "session.participant.joined / .left, session.ended", "AMQP", $tags="async")
+Rel(rabbit, profileConsumer, "profile.updated", "AMQP", $tags="async")
+Rel(timerClient, timer, "GetRoomTimers", "gRPC")
+
+SHOW_LEGEND()
+@enduml

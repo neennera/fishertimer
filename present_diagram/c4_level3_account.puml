@@ -1,0 +1,44 @@
+@startuml c4_level3_account
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+AddRelTag("async", $textColor="#B8470A", $lineColor="#B8470A", $lineStyle=DashedLine(), $legendText="asynchronous (AMQP)")
+title Fisher Timer - Level 3: Component Diagram for Account Service
+
+Container(gateway, "API Gateway", "Go", "Proxies /api/account and /api/auth")
+System_Ext(google, "Google OAuth 2.0", "Identity provider")
+Container(timer, "Study Timer Service", "Go, HTTP", "Timer statistics")
+Container(reward, "Reward Service", "Go, HTTP", "User inventory")
+ContainerDb(accountDb, "account_db", "PostgreSQL 16", "users")
+ContainerQueue(rabbit, "RabbitMQ", "AMQP", "fisher.account exchange")
+
+Container_Boundary(acc, "Account Service (Go, Hexagonal)") {
+    Component(http, "HTTP Handler", "Go net/http", "google/login, google/callback, signup, signup/pending, signout, me, update-profile, profile, statistics, rewards. Session cookie handling")
+    Component(usecase, "Account Usecase", "Go (application layer)", "Sign-in / sign-up flow, display-name validation, session issuing, profile update, statistics and reward summary aggregation")
+    Component(domain, "Domain", "Go (entities + ports)", "UserAccount, Session, SignInResult, ports: Repository, OAuthProvider, TokenService, TimerClient, RewardClient, EventPublisher")
+    Component(oauth, "Google OAuth Adapter", "Go", "Builds the sign-in URL, exchanges the code, reads user info")
+    Component(token, "JWT Token Service", "Go, HMAC-SHA256", "Issues and verifies session and pending-sign-up tokens")
+    Component(repo, "Postgres Repository", "Go, database/sql + lib/pq", "Persists user accounts")
+    Component(timerClient, "Timer Client", "Go, HTTP client + discovery", "Fetches TimerStatistics")
+    Component(rewardClient, "Reward Client", "Go, HTTP client + discovery", "Fetches ViewRewards")
+    Component(publisher, "AMQP Event Publisher", "Go, amqp091", "Publishes profile.updated asynchronously with retry, dials lazily. Declares topology incl. consumer queues and DLQs")
+}
+
+Rel(gateway, http, "REST", "HTTP")
+Rel(http, usecase, "Calls")
+Rel(usecase, domain, "Depends on (ports)")
+Rel(usecase, oauth, "Sign-in")
+Rel(usecase, token, "Issue / verify token")
+Rel(usecase, repo, "Find / save user")
+Rel(usecase, timerClient, "Statistics")
+Rel(usecase, rewardClient, "Rewards")
+Rel(usecase, publisher, "Profile renamed")
+
+Rel(oauth, google, "Token + userinfo", "HTTPS")
+Rel(repo, accountDb, "Reads / writes", "SQL")
+Rel(timerClient, timer, "GET statistics", "HTTP")
+Rel(rewardClient, reward, "GET rewards", "HTTP")
+Rel(publisher, rabbit, "profile.updated", "AMQP", $tags="async")
+
+SHOW_LEGEND()
+@enduml

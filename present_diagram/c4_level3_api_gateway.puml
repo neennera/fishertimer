@@ -1,0 +1,43 @@
+@startuml c4_level3_api_gateway
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+AddRelTag("discovery", $textColor="#888888", $lineColor="#AAAAAA", $lineStyle=DottedLine(), $legendText="service registration / lookup")
+title Fisher Timer - Level 3: Component Diagram for API Gateway
+
+Container(web, "Web App", "Next.js", "Calls /api/* through Next.js rewrites")
+Container(account, "Account Service", "Go, HTTP", "Auth and profiles")
+Container(reward, "Reward Service", "Go, HTTP", "Fish rewards")
+Container(leaderboard, "Leaderboard Service", "Go, HTTP", "Rankings")
+Container(timer, "Study Timer Service", "Go, gRPC :50051", "Timer state machine")
+Container(session, "Study Session Service", "Go, gRPC :50052", "Study rooms")
+Container(consul, "Consul", "Service registry", "Optional peer lookup")
+
+Container_Boundary(gw, "API Gateway (Go)") {
+    Component(identity, "Identity Middleware", "Go, HMAC-SHA256 JWT", "Reads ft_session cookie or Bearer token, verifies it and attaches X-User-Id / X-User-Role / X-Display-Name. Passthrough only, never rejects")
+    Component(router, "Gateway Handler", "Go net/http", "Route table for /api/account, /auth, /timer, /session, /leaderboard, /reward. CORS, /health, /status, /whoami")
+    Component(proxy, "Reverse Proxies", "httputil.ReverseProxy", "Rewrites /api/<name>/... to /api/v1/<name>/... for Account, Reward and Leaderboard")
+    Component(timerH, "Timer Handler", "Go", "REST to gRPC translation for timer actions, acts as the signed-in user, maps gRPC codes to HTTP status")
+    Component(sessionH, "Session Handler", "Go", "REST to gRPC translation for room actions and heartbeat, acts as the signed-in user")
+    Component(grpcClients, "gRPC Clients", "grpc-go + discovery resolver", "StudyTimerServiceClient and StudySessionServiceClient, round_robin over healthy instances")
+}
+
+Rel(web, identity, "HTTP /api/*")
+Rel(identity, router, "Request + identity headers")
+Rel(router, proxy, "account, auth, reward, leaderboard")
+Rel(router, timerH, "/api/timer/*")
+Rel(router, sessionH, "/api/session/*")
+Rel(timerH, grpcClients, "Uses")
+Rel(sessionH, grpcClients, "Uses")
+
+Rel(proxy, account, "Proxies", "HTTP")
+Rel(proxy, reward, "Proxies", "HTTP")
+Rel(proxy, leaderboard, "Proxies", "HTTP")
+Rel(grpcClients, timer, "Calls", "gRPC")
+Rel(grpcClients, session, "Calls", "gRPC")
+
+Rel(proxy, consul, "Looks up healthy instances", "HTTP", $tags="discovery")
+Rel(grpcClients, consul, "discovery:///<service>-grpc", "HTTP", $tags="discovery")
+
+SHOW_LEGEND()
+@enduml
