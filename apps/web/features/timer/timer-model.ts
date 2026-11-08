@@ -114,6 +114,7 @@ export function predict(
       if (view !== 'rest-ready' && view !== 'rest' && view !== 'rest-paused') return null;
       return readyAgain();
     case 'complete':
+    case 'finish-now-demo':
       return null; // only the server decides; never predicted
   }
 }

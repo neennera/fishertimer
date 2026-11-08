@@ -6,6 +6,7 @@
 // there is no session cookie (mock auth in development), so it is always sent.
 
 import { apiFetch } from '../../lib/api-client';
+import { clientApiFetch } from '../../lib/client-api';
 
 export type TimerStatus = 'STOPPED' | 'RUNNING' | 'PAUSED';
 export type TimerPhase = 'WORK' | 'REST';
@@ -55,7 +56,7 @@ export interface TimerOwner {
   userId: string;
 }
 
-export type TimerAction = 'start' | 'pause' | 'resume' | 'stop' | 'reset' | 'complete' | 'skip-rest';
+export type TimerAction = 'start' | 'pause' | 'resume' | 'stop' | 'reset' | 'complete' | 'skip-rest' | 'finish-now-demo';
 
 export interface StartOptions {
   phase?: TimerPhase;
@@ -82,7 +83,8 @@ export function runTimerAction(
   { sessionId, userId }: TimerOwner,
   options: StartOptions = {},
 ): Promise<TimerState> {
-  return apiFetch<TimerState>('timer', action, {
+  const request = action === 'finish-now-demo' ? clientApiFetch<TimerState> : apiFetch<TimerState>;
+  return request('timer', action, {
     method: 'POST',
     body: JSON.stringify({
       session_id: sessionId,

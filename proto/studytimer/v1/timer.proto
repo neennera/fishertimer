@@ -34,6 +34,8 @@ service StudyTimerService {
   // Completes the active cycle once its time is really up (server-checked,
   // idempotent). The server also completes cycles on its own.
   rpc CompleteCycle(CompleteCycleRequest) returns (TimerStateResponse);
+  // Demo only: make the caller's running work cycle due, then complete it normally.
+  rpc FinishNowDemo(FinishNowDemoRequest) returns (TimerStateResponse);
   // Skips the rest period, running or not yet started.
   rpc SkipRest(SkipRestRequest) returns (TimerStateResponse);
   rpc UpdateTimerSetting(UpdateTimerSettingRequest) returns (TimerStateResponse);
@@ -88,6 +90,11 @@ message ResetTimerRequest {
 }
 
 message CompleteCycleRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message FinishNowDemoRequest {
   string session_id = 1;
   string user_id = 2;
 }

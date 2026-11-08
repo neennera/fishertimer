@@ -87,6 +87,45 @@ func TestNewTimerIsReadyWithDefaults(t *testing.T) {
 	}
 }
 
+func TestFinishNowDemo_CompletesThroughNormalRewardPath(t *testing.T) {
+	t.Setenv("DEMO_MODE", "true")
+	f := newFixture()
+	started := f.start(t, domain.PhaseWork, 15)
+	f.advance(time.Second)
+	v, err := f.uc.FinishNowDemo(context.Background(), room, alice)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.State != domain.StateReadyForRest || v.LastCompletedID != started.CycleID || len(f.rewards.sent) != 1 {
+		t.Fatalf("completion or reward missing: view=%+v rewards=%+v", v, f.rewards.sent)
+	}
+	if got := f.rewards.sent[0]; got.WorkMinutes != 15 || got.ParticipantCount != 3 || got.UserID != alice {
+		t.Fatalf("award input = %+v", got)
+	}
+	cycle, err := f.repo.GetTimer(context.Background(), room, alice)
+	if err != nil || cycle.LastCompletedWork == nil || cycle.LastCompletedWork.RewardStatus != domain.RewardSent {
+		t.Fatalf("reward status: timer=%+v err=%v", cycle, err)
+	}
+	if _, err := f.uc.FinishNowDemo(context.Background(), room, alice); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("second finish = %v, want conflict", err)
+	}
+}
+
+func TestFinishNowDemo_OffAndWrongUser(t *testing.T) {
+	t.Setenv("DEMO_MODE", "false")
+	f := newFixture()
+	f.start(t, domain.PhaseWork, 15)
+	if _, err := f.uc.FinishNowDemo(context.Background(), room, alice); !errors.Is(err, domain.ErrDemoDisabled) {
+		t.Fatalf("disabled finish = %v", err)
+	}
+	t.Setenv("DEMO_MODE", "true")
+	f = newFixture()
+	f.start(t, domain.PhaseWork, 15)
+	if _, err := f.uc.FinishNowDemo(context.Background(), room, "bbbbbbbb-0000-4000-8000-000000000002"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("other user's finish = %v", err)
+	}
+}
+
 func TestStart_ValidatesDurationAndIgnoresDuplicates(t *testing.T) {
 	f := newFixture()
 	ctx := context.Background()

@@ -47,7 +47,7 @@ const APP_TITLE = "Fisher Timer";
  * shown before Study Session moves an idle user out (UC-05 E-8).
  */
 export function TimerPanel({ owner, joinedAt }: { owner: TimerOwner; joinedAt?: string }) {
-  const { timer, view, remainingMs, progress, error, completed, dismissCompleted, run, refresh } = useStudyTimer(owner);
+  const { timer, view, remainingMs, progress, error, completed, dismissCompleted, run, finishNowDemo, refresh } = useStudyTimer(owner);
   const [workChoice, setWorkChoice] = useState<number | null>(null);
   const [restChoice, setRestChoice] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -241,6 +241,11 @@ export function TimerPanel({ owner, joinedAt }: { owner: TimerOwner; joinedAt?: 
                 Stop
               </PixelButton>
             </>
+          )}
+          {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && timer?.user_id === owner.userId && timer?.state === "WORK_RUNNING" && (
+            <PixelButton variant="ghost" onClick={finishNowDemo}>
+              Finish now (demo)
+            </PixelButton>
           )}
           {(view === "rest-ready" || view === "rest" || view === "rest-paused") && (
             <PixelButton variant="ghost" onClick={() => run("skip-rest")}>

@@ -19,7 +19,8 @@ var (
 	ErrNotFinished = errors.New("study-timer: the cycle has time left")
 	// ErrConflict is returned by the repository when a cycle changed under
 	// an update (another request got there first).
-	ErrConflict = errors.New("study-timer: the timer changed concurrently")
+	ErrConflict     = errors.New("study-timer: the timer changed concurrently")
+	ErrDemoDisabled = errors.New("study-timer: demo mode is disabled")
 )
 
 type TimerPhase string

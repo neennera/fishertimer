@@ -41,3 +41,6 @@ services:
   admin:
     ports:
       - "8087:8087"
+  reward:
+    ports:
+      - "8085:8085"

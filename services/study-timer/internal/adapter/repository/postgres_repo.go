@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
 	"strconv"
 	"time"
 
@@ -102,18 +103,23 @@ func (r *PostgresRepository) GetTimer(ctx context.Context, sessionID, userID str
 		return nil, err
 	}
 
-	// Work done during this stay: cycles started since the timer was
-	// (re)opened, so a rejoin starts the room summary from zero.
+	// Demo cycles have a backdated start but complete during this stay.
+	completedInStay := "started_at >= $2"
+	if os.Getenv("DEMO_MODE") == "true" {
+		completedInStay = "(started_at >= $2 OR ended_at >= $2)"
+	}
+	// Work done during this stay: normally only cycles started since the
+	// timer was (re)opened, so a rejoin starts the room summary from zero.
 	if err := r.db.QueryRowContext(ctx, `
 		SELECT COUNT(*), COALESCE(SUM(duration_sec), 0) FROM cycles
-		WHERE timer_id = $1 AND type = 'WORK' AND status = 'COMPLETED' AND started_at >= $2`,
+		WHERE timer_id = $1 AND type = 'WORK' AND status = 'COMPLETED' AND `+completedInStay,
 		t.TimerID, t.OpenedAt,
 	).Scan(&t.CompletedWork, &t.FocusSeconds); err != nil {
 		return nil, err
 	}
 	if t.LastCompletedWork, err = optionalCycle(scanCycle(r.db.QueryRowContext(ctx, `
 		SELECT `+cycleColumns+` FROM cycles c
-		WHERE c.timer_id = $1 AND c.type = 'WORK' AND c.status = 'COMPLETED' AND c.started_at >= $2
+		WHERE c.timer_id = $1 AND c.type = 'WORK' AND c.status = 'COMPLETED' AND `+completedInStay+`
 		ORDER BY c.ended_at DESC LIMIT 1`, t.TimerID, t.OpenedAt))); err != nil {
 		return nil, err
 	}

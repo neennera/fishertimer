@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ClientApiError } from "../../lib/client-api";
 import {
   getTimer,
   runTimerAction,
@@ -32,6 +33,7 @@ export interface StudyTimer {
   dismissCompleted: () => void;
   /** Applies the action on screen at once, then confirms it with the server. */
   run: (action: TimerAction, options?: StartOptions) => void;
+  finishNowDemo: () => void;
   /** Re-reads the server, e.g. after the settings changed. */
   refresh: () => Promise<void>;
 }
@@ -111,10 +113,16 @@ export function useStudyTimer(owner: TimerOwner): StudyTimer {
         try {
           const state = await runTimerAction(action, { sessionId, userId }, options);
           if (inFlight.current === 1) accept(state);
-        } catch {
+        } catch (err) {
           // Undo the prediction by showing what the server really has.
           await load();
-          if (failureMessage) setError(failureMessage);
+          if (action === "finish-now-demo" && err instanceof ClientApiError) {
+            if (err.status === 401) setError("Sign in again as the account running this timer, then try Finish now (demo).");
+            else if (err.status === 404) setError("This signed-in account does not own the running timer. Sign in as the room participant.");
+            else if (err.status === 403) setError("Demo mode is off for the timer service.");
+            else if (err.status === 409) setError("There is no running focus block to finish. Refresh the room and start one.");
+            else if (failureMessage) setError(failureMessage);
+          } else if (failureMessage) setError(failureMessage);
         } finally {
           inFlight.current -= 1;
         }
@@ -134,6 +142,11 @@ export function useStudyTimer(owner: TimerOwner): StudyTimer {
     },
     [send, show],
   );
+
+  const finishNowDemo = useCallback(() => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true" || readingRef.current?.state.state !== "WORK_RUNNING") return;
+    send("finish-now-demo", undefined, "Couldn't finish this focus block — showing the timer's latest state.");
+  }, [send]);
 
   // Load once, again whenever the tab comes back into view, and every 15s.
   useEffect(() => {
@@ -188,6 +201,7 @@ export function useStudyTimer(owner: TimerOwner): StudyTimer {
     completed,
     dismissCompleted: () => setCompleted(null),
     run,
+    finishNowDemo,
     refresh,
   };
 }

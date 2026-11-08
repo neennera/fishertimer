@@ -71,6 +71,10 @@ func (f *fakeTimerClient) CompleteCycle(ctx context.Context, in *timerv1.Complet
 	return f.reply("CompleteCycle", in.GetSessionId(), in.GetUserId())
 }
 
+func (f *fakeTimerClient) FinishNowDemo(ctx context.Context, in *timerv1.FinishNowDemoRequest, _ ...grpc.CallOption) (*timerv1.TimerStateResponse, error) {
+	return f.reply("FinishNowDemo", in.GetSessionId(), in.GetUserId())
+}
+
 func (f *fakeTimerClient) SkipRest(ctx context.Context, in *timerv1.SkipRestRequest, _ ...grpc.CallOption) (*timerv1.TimerStateResponse, error) {
 	return f.reply("SkipRest", in.GetSessionId(), in.GetUserId())
 }
@@ -104,6 +108,22 @@ func TestTimerHandler_ActionsCallMatchingRPC(t *testing.T) {
 				t.Fatalf("called %s with %v, want %s with [demo u1]", client.lastCall, client.lastIDs, rpc)
 			}
 		})
+	}
+}
+
+func TestTimerHandler_FinishNowDemoRequiresVerifiedIdentity(t *testing.T) {
+	client := &fakeTimerClient{}
+	h := handler.NewTimerHandler(client, true)
+	body := `{"session_id":"room","user_id":"spoofed"}`
+	if rec := serve(h, http.MethodPost, "/api/timer/finish-now-demo", body); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unsigned demo request status = %d, want 401", rec.Code)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/timer/finish-now-demo", strings.NewReader(body))
+	req.Header.Set(middleware.HeaderUserID, "signed-in")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || client.lastCall != "FinishNowDemo" || client.lastIDs != [2]string{"room", "signed-in"} {
+		t.Fatalf("verified demo request status=%d call=%s ids=%v", rec.Code, client.lastCall, client.lastIDs)
 	}
 }
 

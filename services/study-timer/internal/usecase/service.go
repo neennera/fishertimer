@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"os"
 	"time"
 
 	"github.com/neennera/fishertimer/services/study-timer/internal/domain"
@@ -29,6 +30,7 @@ type Usecase interface {
 	ResetTimer(ctx context.Context, sessionID, userID string) (*domain.View, error)
 	// CompleteCycle completes the active cycle if its time is really up.
 	CompleteCycle(ctx context.Context, sessionID, userID string) (*domain.View, error)
+	FinishNowDemo(ctx context.Context, sessionID, userID string) (*domain.View, error)
 	// SkipRest ends a running rest period, or skips one not yet started.
 	SkipRest(ctx context.Context, sessionID, userID string) (*domain.View, error)
 	// UpdateTimerSetting saves the user's default lengths. sessionID is
@@ -53,6 +55,7 @@ type service struct {
 	sessions domain.SessionClient // optional; nil counts the room as 1
 	limits   domain.Limits
 	now      func() time.Time
+	demoMode bool
 }
 
 // Option customises the usecase service.
@@ -75,10 +78,11 @@ func WithSessionClient(c domain.SessionClient) Option {
 
 func New(repo domain.Repository, rewards domain.RewardClient, opts ...Option) Usecase {
 	s := &service{
-		repo:    repo,
-		rewards: rewards,
-		limits:  domain.DefaultLimits,
-		now:     func() time.Time { return time.Now().UTC() },
+		repo:     repo,
+		rewards:  rewards,
+		limits:   domain.DefaultLimits,
+		now:      func() time.Time { return time.Now().UTC() },
+		demoMode: os.Getenv("DEMO_MODE") == "true",
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -203,6 +207,9 @@ func (s *service) deliver(ctx context.Context, ref domain.CycleRef) {
 	if err != nil {
 		log.Printf("study-timer: reward for cycle %s waits: %v", ref.CycleID, err)
 		return
+	}
+	if s.demoMode {
+		log.Printf("study-timer: demo cycle %s awarded with participant_count=%d", ref.CycleID, max(room.ParticipantCount, 1))
 	}
 	if err := s.repo.MarkRewardSent(ctx, ref.CycleID); err != nil {
 		log.Printf("study-timer: mark reward of cycle %s sent: %v", ref.CycleID, err)
@@ -380,6 +387,36 @@ func (s *service) CompleteCycle(ctx context.Context, sessionID, userID string) (
 		}
 		return domain.ErrNotFinished
 	})
+}
+
+// FinishNowDemo only advances the caller's running work cycle to its due time.
+// The ordinary settle path completes it and delivers its reward.
+func (s *service) FinishNowDemo(ctx context.Context, sessionID, userID string) (*domain.View, error) {
+	if !s.demoMode {
+		return nil, domain.ErrDemoDisabled
+	}
+	if !isUUID(sessionID) || !isUUID(userID) {
+		return nil, domain.ErrInvalid
+	}
+	t, err := s.repo.GetTimer(ctx, sessionID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if t.Status != domain.SessionTimerOpen {
+		return nil, domain.ErrTimerClosed
+	}
+	if t.Active == nil || t.Active.Type != domain.PhaseWork || t.Active.Status != domain.CycleRunning {
+		return nil, domain.ErrInvalidState
+	}
+	c := *t.Active
+	c.StartedAt = s.now().Add(-time.Duration(c.DurationSec+c.PausedTotalSec) * time.Second)
+	if err := s.repo.UpdateCycle(ctx, &c, domain.CycleRunning); err != nil {
+		if errors.Is(err, domain.ErrConflict) {
+			return nil, domain.ErrInvalidState
+		}
+		return nil, err
+	}
+	return s.reload(ctx, sessionID, userID)
 }
 
 func (s *service) SkipRest(ctx context.Context, sessionID, userID string) (*domain.View, error) {

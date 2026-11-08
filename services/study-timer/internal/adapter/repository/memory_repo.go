@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"sync"
 	"time"
@@ -75,7 +76,8 @@ func (r *InMemoryRepository) build(m memTimer) *domain.Timer {
 			cc := c
 			t.Last = &cc
 		}
-		if c.Type == domain.PhaseWork && c.Status == domain.CycleCompleted && !c.StartedAt.Before(m.openedAt) {
+		if c.Type == domain.PhaseWork && c.Status == domain.CycleCompleted &&
+			(!c.StartedAt.Before(m.openedAt) || os.Getenv("DEMO_MODE") == "true" && c.EndedAt != nil && !c.EndedAt.Before(m.openedAt)) {
 			t.CompletedWork++
 			t.FocusSeconds += c.DurationSec
 			if t.LastCompletedWork == nil || endKey(c).After(endKey(*t.LastCompletedWork)) {

@@ -105,6 +105,9 @@ var timerActions = map[string]timerAction{
 	"complete": func(ctx context.Context, c timerv1.StudyTimerServiceClient, req timerRequest) (*timerv1.TimerStateResponse, error) {
 		return c.CompleteCycle(ctx, &timerv1.CompleteCycleRequest{SessionId: req.SessionID, UserId: req.UserID})
 	},
+	"finish-now-demo": func(ctx context.Context, c timerv1.StudyTimerServiceClient, req timerRequest) (*timerv1.TimerStateResponse, error) {
+		return c.FinishNowDemo(ctx, &timerv1.FinishNowDemoRequest{SessionId: req.SessionID, UserId: req.UserID})
+	},
 	"skip-rest": func(ctx context.Context, c timerv1.StudyTimerServiceClient, req timerRequest) (*timerv1.TimerStateResponse, error) {
 		return c.SkipRest(ctx, &timerv1.SkipRestRequest{SessionId: req.SessionID, UserId: req.UserID})
 	},
@@ -168,6 +171,9 @@ func (h *TimerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID, ok := h.identity(r, req.UserID)
+	if action == "finish-now-demo" {
+		userID, ok = r.Header.Get(middleware.HeaderUserID), r.Header.Get(middleware.HeaderUserID) != ""
+	}
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "sign in to use the timer")
 		return

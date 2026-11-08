@@ -69,6 +69,10 @@ func (h *GRPCHandler) CompleteCycle(ctx context.Context, req *timerv1.CompleteCy
 	return toTimerResponse(h.uc.CompleteCycle(ctx, req.GetSessionId(), req.GetUserId()))
 }
 
+func (h *GRPCHandler) FinishNowDemo(ctx context.Context, req *timerv1.FinishNowDemoRequest) (*timerv1.TimerStateResponse, error) {
+	return toTimerResponse(h.uc.FinishNowDemo(ctx, req.GetSessionId(), req.GetUserId()))
+}
+
 func (h *GRPCHandler) SkipRest(ctx context.Context, req *timerv1.SkipRestRequest) (*timerv1.TimerStateResponse, error) {
 	return toTimerResponse(h.uc.SkipRest(ctx, req.GetSessionId(), req.GetUserId()))
 }
@@ -169,6 +173,8 @@ func toStatus(err error) error {
 	case errors.Is(err, domain.ErrInvalidState), errors.Is(err, domain.ErrNotFinished):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrTimerClosed):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, domain.ErrDemoDisabled):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, domain.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())

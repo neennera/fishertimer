@@ -327,6 +327,8 @@ services:
         NEXT_PUBLIC_APP_URL: http://localhost:3000
         NEXT_PUBLIC_API_GATEWAY_URL: http://localhost:3000
         NEXT_PUBLIC_ADMIN_SERVICE_URL: http://localhost:3000
+        NEXT_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_DEMO_MODE:-false}
+        NEXT_PUBLIC_USE_MOCKS: "false"
     ports:
       - "3000:3000"
     healthcheck:
