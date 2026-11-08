@@ -128,6 +128,9 @@ Visit **`http://localhost:3000`** in your browser.
 
 ## 🐳 Run everything in Docker (Docker Compose)
 
+For the `demo-only` branch and a step-by-step live demo on another Mac, follow
+the [live demo runbook](DEMO.md).
+
 Runs the 7 Go services, the web app and every data store as containers on your machine. Containers find each other by Compose service name (`account`, `study-timer`, `reward-db`, ...), the same addresses the Kubernetes setup uses (`k8s/config.env`). Only the web app is published, on **http://localhost:3000**.
 
 ### Prerequisites
